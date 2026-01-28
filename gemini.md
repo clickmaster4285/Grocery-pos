@@ -107,3 +107,17 @@ A multi-step middleware process will secure all protected endpoints.
     -   If authorized, it calls `next()`. If not, it rejects with a `403 Forbidden` error.
 4.  **Controller**:
     -   If all middleware checks pass, the request handler in the controller executes its logic.
+
+### 5.5. API Endpoints
+
+The following table details the implemented API endpoints for user management and authentication.
+
+| Method | Path               | Required Permission | Description                                  |
+| :----- | :----------------- | :------------------ | :------------------------------------------- |
+| `POST` | `/api/auth/login`  | (Public)            | Authenticates a user and returns a JWT.      |
+| `GET`  | `/api/auth/me`     | (Authenticated)     | Retrieves the profile of the current user.   |
+| `POST` | `/api/users`       | `users:create`      | Creates a new user. (Admin only)             |
+| `GET`  | `/api/users`       | `users:read`        | Retrieves a list of all users. (Admin only)  |
+| `GET`  | `/api/users/:id`   | `users:read`        | Retrieves a single user by their `userId`.   |
+| `PATCH`| `/api/users/:id`   | `users:update`      | Updates a user's information.                |
+| `DELETE`| `/api/users/:id`  | `users:delete`      | Deactivates a user (soft delete).            |

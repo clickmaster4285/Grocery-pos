@@ -1,92 +1,50 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const Joi = require('joi');
-
 const User = require('../models/User');
+const { comparePassword } = require('../utils/password');
+const { generateToken } = require('../utils/jwt');
 
-const loginSchema = Joi.object({
-  email: Joi.string().email().required(),
-  password: Joi.string().required()
-});
-
-const login = async (req, res) => {
+const login = async (req, res, next) => {
   try {
-    const { error } = loginSchema.validate(req.body);
-    if (error) {
-      return res.status(400).json({
-        success: false,
-        message: error.details[0].message
-      });
-    }
-
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Please provide email and password' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+    const user = await User.findOne({ email }).select('+password');
+
+    if (!user || !(await comparePassword(password, user.password))) {
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '7d' }
-    );
+    // Update last login timestamp
+    user.lastLogin = new Date();
+    await user.save();
 
-    console.log(`User logged in: ${email}`);
+    const token = generateToken({ userId: user.userId, roles: user.roles });
+
     res.json({
-      success: true,
       message: 'Login successful',
       token,
       user: {
-        id: user._id,
-        name: user.name,
-        email: user.email
-      }
+        userId: user.userId,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        roles: user.roles,
+      },
     });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    next(error);
   }
 };
 
-const getProfile = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.userId).select("-password");
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email
-      }
-    });
-  } catch (error) {
-    console.error('Get profile error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
-  }
+const getMe = async (req, res, next) => {
+  // The user object is attached to the request by the `auth` middleware
+  // We just need to return it.
+  res.status(200).json(req.user);
 };
 
-module.exports = { login, getProfile };
+module.exports = {
+  login,
+  getMe,
+};

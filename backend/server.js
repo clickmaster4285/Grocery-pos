@@ -6,8 +6,7 @@ const rateLimit = require('express-rate-limit');
 
 const { connectDatabase } = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
+const mainRouter = require('./routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -38,8 +37,7 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api', mainRouter);
 
 // 404 handler
 app.use('*', (req, res) => {

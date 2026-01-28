@@ -30,12 +30,6 @@ const ROLE_PERMISSIONS = {
   ],
 };
 
-/**
- * Checks if a user's roles grant them a specific permission.
- * @param {string[]} userRoles - An array of roles the user has (e.g., ['admin']).
- * @param {string} requiredPermission - The permission to check for (e.g., 'users:create').
- * @returns {boolean} - True if the user has the permission, false otherwise.
- */
 const hasPermission = (userRoles, requiredPermission) => {
   if (!userRoles || userRoles.length === 0) {
     return false;

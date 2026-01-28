@@ -1,12 +1,5 @@
 const { hasPermission } = require('../config/roles');
 
-/**
- * Creates a middleware function that checks if the authenticated user has a specific permission.
- * This middleware must run *after* the `auth` middleware.
- *
- * @param {string} requiredPermission - The permission string to check for (e.g., 'users:create').
- * @returns {function} Express middleware function.
- */
 const checkPermission = (requiredPermission) => {
   return (req, res, next) => {
     // req.user is attached by the `auth` middleware

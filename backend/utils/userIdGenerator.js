@@ -4,12 +4,6 @@ const crypto = require('crypto');
  * Generates a unique, formatted user ID.
  * Format: [INITIALS]-[ROLE_INITIAL]-[RANDOM_HEX]-[TIMESTAMP]
  * Example: JD-A-E4B7-1706023312
- *
- * @param {object} options
- * @param {string} options.firstName - The user's first name.
- * @param {string} options.lastName - The user's last name.
- * @param {string} options.role - The user's initial role (e.g., 'admin').
- * @returns {string} The formatted user ID.
  */
 const generateUserId = ({ firstName, lastName, role }) => {
   // 1. Initials
