@@ -21,7 +21,14 @@ const limiter = rateLimit({
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  credentials: true, 
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}
+
+));
 
 // app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
@@ -55,7 +62,8 @@ app.use(errorHandler);
 async function startServer() {
   try {
     await connectDatabase();
-    await initializeAdminAccount(); // Call admin initialization after DB connection
+    await initializeAdminAccount(); 
+
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);
       console.log(`📊 Health check available at http://localhost:${PORT}/health`);
