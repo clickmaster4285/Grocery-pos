@@ -9,45 +9,44 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import Loading from '@/app/loading';
+import { useAvatar } from '@/hooks/useAvatar'; // Import useAvatar
+import { useMemo } from 'react';
 
-export default function DynamicNavbar({ role }) {
+
+export default function DynamicNavbar() { // Removed role prop
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const { user, logout } = useAuth(); // isLoading, isAuthenticated are handled by parent ProtectedLayout
+  const { url: avatarUrl, initials } = useAvatar(user); // Use useAvatar hook
 
-  // Extract role from URL path if not provided as prop
-  const pathRole = pathname?.split('/')[1];
-  const userRole = user?.role?.toLowerCase() || user?.user_role?.toLowerCase() || role?.toLowerCase() || pathRole || '';
-
+  // Determine the user's primary role
+  const userPrimaryRole = useMemo(() => {
+    return user?.roles && user.roles.length > 0 ? user.roles[0].toLowerCase() : 'customer';
+  }, [user]);
 
   const handleLogout = (e) => {
     e.preventDefault();
     logout();
-    router.push('/');
+    // Redirection handled by logout internally
   };
 
-  if (isLoading) {
-    return <Loading />;
+  // User should always be available if this component renders (due to ProtectedLayout)
+  if (!user) {
+    return null; // Should not happen
   }
-
-  if (!isAuthenticated) {
-    return null; // Don't render navbar if not authenticated
-  }
-
 
   const dashboardTitles = {
     'admin': 'Admin Dashboard',
     'manager': "Manager's Dashboard",
-    'supervisor': "Supervisor's Dashboard",
-    'civil-engineer': "Engineer's Dashboard",
+    'customer': "Customer's Dashboard", // Added for consistency
+    // Add other roles as needed
   };
 
   return (
     <header className="bg-background border-b border-gray-300 p-4 sticky top-0 z-50">
       <div className="container mx-auto flex justify-between items-center">
         <div className="font-bold text-xl">
-          {dashboardTitles[userRole] || 'Dashboard'}
+          {dashboardTitles[userPrimaryRole] || 'Dashboard'}
         </div>
 
         <nav className="flex items-center justify-between gap-4 w-full">
@@ -83,22 +82,22 @@ export default function DynamicNavbar({ role }) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="gap-2 px-2 rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src="/avatars/default.png" />
+                    <AvatarImage src={avatarUrl} />
                     <AvatarFallback className="bg-muted">
-                      {user?.name?.charAt(0) || user?.user_name?.charAt(0) || <User size={16} />}
+                      {initials || <User size={16} />}
                     </AvatarFallback>
                   </Avatar>
                   <span className="hidden md:inline text-sm">
-                    {user?.name || user?.user_name || 'User'}
+                    {user.firstName} {user.lastName}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
-                  <Link href={`/${userRole}/profile`}>Profile</Link>
+                  <Link href={`/${userPrimaryRole}/profile`}>Profile</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href={`/${userRole}/settings`}>Settings</Link>
+                  <Link href={`/${userPrimaryRole}/settings`}>Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
                   Logout

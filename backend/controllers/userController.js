@@ -60,7 +60,6 @@ const getUserById = async (req, res, next) => {
 
 const updateUser = async (req, res, next) => {
   try {
-    // Exclude fields that should not be updated directly via this endpoint
     const { password, userId, ...updateData } = req.body;
 
     const user = await User.findOneAndUpdate(
@@ -85,8 +84,8 @@ const deleteUser = async (req, res, next) => {
         {
           isDeleted: true,
           deletedAt: new Date(),
-          deletedBy: req.user._id, // Assumes req.user contains the authenticated user
-          isActive: false, // Also deactivate the user
+          deletedBy: req.user._id, 
+          isActive: false,
         },
         { new: true }
       ).select('-password');

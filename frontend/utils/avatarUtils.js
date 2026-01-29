@@ -1,7 +1,4 @@
 // utils/avatarUtils.js
-/**
- * Generate a Dicebear avatar URL with consistent styling
- */
 export const generateAvatar = (
    seed = 'default',
    options = {}
@@ -20,38 +17,32 @@ export const generateAvatar = (
    return `https://api.dicebear.com/7.x/${style}/svg?seed=${cleanSeed}&size=${size}&backgroundColor=${backgroundColor}`;
 };
 
-/**
- * Generate avatar with user-specific options
- */
 export const generateUserAvatar = (user) => {
    if (!user) return null;
 
    // Priority: ID > email > name > random
-   const seed = user._id || user.email || user.name || Math.random().toString();
+   const seed = user._id || user.email || user.firstName || user.lastName || Math.random().toString();
+   const primaryRole = user.roles && user.roles.length > 0 ? user.roles[0].toLowerCase() : 'customer';
 
    // Map roles to different avatar styles
    const roleStyles = {
       'admin': 'avataaars',
       'manager': 'personas',
-      'surveyor': 'adventurer',
       'supervisor': 'lorelei',
-      'civil-engineer': 'bottts',
-      'technician': 'pixel-art'
+      'customer': 'big-smile', // Default style for customers
    };
 
-   const style = roleStyles[user.role] || 'personas';
+   const style = roleStyles[primaryRole] || 'personas';
 
    // Different background colors based on role
    const roleColors = {
       'admin': '4f46e5', // Indigo
       'manager': '10b981', // Emerald
-      'surveyor': 'f59e0b', // Amber
       'supervisor': '3b82f6', // Blue
-      'civil-engineer': '8b5cf6', // Violet
-      'technician': 'ef4444' // Red
+      'customer': 'f97316', // Orange
    };
 
-   const backgroundColor = roleColors[user.role] || 'f0f0f0';
+   const backgroundColor = roleColors[primaryRole] || 'f0f0f0';
 
    return generateAvatar(seed, {
       style,
@@ -59,9 +50,6 @@ export const generateUserAvatar = (user) => {
    });
 };
 
-/**
- * Generate initials for fallback
- */
 export const getInitials = (name = '') => {
    if (!name.trim()) return 'U';
 
@@ -73,9 +61,6 @@ export const getInitials = (name = '') => {
    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 };
 
-/**
- * Get avatar props compatible with Shadcn Avatar
- */
 export const getAvatarProps = (user, options = {}) => {
    const {
       size = 'md',
@@ -93,35 +78,3 @@ export const getAvatarProps = (user, options = {}) => {
       showFallback
    };
 };
-
-
-//how to use 
-
-
-// {
-//    // Example 1: Basic usage in Navbar
-//    import { UserAvatar } from '@/components/ui/UserAvatar';
-
-//    <UserAvatar user={currentUser} size="sm" />
-
-//    // Example 2: With tooltip in user list
-//    import { UserAvatarWithTooltip } from '@/components/ui/UserAvatar';
-
-//    <UserAvatarWithTooltip
-//       user={user}
-//       size="md"
-//       showTooltip={true}
-//       tooltipPosition="right"
-//    />
-
-//    // Example 3: In a table or list
-//    import { useAvatar } from '@/hooks/useAvatar';
-
-//    const { url, initials } = useAvatar(user);
-
-//    // Example 4: Direct utility usage
-//    import { generateUserAvatar, getInitials } from '@/utils/avatarUtils';
-
-//    const avatarUrl = generateUserAvatar(user);
-//    const initials = getInitials(user.name);
-// }

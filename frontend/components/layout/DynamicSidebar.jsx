@@ -1,33 +1,33 @@
 'use client';
-import { SIDEBAR_ROUTES } from '@/constants/sidebarRoutes';
+import { buildSidebarSections } from '@/constants/sidebarRoutes';
 import { usePathname, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/useAuth';
-import Loading from '@/app/loading';
 import Link from 'next/link';
-import Unauthorized from '@/app/unauthorized';
+import { usePermissions } from '@/hooks/usePermissions'; 
+import { useAvatar } from '@/hooks/useAvatar';
 import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Menu,
   ChevronDown,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react'; 
 import { cn } from '@/lib/utils';
 
-function SidebarItem({ item, isCollapsed, pathname, replaceRoleInPath }) {
+function SidebarItem({ item, isCollapsed, pathname, userPrimaryRole }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
 
   const hasChildren = Array.isArray(item.children) && item.children.length > 0;
-  const actualPath = replaceRoleInPath(item.path);
+  const actualPath = `/${userPrimaryRole}${item.path}`;
 
   // Check active state for parent & children
   const childPaths = hasChildren
-    ? item.children.map((child) => replaceRoleInPath(child.path))
+    ? item.children.map((child) => `/${userPrimaryRole}${child.path}`)
     : [];
 
   const isActive =
@@ -36,11 +36,19 @@ function SidebarItem({ item, isCollapsed, pathname, replaceRoleInPath }) {
     childPaths.some((p) => pathname === p || pathname.startsWith(p + '/'));
 
   // Auto-open if one of the children or parent is active
-  useState(() => {
+  useMemo(() => {
     if (isActive && hasChildren) {
       setOpen(true);
     }
-  }, []);
+  }, [isActive, hasChildren]);
+
+  const handleNavigation = (e) => {
+    if (!hasChildren) {
+        e.preventDefault();
+        router.push(actualPath);
+    }
+  };
+
 
   if (!hasChildren) {
     // 🔹 Normal flat item (no children)
@@ -71,10 +79,8 @@ function SidebarItem({ item, isCollapsed, pathname, replaceRoleInPath }) {
     );
   }
 
-  // 🔹 Item with dropdown (Site Activities)
   return (
     <li>
-      {/* Parent row that toggles dropdown */}
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
@@ -111,7 +117,7 @@ function SidebarItem({ item, isCollapsed, pathname, replaceRoleInPath }) {
       {open && (
         <div className={cn('mt-1 space-y-1', isCollapsed ? 'pl-0' : 'pl-8')}>
           {item.children.map((child) => {
-            const childPath = replaceRoleInPath(child.path);
+            const childPath = `/${userPrimaryRole}${child.path}`;
             const childActive =
               pathname === childPath || pathname.startsWith(childPath + '/');
 
@@ -144,63 +150,45 @@ function SidebarItem({ item, isCollapsed, pathname, replaceRoleInPath }) {
 export default function DynamicSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const { user, logout } = useAuth(); 
+  const { canUserAccess } = usePermissions(); 
+  const { url: avatarUrl, initials } = useAvatar(user); 
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  if (isLoading) {
-    return (
-      <>
-        <div className={cn("shrink-0 transition-all duration-300",
-          isCollapsed ? "w-16" : "w-64"
-        )} aria-hidden="true"></div>
-        <nav className={cn(
-          "h-screen bg-background border-r flex flex-col fixed top-0 left-0 z-50 transition-all duration-300",
-          isCollapsed ? "w-16" : "w-64"
-        )}>
-          <div className="flex items-center justify-center h-full">
-            <Loading />
-          </div>
-        </nav>
-      </>
-    );
-  }
+  // Determine the user's primary role
+  const userPrimaryRole = useMemo(() => {
+    return user?.roles && user.roles.length > 0 ? user.roles[0].toLowerCase() : 'customer';
+  }, [user]);
 
-  if (!isAuthenticated || !user) {
-    return <Unauthorized />;
-  }
+  // Build sidebar sections based on user permissions
+  const { mainSections, bottomSection } = useMemo(() => {
+    if (!user) { // If user is not yet loaded or authenticated (though parent layout should catch this)
+      return { mainSections: [], bottomSection: { items: [] } };
+    }
+    return buildSidebarSections(canUserAccess);
+  }, [user, canUserAccess]);
 
-  const role = user?.role || user?.user_role;
-
-  // Get routes for the user's role
-  const getRoutesForRole = (role) => {
-    const route = SIDEBAR_ROUTES[role];
-    return route || {
-      mainSections: [],
-      bottomSection: { items: [] }
-    };
-  };
-
-  const routes = getRoutesForRole(role);
-  const { mainSections, bottomSection } = routes;
-
-  // Replace [role] in paths with actual role
+  // Replace [role] in paths with actual role (this will be handled by SidebarItem now)
   const replaceRoleInPath = (path) => {
-    return path.replace('[role]', role);
+    return `/${userPrimaryRole}${path}`;
   };
 
   // Handle logout
   const handleLogout = () => {
     logout();
-    router.push('/');
+    // Redirect to login is handled by logout internally
   };
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
   };
 
+  if (!user) {
+    return null; 
+  }
+
   return (
     <>
-      {/* Empty spacer div that matches sidebar width */}
       <div
         className={cn(
           'shrink-0 transition-all duration-300',
@@ -221,7 +209,7 @@ export default function DynamicSidebar() {
           {!isCollapsed && (
             <h1
               className="text-xl font-bold cursor-pointer truncate"
-              onClick={() => router.push(`/${role}/dashboard`)}
+              onClick={() => router.push(`/${userPrimaryRole}/dashboard`)}
             >
               <span className="text-primary">Matrix</span>
               <span className="text-foreground"> Eng.</span>
@@ -260,7 +248,7 @@ export default function DynamicSidebar() {
                           item={item}
                           isCollapsed={isCollapsed}
                           pathname={pathname}
-                          replaceRoleInPath={replaceRoleInPath}
+                          userPrimaryRole={userPrimaryRole} // Pass primary role for path construction
                         />
                       )
                     ))}
@@ -281,7 +269,7 @@ export default function DynamicSidebar() {
         <div className="px-2 py-2">
           <ul className="space-y-1">
             {bottomSection.items.map((item) => {
-              const actualPath = replaceRoleInPath(item.path);
+              const actualPath = `/${userPrimaryRole}${item.path}`;
               const isActive = pathname === actualPath;
 
               return (
@@ -341,17 +329,17 @@ export default function DynamicSidebar() {
             <div className="px-4 py-3 border-t border-gray-300">
               <div className="flex items-center gap-3">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src="/avatars/default.png" />
+                  <AvatarImage src={avatarUrl} />
                   <AvatarFallback className="bg-muted text-xs">
-                    {user?.name?.charAt(0) || user?.user_name?.charAt(0) || 'U'}
+                    {initials}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
-                    {user?.name || user?.user_name || 'User'}
+                    {user.firstName} {user.lastName}
                   </p>
                   <p className="text-xs text-muted-foreground truncate capitalize">
-                    {role ? role.replace(/-/g, ' ') : 'User'}
+                    {userPrimaryRole ? userPrimaryRole.replace(/-/g, ' ') : 'User'}
                   </p>
                 </div>
               </div>

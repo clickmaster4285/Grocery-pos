@@ -8,7 +8,7 @@ export const useRoleNavigation = () => {
    const { user } = useAuth();
 
    const getUserRole = () => {
-      return user?.role || user?.user_role || null;
+      return user?.roles && user.roles.length > 0 ? user.roles[0].toLowerCase() : null;
    };
 
    const getRoleRoute = (path = '') => {

@@ -10,83 +10,49 @@ import {
   Settings,
   HelpCircle,
 } from 'lucide-react';
-import { ROLES } from './roles';
 
-// Permission-based configuration
-export const PERMISSIONS = {
-  [ROLES.ADMIN]: {
-  },
-  [ROLES.MANAGER]: {
-  },
-  // Default for all other roles
-  default: {
-  }
-};
-
-// Helper function to get permission
-const getPermission = (role, permissionKey) => {
-  return PERMISSIONS[role]?.[permissionKey] ?? PERMISSIONS.default[permissionKey];
-};
-
-// Define all possible route sections
+// Define all possible route sections with their required permission keys
 export const ROUTE_SECTIONS = {
   DASHBOARD: {
     name: 'Dashboard',
-    path: '/[role]/dashboard',
+    path: '/dashboard',
     icon: <LayoutDashboard size={18} />,
-    permission: () => true, // Everyone can see dashboard
+    permissionKey: 'user_management.view', 
   },
-  VENDORS: {
-    name: 'Vendors',
-    path: '/[role]/vendors',
-    icon: <Factory size={18} />,
-    permission: (role) => getPermission(role, ''),
-  },
-  INVENTORY: {
-    name: 'Inventory',
-    path: '/[role]/inventory',
-    icon: <Building2 size={18} />,
-    permission: (role) => getPermission(role, ''),
-  },
+
   STAFF_MANAGEMENT: {
     name: 'Staff Management',
-    path: '/[role]/staff',
+    path: '/staff',
     icon: <UserCog size={18} />,
-    permission: (role) => role === ROLES.ADMIN, // Only admin
+    permissionKey: 'user_management.view', // Permission to view staff list
   },
 };
 
-// Bottom section items (common for all)
+// Bottom section items (common for all, permissions handled by individual pages if needed)
 export const BOTTOM_SECTIONS = [
   {
     name: 'Settings',
-    path: '/[role]/settings',
+    path: '/settings',
     icon: <Settings size={18} />,
+    permissionKey: 'settings.view', // Placeholder
   },
   {
     name: 'Help & Support',
-    path: '/[role]/help-support',
+    path: '/help-support',
     icon: <HelpCircle size={18} />,
+    permissionKey: 'help.view', // Placeholder
   },
 ];
 
-// Build sidebar sections based on role
-export const buildSidebarSections = (role) => {
-  // Filter visible items for this role
-  const getVisibleItems = (items) => {
-    return items.filter(item => {
-      if (typeof item.permission === 'function') {
-        return item.permission(role);
-      }
-      return true;
-    });
-  };
-
-  // Build main sections
+// Build sidebar sections dynamically based on user permissions
+export const buildSidebarSections = (canUserAccess) => {
   const mainSections = [];
 
   // Main Menu Section
-  const mainMenuItems = getVisibleItems([ROUTE_SECTIONS.DASHBOARD]);
+  const mainMenuItems = [
+    { ...ROUTE_SECTIONS.DASHBOARD, path: '' } // Dashboard is usually root of a role path
+  ].filter(item => canUserAccess(item.permissionKey));
+
   if (mainMenuItems.length > 0) {
     mainSections.push({
       title: 'Main Menu',
@@ -94,40 +60,40 @@ export const buildSidebarSections = (role) => {
     });
   }
 
+  // Management Section (User, Staff)
+  const managementItems = [
+    ROUTE_SECTIONS.USERS_MANAGEMENT,
+    ROUTE_SECTIONS.STAFF_MANAGEMENT,
+  ].filter(item => canUserAccess(item.permissionKey));
 
-  // Inventory Management Section
-  const inventoryItems = getVisibleItems([
+  if (managementItems.length > 0) {
+    mainSections.push({
+      title: 'Management',
+      items: managementItems,
+    });
+  }
+
+  // Other sections can be added here
+  const otherItems = [
     ROUTE_SECTIONS.VENDORS,
     ROUTE_SECTIONS.INVENTORY,
-  ]);
-  if (inventoryItems.length > 0) {
+    ROUTE_SECTIONS.PROJECTS,
+    ROUTE_SECTIONS.LOCATIONS,
+    ROUTE_SECTIONS.REPORTS,
+  ].filter(item => canUserAccess(item.permissionKey));
+
+  if (otherItems.length > 0) {
     mainSections.push({
-      title: 'Inventory Management',
-      items: inventoryItems,
+      title: 'Operations',
+      items: otherItems,
     });
   }
 
-  // Role-specific sections
-  const roleSpecificItems = [];
-  // Add staff management only for admin
-  if (ROUTE_SECTIONS.STAFF_MANAGEMENT.permission(role)) {
-    roleSpecificItems.push(ROUTE_SECTIONS.STAFF_MANAGEMENT);
-  }
-
-  if (roleSpecificItems.length > 0) {
-    mainSections.push({
-      title: `${role.charAt(0).toUpperCase() + role.slice(1).replace('-', ' ')} Tools`,
-      items: roleSpecificItems,
-    });
-  }
 
   return {
     mainSections,
-    bottomSection: { items: BOTTOM_SECTIONS },
+    bottomSection: {
+      items: BOTTOM_SECTIONS.filter(item => canUserAccess(item.permissionKey))
+    },
   };
 };
-
-// Pre-computed routes for all roles
-export const SIDEBAR_ROUTES = Object.fromEntries(
-  Object.values(ROLES).map(role => [role, buildSidebarSections(role)])
-);
