@@ -2,15 +2,15 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const { generateUserId } = require('../utils/userIdGenerator');
 const { hashPassword } = require('../utils/password');
-const { ROLES } = require('./roles');
+const PERMISSIONS = require('./permissions'); 
 
 const initializeAdminAccount = async () => {
-  // 1. Validate Environment Variables
   const {
     ADMIN_FIRST_NAME,
     ADMIN_LAST_NAME,
     ADMIN_EMAIL,
     ADMIN_PASSWORD,
+    ADMIN_ROLE = 'admin', 
   } = process.env;
 
   if (!ADMIN_FIRST_NAME || !ADMIN_LAST_NAME || !ADMIN_EMAIL || !ADMIN_PASSWORD) {
@@ -20,9 +20,8 @@ const initializeAdminAccount = async () => {
   }
 
   try {
-    // 2. Check if an admin user already exists (idempotency check)
     const existingAdmin = await User.findOne({
-      roles: ROLES.ADMIN,
+      role: ADMIN_ROLE, 
       isDeleted: false,
     });
 
@@ -33,24 +32,24 @@ const initializeAdminAccount = async () => {
 
     console.log('No admin user found. Creating default admin...');
 
-    // 3. Hash the default password
+    const allPermissions = Object.values(PERMISSIONS).flatMap(module => Object.values(module));
+
     const hashedPassword = await hashPassword(ADMIN_PASSWORD);
 
-    // 4. Generate a User ID
     const userId = generateUserId({
         firstName: ADMIN_FIRST_NAME,
         lastName: ADMIN_LAST_NAME,
-        role: ROLES.ADMIN,
+        role: ADMIN_ROLE,
     });
     
-    // 5. Create the new admin user
     const adminUser = new User({
         userId,
         firstName: ADMIN_FIRST_NAME,
         lastName: ADMIN_LAST_NAME,
         email: ADMIN_EMAIL,
         password: hashedPassword,
-        roles: [ROLES.ADMIN],
+        role: ADMIN_ROLE,
+        permissions: allPermissions, 
         isActive: true,
       });
 

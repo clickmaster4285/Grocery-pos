@@ -1,18 +1,20 @@
 // frontend/hooks/usePermissions.js
 import { useAuth } from './useAuth';
-import { userHasRole, hasPermission } from '../utils/permissions';
-import { useMemo, useCallback } from 'react'; 
+import { userCan, userHasRole } from '../utils/permissions';
+import { useCallback, useMemo } from 'react';
+
 export const usePermissions = () => {
   const { user } = useAuth();
-  const userRoles = useMemo(() => user?.roles || [], [user]);
+  const userPermissions = useMemo(() => user?.permissions || [], [user]);
+  const currentUserRole = useMemo(() => user?.role || '', [user]); 
 
-  const canUserAccess = useCallback((requiredPermission) => {
-    return hasPermission(userRoles, requiredPermission);
-  }, [userRoles]);
+  const can = useCallback((requiredPermission) => {
+    return userCan(userPermissions, requiredPermission);
+  }, [userPermissions]);
 
-  const doesUserHaveRole = useCallback((role) => {
-    return userHasRole(userRoles, role);
-  }, [userRoles]);
+  const hasRole = useCallback((roleName) => {
+    return userHasRole(currentUserRole, roleName);
+  }, [currentUserRole]);
 
-  return { canUserAccess, doesUserHaveRole, userRoles };
+  return { can, hasRole, userPermissions, currentUserRole };
 };

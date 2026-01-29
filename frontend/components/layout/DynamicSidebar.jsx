@@ -151,13 +151,13 @@ export default function DynamicSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth(); 
-  const { canUserAccess } = usePermissions(); 
+  const { can } = usePermissions(); // Use the new 'can' function
   const { url: avatarUrl, initials } = useAvatar(user); 
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Determine the user's primary role
   const userPrimaryRole = useMemo(() => {
-    return user?.roles && user.roles.length > 0 ? user.roles[0].toLowerCase() : 'customer';
+    return user?.role?.toLowerCase() || 'customer'; // Use single 'role'
   }, [user]);
 
   // Build sidebar sections based on user permissions
@@ -165,8 +165,8 @@ export default function DynamicSidebar() {
     if (!user) { // If user is not yet loaded or authenticated (though parent layout should catch this)
       return { mainSections: [], bottomSection: { items: [] } };
     }
-    return buildSidebarSections(canUserAccess);
-  }, [user, canUserAccess]);
+    return buildSidebarSections(can); // Pass the new 'can' function
+  }, [user, can]);
 
   // Replace [role] in paths with actual role (this will be handled by SidebarItem now)
   const replaceRoleInPath = (path) => {

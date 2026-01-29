@@ -1,16 +1,13 @@
-const { hasPermission } = require('../config/roles');
-
 const checkPermission = (requiredPermission) => {
   return (req, res, next) => {
-    // req.user is attached by the `auth` middleware
-    if (!req.user || !req.user.roles) {
+    if (!req.user || !req.user.permissions) {
       return res.status(403).json({
         success: false,
-        message: 'Forbidden. You do not have the necessary permissions.',
+        message: 'Forbidden. User not authenticated or permissions not found.',
       });
     }
 
-    const userHasPermission = hasPermission(req.user.roles, requiredPermission);
+    const userHasPermission = req.user.permissions.includes(requiredPermission);
 
     if (userHasPermission) {
       return next();

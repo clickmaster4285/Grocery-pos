@@ -36,10 +36,14 @@ const userSchema = new mongoose.Schema(
       required: [true, 'Password is required'],
       select: false, // Do not return password by default
     },
-    roles: {
-      type: [String],
+    role: {
+      type: String,
       required: true,
-      default: ['customer'],
+      default: 'customer',
+    },
+    permissions: {
+      type: [String],
+      default: [],
     },
     isActive: {
       type: Boolean,
@@ -64,7 +68,7 @@ const userSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true, // Adds createdAt and updatedAt timestamps
+    timestamps: true,
   }
 );
 

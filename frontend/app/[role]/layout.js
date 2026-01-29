@@ -10,7 +10,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 
 export default function RoleLayout({ children, params }) { 
    const { user, isLoading, isAuthenticated } = useAuth();
-   const { doesUserHaveRole } = usePermissions();
+   const { hasRole } = usePermissions(); // Use the new hasRole function
    const router = useRouter();
    const pathname = usePathname();
 
@@ -18,17 +18,17 @@ export default function RoleLayout({ children, params }) {
 
    useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
-        const userRoles = user.roles || [];
-        const userPrimaryRole = userRoles[0]?.toLowerCase(); 
-        if (!doesUserHaveRole(currentRoleInPath)) {
+        const userPrimaryRole = user.role?.toLowerCase(); // Use single user.role
+        if (!hasRole(currentRoleInPath)) { // Use hasRole from usePermissions
             if (userPrimaryRole) {
                 router.replace(`/${userPrimaryRole}/dashboard`);
             } else {
+                // If user has no primary role, or an invalid one, redirect to unauthorized
                 router.replace('/unauthorized');
             }
         }
     }
-   }, [user, isLoading, isAuthenticated, router, currentRoleInPath, doesUserHaveRole]);
+   }, [user, isLoading, isAuthenticated, router, currentRoleInPath, hasRole]); // Update dependencies
 
    if (isLoading || !isAuthenticated || !user) {
       return null;

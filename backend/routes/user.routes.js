@@ -6,8 +6,8 @@ const {
   getUserById,
   updateUser,
   deleteUser,
+  getPermissions,
 } = require('../controllers/userController');
-
 const auth = require('../middleware/auth');
 const checkPermission = require('../middleware/checkPermission');
 const PERMISSIONS = require('../config/permissions');
@@ -24,5 +24,7 @@ router.get('/:id', checkPermission(PERMISSIONS.USERS.READ), getUserById);
 router.patch('/:id', checkPermission(PERMISSIONS.USERS.UPDATE), updateUser);
 
 router.delete('/:id', checkPermission(PERMISSIONS.USERS.DELETE), deleteUser);
+
+router.get('/permissions', getPermissions);
 
 module.exports = router;

@@ -24,7 +24,11 @@ const login = async (req, res, next) => {
     user.lastLogin = new Date();
     await user.save();
 
-    const token = generateToken({ userId: user.userId, roles: user.roles });
+    const token = generateToken({
+      userId: user.userId,
+      role: user.role,
+      permissions: user.permissions,
+    });
 
     res.json({
       message: 'Login successful',
@@ -34,7 +38,8 @@ const login = async (req, res, next) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        roles: user.roles,
+        role: user.role,
+        permissions: user.permissions, 
       },
     });
   } catch (error) {

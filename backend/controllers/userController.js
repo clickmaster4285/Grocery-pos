@@ -4,7 +4,7 @@ const { hashPassword } = require('../utils/password');
 
 const createUser = async (req, res, next) => {
   try {
-    const { firstName, lastName, email, password, role = 'customer' } = req.body;
+    const { firstName, lastName, email, password, role = 'customer', permissions = [] } = req.body;
 
     if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({ message: 'Please provide all required fields' });
@@ -24,12 +24,15 @@ const createUser = async (req, res, next) => {
       lastName,
       email,
       password: hashedPassword,
-      roles: [role],
+      role, 
+      permissions, 
     });
 
-    // Exclude password from the response
-    const userResponse = user.toObject();
+   const userResponse = user.toObject();
     delete userResponse.password;
+    userResponse.role = user.role;
+    userResponse.permissions = user.permissions;
+
 
     res.status(201).json(userResponse);
   } catch (error) {
@@ -60,11 +63,18 @@ const getUserById = async (req, res, next) => {
 
 const updateUser = async (req, res, next) => {
   try {
-    const { password, userId, ...updateData } = req.body;
+    const {userId, ...updateFields } = req.body;
+    // Basic validation for role and permissions
+    if (updateFields.role && typeof updateFields.role !== 'string') {
+      return res.status(400).json({ message: 'Role must be a string.' });
+    }
+    if (updateFields.permissions && (!Array.isArray(updateFields.permissions) || !updateFields.permissions.every(p => typeof p === 'string'))) {
+      return res.status(400).json({ message: 'Permissions must be an array of strings.' });
+    }
 
     const user = await User.findOneAndUpdate(
       { userId: req.params.id, isDeleted: false },
-      updateData,
+      updateFields, // Use the filtered updateFields
       { new: true, runValidators: true }
     ).select('-password');
 
@@ -99,10 +109,20 @@ const deleteUser = async (req, res, next) => {
   }
 };
 
+const getPermissions = (req, res, next) => {
+  try {
+    const PERMISSIONS = require('../config/permissions');
+    res.status(200).json(PERMISSIONS);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createUser,
   getAllUsers,
   getUserById,
   updateUser,
   deleteUser,
+  getPermissions,
 };

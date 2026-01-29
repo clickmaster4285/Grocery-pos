@@ -12,20 +12,63 @@ import {
 } from 'lucide-react';
 
 // Define all possible route sections with their required permission keys
+// IMPORTANT: permissionKey values MUST exactly match the backend/config/permissions.js
 export const ROUTE_SECTIONS = {
   DASHBOARD: {
     name: 'Dashboard',
     path: '/dashboard',
     icon: <LayoutDashboard size={18} />,
-    permissionKey: 'user_management.view', 
+    permissionKey: 'dashboard:view',
   },
-
+  USERS_MANAGEMENT: {
+    name: 'Users',
+    path: '/users',
+    icon: <Users size={18} />,
+    permissionKey: 'users:read', // Permission to view user list
+  },
   STAFF_MANAGEMENT: {
     name: 'Staff Management',
     path: '/staff',
     icon: <UserCog size={18} />,
-    permissionKey: 'user_management.view', // Permission to view staff list
+    permissionKey: 'users:read', // Assuming staff are a subset of users and require 'users:read'
   },
+  PRODUCTS: { // Assuming a products module exists in backend permissions
+    name: 'Products',
+    path: '/products',
+    icon: <Factory size={18} />,
+    permissionKey: 'products:read',
+  },
+  // Add other actual backend permissions as needed for other sections
+  // VENDORS: {
+  //   name: 'Vendors',
+  //   path: '/vendors',
+  //   icon: <Building2 size={18} />,
+  //   permissionKey: 'vendors:read',
+  // },
+  // INVENTORY: {
+  //   name: 'Inventory',
+  //   path: '/inventory',
+  //   icon: <FolderTree size={18} />,
+  //   permissionKey: 'inventory:read',
+  // },
+  // PROJECTS: {
+  //   name: 'Projects',
+  //   path: '/projects',
+  //   icon: <ClipboardList size={18} />,
+  //   permissionKey: 'projects:read',
+  // },
+  // LOCATIONS: {
+  //   name: 'Locations',
+  //   path: '/locations',
+  //   icon: <MapPin size={18} />,
+  //   permissionKey: 'locations:read',
+  // },
+  // REPORTS: {
+  //   name: 'Reports',
+  //   path: '/reports',
+  //   icon: <LayoutDashboard size={18} />,
+  //   permissionKey: 'reports:view',
+  // },
 };
 
 // Bottom section items (common for all, permissions handled by individual pages if needed)
@@ -34,13 +77,13 @@ export const BOTTOM_SECTIONS = [
     name: 'Settings',
     path: '/settings',
     icon: <Settings size={18} />,
-    permissionKey: 'settings.view', // Placeholder
+    permissionKey: 'settings:view',
   },
   {
     name: 'Help & Support',
     path: '/help-support',
     icon: <HelpCircle size={18} />,
-    permissionKey: 'help.view', // Placeholder
+    permissionKey: 'help:view',
   },
 ];
 
