@@ -1,7 +1,7 @@
 // lib/api.js
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -10,6 +10,12 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+let authErrorHandler = null;
+
+export const setAuthErrorRedirector = (handler) => {
+  authErrorHandler = handler;
+};
 
 // Add auth token to requests
 api.interceptors.request.use((config) => {
@@ -28,12 +34,9 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        if (window.location.pathname !== '/') {
-          window.location.href = '/';
-        }
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      if (typeof window !== 'undefined' && authErrorHandler) {
+        authErrorHandler(error.response.status);
       }
     }
 
@@ -45,31 +48,5 @@ api.interceptors.response.use(
     });
   }
 );
-
-// Auth API
-export const authAPI = {
-  login: (credentials) => {
-    return api.post('/auth/login', credentials);
-  },
-  register: (userData) => {
-    return api.post('/auth/register', userData);
-  },
-  getMe: () => {
-    return api.get('/auth/me');
-  },
-  updateProfile: (payload) => {
-
-    return api.put('/auth/profile', payload);
-  },
-};
-
-// Users API
-export const usersAPI = {
-  getUsers: () => api.get('/user/all'),
-  getUser: (id) => api.get(`/user/${id}`),
-  createUser: (userData) => api.post('/user/create', userData),
-  updateUser: (id, userData) => api.put(`/user/${id}/update`, userData),
-  deleteUser: (id) => api.delete(`/user/${id}/delete`),
-};
 
 export default api;

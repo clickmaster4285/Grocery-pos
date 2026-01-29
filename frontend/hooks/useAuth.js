@@ -1,67 +1,58 @@
-// hooks/useAuth.js
-'use client';
-
 import { useRouter } from 'next/navigation';
-import { useGetMe, useLogout } from '@/features/authApi';
-import { useEffect } from 'react';
+import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
+import { authAPI } from '../features/auth/auth.api';
+import { setAuthErrorRedirector } from '../lib/api'; // Import setAuthErrorRedirector
+import { useCallback, useMemo, useEffect } from 'react';
 
 export const useAuth = () => {
-   const router = useRouter();
-   const {
-      data: user,
-      isLoading,
-      error,
-      isError,
-      refetch,
-      isFetching
-   } = useGetMe();
+  const router = useRouter();
+  const queryClient = useQueryClient();
 
-   const logoutMutation = useLogout();
+  const { data: userData, isLoading, isError, error } = useQuery({
+    queryKey: ['me'],
+    queryFn: authAPI.getMe,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+    enabled: typeof window !== 'undefined' && !!localStorage.getItem('token'),
+  });
 
-   // Check if we have a token
-   const hasToken = typeof window !== 'undefined' ? !!localStorage.getItem('token') : false;
+  const loginMutation = useMutation({
+    mutationFn: authAPI.login,
+    onSuccess: (data) => {
+      localStorage.setItem('token', data.data.token);
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    },
+    onError: (error) => {
+      console.error('Login error:', error);
+    },
+  });
 
-   // Check if we got a 401 error (unauthorized)
-   const isUnauthorized = isError && error?.response?.status === 401;
+  const user = useMemo(() => userData?.data, [userData]);
+  const isAuthenticated = useMemo(() => !!user, [user]);
 
-   // User is authenticated if we have user data, no error, and not loading
-   const isAuthenticated = !!user && !error && !isLoading && !isFetching;
+  const logout = useCallback(() => {
+    localStorage.removeItem('token');
+    queryClient.clear();
+    router.replace('/login');
+  }, [router, queryClient]);
 
-   const hasRole = (allowedRoles = []) => {
-      if (!user || !allowedRoles.length) return false;
-      const userRole = user?.role || user?.user_role;
-      return allowedRoles.includes(userRole);
-   };
-
-   const logout = () => {
-      logoutMutation();
-      router.push('/');
-   };
-
-   // Force refetch when token becomes available
-   useEffect(() => {
-      if (hasToken && !user && !isLoading) {
-         refetch();
+  // Set the global error handler for the API interceptor
+  useEffect(() => {
+    setAuthErrorRedirector((status) => {
+      if (status === 401) {
+        logout();
+      } else if (status === 403 && window.location.pathname !== '/forbidden') {
+        router.replace('/forbidden');
       }
-   }, [hasToken, user, isLoading, refetch]);
+    });
+  }, [logout, router]);
 
-   // Auto-redirect on unauthorized access
-   useEffect(() => {
-      if (isUnauthorized && hasToken) {
-         localStorage.removeItem('token');
-         router.push(`/dashboard/${user?.role}`);
-      }
-   }, [isUnauthorized, hasToken, router]);
-
-   return {
-      user,
-      isLoading: isLoading || isFetching,
-      isAuthenticated,
-      hasRole,
-      error,
-      hasToken,
-      isUnauthorized,
-      logout,
-      refetch
-   };
+  return {
+    user,
+    isAuthenticated,
+    isLoading,
+    isError,
+    logout,
+    loginMutation,
+  };
 };

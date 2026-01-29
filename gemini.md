@@ -185,3 +185,108 @@ The `initializeAdminAccount` function is called from `backend/server.js`. It run
 -   **Fail-Fast on Missing Environment Variables**: The system explicitly checks for the presence of all necessary `ADMIN_*` environment variables and will terminate startup if they are not found. This prevents the server from starting in an insecure or incomplete state.
 -   **No API Exposure**: The admin creation mechanism is internal to the application startup process and is not exposed via any public API endpoint, mitigating external attack vectors.
 -   **Single Admin Guarantee**: The idempotency check ensures that only one default admin user can be created through this process, preventing unintended privilege escalation or account proliferation.
+
+## 6. Frontend Authentication and Authorization
+
+This section details the frontend's architecture for securely managing user authentication and authorization, integrating seamlessly with the backend's established system. The design prioritizes clean architecture, reusability, and a robust user experience.
+
+### 6.1. Environment Configuration
+
+-   **`NEXT_PUBLIC_API_BASE_URL`**: This environment variable is added to `frontend/.env` to store the base URL of the backend API.
+-   **Access**: In Next.js, variables prefixed with `NEXT_PUBLIC_` are automatically exposed to the browser and can be accessed via `process.env.NEXT_PUBLIC_API_BASE_URL` in both client and server-side code.
+-   **Rationale**: Centralizing the API base URL in environment variables prevents hardcoding and allows for easy configuration across different deployment environments.
+
+### 6.2. API Layer (Feature-Based)
+
+The API communication layer is organized by feature, promoting modularity and maintainability.
+
+-   **Structure**: API functions for a given feature reside in `frontend/features/[featureName]/[featureName].api.js` (e.g., `frontend/features/auth/auth.api.js`, `frontend/features/users/users.api.js`).
+-   **Core API Client (`frontend/lib/api.js`)**:
+    -   Utilizes `axios` for HTTP requests.
+    -   `baseURL` is dynamically set from `NEXT_PUBLIC_API_BASE_URL`.
+    -   **Request Interceptor**: Automatically attaches the JWT token from `localStorage` to the `Authorization` header for all outgoing requests.
+    -   **Response Interceptor**: Handles global error responses. Specifically, for a `401 Unauthorized` response, it removes the invalid token from `localStorage`, allowing the authentication state management to initiate a redirect to the login page.
+-   **Rationale**: This design keeps API logic separate from UI components, ensures consistent request/response handling, and centralizes JWT management.
+
+### 6.3. TanStack Query Integration
+
+TanStack Query (React Query) is used for efficient server state management.
+
+-   **Structure**: Queries and mutations are encapsulated in feature-level hooks (e.g., `frontend/features/auth/auth.hooks.js`, `frontend/features/users/users.hooks.js`).
+-   **Key Hooks**:
+    -   `useLogin()`: Mutation for user login. On success, it stores the JWT and invalidates the `me` query.
+    -   `useGetMe()`: Query to fetch the authenticated user's profile. Used as the source of truth for authentication status and user data.
+    -   `useGetAllUsers()`, `useGetUserById()`, `useCreateUser()`, `useUpdateUser()`, `useDeleteUser()`: Hooks for user CRUD operations.
+-   **Features**: Provides caching, background refetching, loading/error state management, and query invalidation mechanisms.
+-   **Rationale**: TanStack Query streamlines data fetching, reduces boilerplate, and optimizes UI rendering by managing complex asynchronous operations.
+
+### 6.4. Authentication State Management (`frontend/hooks/useAuth.js`)
+
+A central `useAuth` hook provides a single source of truth for the application's authentication state.
+
+-   **JWT Storage**: The JWT token is stored in `localStorage`.
+-   **`useAuth` Hook Responsibilities**:
+    -   Manages `isAuthenticated`, `user` data (derived from `useGetMe`), `isLoading` status, and `logout` functionality.
+    -   **`logout()`**: Clears the JWT from `localStorage`, invalidates the entire TanStack Query cache (`queryClient.clear()`), and redirects the user to the `/login` page.
+    -   **Error Handling (401/403)**:
+        -   If a `401 Unauthorized` error is detected (e.g., expired/invalid JWT), the `logout()` function is called, leading to a redirect to `/login`.
+        -   If a `403 Forbidden` error occurs, the user is redirected to a dedicated `/forbidden` page, indicating insufficient permissions for a specific resource while remaining authenticated.
+-   **Rationale for `localStorage`**: Chosen for simplicity and ease of use in a prototype. For production, HTTP-only cookies are generally preferred for enhanced security against XSS attacks.
+
+### 6.5. Protected Routes & Layouts
+
+Next.js App Router's layouts are leveraged to enforce authentication and authorization globally.
+
+-   **`frontend/app/(protected)/layout.js`**:
+    -   This higher-order layout wraps all protected routes.
+    -   It uses `useAuth` to check `isAuthenticated` and `isLoading`.
+    -   While loading, it displays a skeletal loading indicator.
+    -   If the user is not authenticated after loading, they are redirected to `/login`.
+    -   This layout ensures that no protected content is rendered until authentication status is confirmed.
+-   **`frontend/app/(auth)/login/page.jsx`**:
+    -   The login page uses the `useLogin` mutation to handle user authentication.
+    -   Upon successful login, `useAuth` automatically detects the new authenticated state and redirects the user to their appropriate role-based dashboard.
+-   **`frontend/app/(protected)/[role]/layout.js`**:
+    -   This layout handles role-specific authorization for routes (e.g., `/admin`, `/manager`).
+    -   It receives the `role` from the URL parameters (`params.role`).
+    -   It uses `useAuth` to get the `user`'s roles and `usePermissions` (`doesUserHaveRole`) to verify if the authenticated user possesses the role specified in the URL.
+    -   If the user does not have the required role, they are redirected to their primary dashboard or `/unauthorized`.
+-   **Rationale**: Layout-based protection ensures a robust and centralized authorization flow, preventing UI flashes and duplicated authentication/authorization checks across individual pages.
+
+### 6.6. Authorization & Permission Checks
+
+Frontend permissions are data-driven, ensuring consistency with the backend.
+
+-   **`frontend/utils/permissions.js`**: Contains utility functions:
+    -   `userHasRole(userRoles, role)`: Checks if a user's roles array includes a specific role.
+    -   `hasPermission(userRoles, requiredPermission)`: A placeholder function. **Current Limitation**: As the backend `getMe` API currently only returns an array of `roles` and not a granular list of `permissions` (e.g., `users:create`), this frontend function currently provides simplified logic (e.g., 'admin' role grants all permissions). For true granular permission checks, the backend `getMe` response would need to be extended to include an explicit list of permissions or a detailed role-to-permission map.
+-   **`frontend/hooks/usePermissions.js`**: A hook that leverages `useAuth` to provide access to `canUserAccess(permission)` and `doesUserHaveRole(role)` functions, simplifying permission checks in UI components.
+-   **UI Rules**: Buttons or UI elements for which a user lacks permission should be hidden. Access to routes is blocked based on role/permission checks in layouts.
+-   **Rationale**: Prevents hardcoding of roles/permissions on the frontend, making the system more flexible and maintainable. The backend remains the ultimate source of truth for authorization.
+
+### 6.7. Reusable Hooks & Utilities
+
+The frontend adheres to DRY and SRP principles through a set of reusable hooks and utilities.
+
+-   `frontend/lib/api.js`: Centralized Axios instance.
+-   `frontend/features/*/api.js`: Feature-specific API clients.
+-   `frontend/features/*/hooks.js`: Feature-specific TanStack Query hooks.
+-   `frontend/hooks/useAuth.js`: Authentication state management.
+-   `frontend/utils/permissions.js`: Permission checking utilities.
+-   `frontend/hooks/usePermissions.js`: Permission checking hook.
+-   **Rationale**: Promotes code reusability, clear separation of concerns, and simplifies development.
+
+### 6.8. UI Integration (shadcn/ui)
+
+-   **Components**: Existing `shadcn/ui` components are used for building the user interface, maintaining a consistent design system.
+-   **`frontend/components/AnimatedBackground.jsx`**: Extracted into its own component for reusability and cleaner code.
+-   **Rationale**: Leverages a robust UI library for accessible and aesthetically pleasing components, reducing development time.
+
+### 6.9. Error Handling & UX
+
+-   **Global Toaster (`frontend/app/Provider/ToasterProvider.js`)**: Provides consistent, rich toast notifications for user feedback.
+-   **API Interceptor Error Handling**: Catches `401` and `403` errors, triggering appropriate redirects (`/login` for 401, `/forbidden` for 403).
+-   **TanStack Query Error Handling**: `onError` callbacks in mutations and queries are used to display toast notifications for API failures.
+-   **Dedicated Error Pages**: `frontend/app/unauthorized.jsx` (for 401) and `frontend/app/forbidden.jsx` (for 403) provide clear feedback to the user when access is denied.
+-   **No Infinite Redirects**: Carefully managed redirect logic in `useAuth` and layouts prevents redirect loops.
+-   **Rationale**: Ensures a smooth and informative user experience even during errors, preventing confusion and guiding users to resolve issues.
