@@ -19,7 +19,7 @@ export default function RoleLayout({ children, params }) {
    useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
         const userPrimaryRole = user.role?.toLowerCase(); // Use single user.role
-        if (!hasRole(currentRoleInPath)) { // Use hasRole from usePermissions
+        if (!hasRole(currentRoleInPath.toLowerCase())) { // Use hasRole from usePermissions
             if (userPrimaryRole) {
                 router.replace(`/${userPrimaryRole}/dashboard`);
             } else {

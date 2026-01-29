@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Download, UserPlus } from 'lucide-react';
-import { useLogin, useRegister, useGetMe } from '@/features/authApi';
+import { useLogin, useRegister, useGetMe } from '@/features/auth/auth.api';
 
 const AdminHeader = ({ onAddUser }) => {
   const { data: user, isLoading, error } = useGetMe();

@@ -123,7 +123,7 @@ const Login = () => {
                     id="signin-identifier"
                     type="email"
                     placeholder="you@example.com"
-                    className="pl-12 h-14 bg-card/10 border border-white/20 rounded-xl text-base placeholder:text-gray-400 focus:border-amber-400/50 focus:ring-2 focus:ring-amber-400/20 transition-all duration-300"
+                    className="pl-12 h-14 bg-card/10 border border-white/20 rounded-xl text-base placeholder:text-gray-400 focus:border-amber-400/50 focus:ring-2 focus:ring-amber-400/20 transition-all duration-300 text-white font-medium tracking-wide"
                     value={signinIdentifier}
                     onChange={(e) => setSigninIdentifier(e.target.value)}
                     required
@@ -145,7 +145,7 @@ const Login = () => {
                     id="signin-password"
                     type="password"
                     placeholder="••••••••"
-                    className="pl-12 h-14 bg-card/10 border border-white/20 rounded-xl text-base placeholder:text-gray-400  focus:border-amber-400/50 focus:ring-2 focus:ring-amber-400/20 tracking-widest transition-all duration-300"
+                    className="pl-12 h-14 bg-card/10 border border-white/20 rounded-xl text-base placeholder:text-gray-400 focus:border-amber-400/50 focus:ring-2 focus:ring-amber-400/20 tracking-widest transition-all duration-300 text-white font-medium"
                     value={signinPassword}
                     onChange={(e) => setSigninPassword(e.target.value)}
                     required
