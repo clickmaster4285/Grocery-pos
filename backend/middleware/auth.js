@@ -22,7 +22,7 @@ const auth = async (req, res, next) => {
     }
 
     // Attach the full user object to the request, excluding the password.
-    const user = await User.findOne({ userId: decoded.userId }).select('-password');
+    const user = await User.findOne({ userId: decoded.userId, isDeleted: false }).select('-password');
     if (!user) {
       return res.status(401).json({
         success: false,

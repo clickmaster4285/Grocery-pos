@@ -121,3 +121,67 @@ The following table details the implemented API endpoints for user management an
 | `GET`  | `/api/users/:id`   | `users:read`        | Retrieves a single user by their `userId`.   |
 | `PATCH`| `/api/users/:id`   | `users:update`      | Updates a user's information.                |
 | `DELETE`| `/api/users/:id`  | `users:delete`      | Deactivates a user (soft delete).            |
+
+### 5.6. Soft Delete with Audit Trail
+
+To enhance data integrity and support auditing, the system now uses a soft-delete mechanism instead of permanently deleting users. This approach is crucial for maintaining historical data, enabling account recovery, and ensuring that internal references (e.g., who created a resource) remain intact even after a user is "deleted".
+
+#### 5.6.1. Data Model Changes
+
+The `User` model has been updated with the following fields to support soft deletion and auditing:
+
+-   **`isDeleted`** (Boolean, default `false`, indexed): Flags a user as deleted without removing the record from the database. An index is used to optimize queries that filter out deleted users.
+-   **`deletedAt`** (Date, nullable): A timestamp that records the exact moment a user was soft-deleted.
+-   **`deletedBy`** (ObjectId, ref: 'User', nullable): Stores the `_id` of the administrator or user who performed the delete operation, providing a clear audit trail.
+
+#### 5.6.2. Impact on Authentication & Authorization
+
+The authentication and authorization layers have been updated to enforce soft-delete rules:
+
+1.  **Login Prevention**: The `login` endpoint now rejects authentication attempts from users who are flagged as `isDeleted: true`.
+2.  **Global Access Denial**: The core `auth` middleware has been modified to check the `isDeleted` status of a user on every authenticated request. If a user's token is valid but their account has been soft-deleted, they will be treated as unauthorized, effectively blocking them from accessing any protected endpoint (including `getMe`).
+
+#### 5.6.3. API and Query Behavior
+
+-   **Delete Endpoint**: The `DELETE /api/users/:id` endpoint no longer deactivates a user but now performs a soft delete by setting the `isDeleted`, `deletedAt`, and `deletedBy` fields.
+-   **Query Safety**: All internal API queries that retrieve user data (e.g., `find`, `findOne`, `findOneAndUpdate`) have been modified to automatically exclude soft-deleted users by adding the condition `{ isDeleted: false }`. This prevents accidentally exposing or acting upon deleted user accounts. Any exceptions for administrative or auditing purposes would require an explicit query to include `isDeleted: true`.
+
+### 5.7. Default Admin User Bootstrapping
+
+To ensure system operability and simplify initial setup, a mechanism has been implemented to safely initialize a default administrator account upon backend startup. This process is designed to be idempotent and secure, only creating the admin user if one with the specified criteria does not already exist.
+
+#### 5.7.1. Environment Variable Configuration
+
+Default admin credentials are sourced exclusively from environment variables to prevent hardcoding sensitive information and allow for flexible deployment. The following variables are required:
+
+-   `ADMIN_FIRST_NAME`: First name of the default admin.
+-   `ADMIN_LAST_NAME`: Last name of the default admin.
+-   `ADMIN_EMAIL`: Email address for the default admin (must be unique).
+-   `ADMIN_PASSWORD`: Password for the default admin.
+-   `ADMIN_ROLE`: Role assigned to the default admin (should be 'admin' to grant full access).
+
+**Rationale**: Using environment variables ensures that sensitive data is kept out of the codebase and can be managed independently for different deployment environments (development, staging, production).
+
+#### 5.7.2. Initialization Logic (`backend/config/bootstrap.js`)
+
+A dedicated module, `backend/config/bootstrap.js`, houses the logic for admin account initialization. This module defines the `initializeAdminAccount` function, which performs the following steps:
+
+1.  **Environment Variable Validation**: Checks for the presence of all required `ADMIN_*` environment variables. If any are missing, the server startup process will fail fast with a clear error, preventing insecure defaults.
+2.  **Idempotency Check**: It queries the database to determine if an active, non-deleted user with the `admin` role already exists.
+3.  **Conditional Creation**:
+    -   If an existing admin is found, the process logs a message and takes no further action, ensuring no duplicate accounts are created.
+    -   If no admin exists, a new admin user is created using the provided environment variables.
+4.  **Secure Password Handling**: The `ADMIN_PASSWORD` is hashed using the application's existing `password` utility (`backend/utils/password.js`) before being stored, ensuring it is never saved in plain text.
+5.  **User ID Generation**: The `userId` for the new admin is generated using the application's standard `userIdGenerator` utility (`backend/utils/userIdGenerator.js`).
+
+#### 5.7.3. Integration Point
+
+The `initializeAdminAccount` function is called from `backend/server.js`. It runs **after** the database connection has been successfully established but **before** the Express server starts listening for incoming requests. This ensures that the admin user is available immediately upon application startup and that database operations can be performed reliably.
+
+#### 5.7.4. Security Considerations
+
+-   **Hashed Passwords**: The default admin password is always hashed.
+-   **No Credential Logging**: Admin credentials are never logged to console or files.
+-   **Fail-Fast on Missing Environment Variables**: The system explicitly checks for the presence of all necessary `ADMIN_*` environment variables and will terminate startup if they are not found. This prevents the server from starting in an insecure or incomplete state.
+-   **No API Exposure**: The admin creation mechanism is internal to the application startup process and is not exposed via any public API endpoint, mitigating external attack vectors.
+-   **Single Admin Guarantee**: The idempotency check ensures that only one default admin user can be created through this process, preventing unintended privilege escalation or account proliferation.

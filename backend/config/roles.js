@@ -34,6 +34,10 @@ const hasPermission = (userRoles, requiredPermission) => {
   if (!userRoles || userRoles.length === 0) {
     return false;
   }
+  // Admin has all permissions
+  if (userRoles.includes(ROLES.ADMIN)) {
+    return true;
+  }
 
   // Check if any of the user's roles have the required permission.
   return userRoles.some(role => {

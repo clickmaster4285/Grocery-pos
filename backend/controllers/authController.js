@@ -10,12 +10,16 @@ const login = async (req, res, next) => {
       return res.status(400).json({ message: 'Please provide email and password' });
     }
 
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email, isDeleted: false }).select('+password');
 
     if (!user || !(await comparePassword(password, user.password))) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
-
+    
+    if (!user.isActive) {
+      return res.status(403).json({ message: 'Your account is deactivated. Please contact support.' });
+    }
+    
     // Update last login timestamp
     user.lastLogin = new Date();
     await user.save();

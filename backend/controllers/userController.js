@@ -2,7 +2,6 @@ const User = require('../models/User');
 const { generateUserId } = require('../utils/userIdGenerator');
 const { hashPassword } = require('../utils/password');
 
-
 const createUser = async (req, res, next) => {
   try {
     const { firstName, lastName, email, password, role = 'customer' } = req.body;
@@ -11,7 +10,7 @@ const createUser = async (req, res, next) => {
       return res.status(400).json({ message: 'Please provide all required fields' });
     }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email, isDeleted: false });
     if (existingUser) {
       return res.status(409).json({ message: 'User with this email already exists' });
     }
@@ -40,17 +39,16 @@ const createUser = async (req, res, next) => {
 
 const getAllUsers = async (req, res, next) => {
   try {
-    const users = await User.find({}).select('-password');
+    const users = await User.find({ isDeleted: false }).select('-password');
     res.status(200).json(users);
   } catch (error) {
     next(error);
   }
 };
 
-
 const getUserById = async (req, res, next) => {
   try {
-    const user = await User.findOne({ userId: req.params.id }).select('-password');
+    const user = await User.findOne({ userId: req.params.id, isDeleted: false }).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -66,7 +64,7 @@ const updateUser = async (req, res, next) => {
     const { password, userId, ...updateData } = req.body;
 
     const user = await User.findOneAndUpdate(
-      { userId: req.params.id },
+      { userId: req.params.id, isDeleted: false },
       updateData,
       { new: true, runValidators: true }
     ).select('-password');
@@ -83,20 +81,24 @@ const updateUser = async (req, res, next) => {
 const deleteUser = async (req, res, next) => {
   try {
     const user = await User.findOneAndUpdate(
-      { userId: req.params.id },
-      { isActive: false },
-      { new: true }
-    ).select('-password');
+        { userId: req.params.id, isDeleted: false },
+        {
+          isDeleted: true,
+          deletedAt: new Date(),
+          deletedBy: req.user._id, // Assumes req.user contains the authenticated user
+          isActive: false, // Also deactivate the user
+        },
+        { new: true }
+      ).select('-password');
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.status(200).json({ message: 'User deactivated successfully' });
+    res.status(200).json({ message: 'User deleted successfully' });
   } catch (error) {
     next(error);
   }
 };
-
 
 module.exports = {
   createUser,

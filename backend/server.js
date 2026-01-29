@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const { connectDatabase } = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 const mainRouter = require('./routes');
+const { initializeAdminAccount } = require('./config/bootstrap');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -54,6 +55,7 @@ app.use(errorHandler);
 async function startServer() {
   try {
     await connectDatabase();
+    await initializeAdminAccount(); // Call admin initialization after DB connection
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);
       console.log(`📊 Health check available at http://localhost:${PORT}/health`);
