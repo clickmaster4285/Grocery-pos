@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react'; // Added import
 import DynamicSidebar from '@/components/layout/DynamicSidebar';
 import DynamicNavbar from '@/components/layout/DynamicNavbar';
 import Loading from '../loading';
@@ -9,26 +10,32 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions'; 
 
 export default function RoleLayout({ children, params }) { 
-   const { user, isLoading, isAuthenticated } = useAuth();
-   const { hasRole } = usePermissions(); // Use the new hasRole function
+   const { user, isLoading, isAuthenticated, logout } = useAuth(); 
+   const { hasRole } = usePermissions(); 
    const router = useRouter();
    const pathname = usePathname();
 
-   const currentRoleInPath = params.role;
+   const currentRoleInPath = React.use(params).role; 
 
    useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
-        const userPrimaryRole = user.role?.toLowerCase(); // Use single user.role
-        if (!hasRole(currentRoleInPath.toLowerCase())) { // Use hasRole from usePermissions
+        const userPrimaryRole = user.role?.toLowerCase(); 
+        if (!hasRole(currentRoleInPath.toLowerCase())) { 
             if (userPrimaryRole) {
                 router.replace(`/${userPrimaryRole}/dashboard`);
             } else {
-                // If user has no primary role, or an invalid one, redirect to unauthorized
                 router.replace('/unauthorized');
             }
         }
     }
-   }, [user, isLoading, isAuthenticated, router, currentRoleInPath, hasRole]); // Update dependencies
+   }, [user, isLoading, isAuthenticated, router, currentRoleInPath, hasRole, logout]); 
+
+   useEffect(() => {
+     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+     if (!token) {
+       logout('/'); 
+     }
+   }, [logout]);
 
    if (isLoading || !isAuthenticated || !user) {
       return null;

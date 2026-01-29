@@ -49,7 +49,6 @@ function SidebarItem({ item, isCollapsed, pathname, userPrimaryRole }) {
     }
   };
 
-
   if (!hasChildren) {
     // 🔹 Normal flat item (no children)
     return (

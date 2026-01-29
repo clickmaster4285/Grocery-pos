@@ -1,7 +1,7 @@
 import { useRouter } from 'next/navigation';
 import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
 import { authAPI } from '../features/auth/auth.api';
-import { setAuthErrorRedirector } from '../lib/api'; // Import setAuthErrorRedirector
+import { setAuthErrorRedirector } from '../lib/api';
 import { useCallback, useMemo, useEffect } from 'react';
 
 export const useAuth = () => {
@@ -30,10 +30,10 @@ export const useAuth = () => {
   const user = useMemo(() => userData?.data, [userData]);
   const isAuthenticated = useMemo(() => !!user, [user]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback((redirectPath = '/login') => {
     localStorage.removeItem('token');
     queryClient.clear();
-    router.replace('/login');
+    router.replace(redirectPath);
   }, [router, queryClient]);
 
   // Set the global error handler for the API interceptor

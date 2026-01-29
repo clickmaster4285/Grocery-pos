@@ -13,40 +13,30 @@ import { useAvatar } from '@/hooks/useAvatar'; // Import useAvatar
 import { useMemo } from 'react';
 
 
-export default function DynamicNavbar() { // Removed role prop
-  const router = useRouter();
-  const pathname = usePathname();
-  const { user, logout } = useAuth(); // isLoading, isAuthenticated are handled by parent ProtectedLayout
-  const { url: avatarUrl, initials } = useAvatar(user); // Use useAvatar hook
+export default function DynamicNavbar() {
+  const { user, logout } = useAuth();
+  const { url: avatarUrl, initials } = useAvatar(user);
 
-  // Determine the user's primary role
   const userPrimaryRole = useMemo(() => {
-    return user?.roles && user.roles.length > 0 ? user.roles[0].toLowerCase() : 'customer';
+    return user?.role.toLowerCase() ;
   }, [user]);
 
   const handleLogout = (e) => {
     e.preventDefault();
     logout();
-    // Redirection handled by logout internally
+   
   };
 
-  // User should always be available if this component renders (due to ProtectedLayout)
   if (!user) {
-    return null; // Should not happen
+    return null; 
   }
 
-  const dashboardTitles = {
-    'admin': 'Admin Dashboard',
-    'manager': "Manager's Dashboard",
-    'customer': "Customer's Dashboard", // Added for consistency
-    // Add other roles as needed
-  };
 
   return (
     <header className="bg-background border-b border-gray-300 p-4 sticky top-0 z-50">
       <div className="container mx-auto flex justify-between items-center">
-        <div className="font-bold text-xl">
-          {dashboardTitles[userPrimaryRole] || 'Dashboard'}
+        <div className="font-bold capitalize text-xl">
+          {`${userPrimaryRole} Dashboard`}
         </div>
 
         <nav className="flex items-center justify-between gap-4 w-full">

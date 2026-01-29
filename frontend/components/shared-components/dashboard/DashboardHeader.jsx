@@ -22,10 +22,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Download, UserPlus } from 'lucide-react';
-import { useLogin, useRegister, useGetMe } from '@/features/auth/auth.api';
+import { useAuth } from '@/hooks/useAuth';
 
 const AdminHeader = ({ onAddUser }) => {
-  const { data: user, isLoading, error } = useGetMe();
+  const { user, isLoading, isError } = useAuth();
   const [open, setOpen] = useState(false);
   const [newUser, setNewUser] = useState({
     name: '',
@@ -59,7 +59,7 @@ const AdminHeader = ({ onAddUser }) => {
     <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
       <div className="flex-1">
         <h1>
-          {user.user_role.charAt(0).toUpperCase() + user.user_role.slice(1)}{' '}
+          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}{' '}
           Dashboard
         </h1>
       
