@@ -47,12 +47,11 @@ export const useUpdateUser = () => {
   });
 };
 
-export const useDeleteUser = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: usersAPI.deleteUser,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: userKeys.lists() });
-    },
+export const useGetPermissions = () => {
+  return useQuery({
+    queryKey: [...userKeys.all, 'permissions'],
+    queryFn: usersAPI.getPermissions,
+    staleTime: Infinity, // Permissions list is unlikely to change often
+    select: (response) => response.data.data,
   });
 };

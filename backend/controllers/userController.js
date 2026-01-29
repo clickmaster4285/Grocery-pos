@@ -1,12 +1,13 @@
 const User = require('../models/User');
 const { generateUserId } = require('../utils/userIdGenerator');
 const { hashPassword } = require('../utils/password');
+const { generateToken } = require('../utils/jwt');
 
 const createUser = async (req, res, next) => {
   try {
     const { firstName, lastName, email, password, role = 'customer', permissions = [] } = req.body;
 
-    if (!firstName || !lastName || !email || !password) {
+    if (!firstName|| !email || !password) {
       return res.status(400).json({ message: 'Please provide all required fields' });
     }
 
@@ -18,21 +19,32 @@ const createUser = async (req, res, next) => {
     const userId = generateUserId({ firstName, lastName, role });
     const hashedPassword = await hashPassword(password);
 
-    const user = await User.create({
+    const userData = {
       userId,
       firstName,
       lastName,
       email,
       password: hashedPassword,
-      role, 
-      permissions, 
+      role,
+      permissions,
+    };
+
+    const token = generateToken({
+      userId: userData.userId,
+      role: userData.role,
+      permissions: userData.permissions,
+    });
+
+    const user = await User.create({
+      token,
+      ...userData
     });
 
    const userResponse = user.toObject();
     delete userResponse.password;
     userResponse.role = user.role;
     userResponse.permissions = user.permissions;
-
+    userResponse.token = token;
 
     res.status(201).json(userResponse);
   } catch (error) {
@@ -42,8 +54,28 @@ const createUser = async (req, res, next) => {
 
 const getAllUsers = async (req, res, next) => {
   try {
-    const users = await User.find({ isDeleted: false }).select('-password');
-    res.status(200).json(users);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Execute queries in parallel for better performance
+    const [users, total] = await Promise.all([
+      User.find({ isDeleted: false })
+        .select('-password')
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 }),
+      User.countDocuments({ isDeleted: false })
+    ]);
+
+    res.status(200).json({
+      success: true,
+      count: users.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      users
+    });
   } catch (error) {
     next(error);
   }

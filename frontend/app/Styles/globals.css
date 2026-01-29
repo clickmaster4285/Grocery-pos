@@ -50,36 +50,36 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(64.597% 0.1295 235.188);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.96 0.01 250);
+  --primary: oklch(65% 0.15 75);
+  --primary-foreground: oklch(0.1 0 0);
+  --secondary: oklch(90% 0.05 80);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --accent: oklch(95% 0.02 85);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --chart-1: oklch(26.823% 0.04737 259.97);
-  --chart-2: oklch(53.501% 0.06243 264.319);
-  --chart-3: oklch(70.64% 0.15812 282.397);
-  --chart-4: oklch(0.703 0.151 162.33);
-  --chart-5: oklch(0.72 0.22 25.2);
+  --chart-1: oklch(65% 0.15 75);
+  --chart-2: oklch(75% 0.12 80);
+  --chart-3: oklch(85% 0.08 85);
+  --chart-4: oklch(55% 0.18 70);
+  --chart-5: oklch(70% 0.15 75);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary: oklch(65% 0.15 75);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent: oklch(95% 0.02 85);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   --background: oklch(100% 0.00011 271.152);
   --background-gradient: linear-gradient(to bottom right,
-      var(--slate-10, #f8fafc),
-      var(--sky-10, #fcfeff),
-      var(--sky-10, #ecf8ff));
+      oklch(95% 0.02 85),
+      oklch(90% 0.05 80),
+      oklch(85% 0.08 85));
   --sonner-toast-bg: hsl(var(--card));
   --sonner-toast-text: hsl(var(--card-foreground));
   --sonner-toast-border: hsl(var(--border));
@@ -112,28 +112,28 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  --primary: oklch(50% 0.15 70);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(35% 0.1 75);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --accent: oklch(40% 0.12 70);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 0.1);
   --input: oklch(1 0 0 / 0.15);
   --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
+  --chart-1: oklch(50% 0.15 70);
+  --chart-2: oklch(60% 0.12 75);
+  --chart-3: oklch(70% 0.08 80);
+  --chart-4: oklch(40% 0.18 65);
+  --chart-5: oklch(50% 0.15 70);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary: oklch(50% 0.15 70);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent: oklch(40% 0.12 70);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 0.1);
   --sidebar-ring: oklch(0.556 0 0);
@@ -150,13 +150,13 @@
 
   /* Global H1 style */
   h1 {
-    @apply text-3xl font-bold bg-linear-to-r from-slate-800 to-primary bg-clip-text text-transparent;
+    @apply text-3xl font-bold bg-linear-to-r from-amber-700 to-amber-500 bg-clip-text text-transparent;
   }
 
   /* Sonner toast styles */
   [data-sonner-toast][data-type='success'] {
     background: #fff !important;
-    color: rgb(0, 88, 40) 1 !important;
+    color: oklch(50% 0.15 75) !important; /* Amber shade for success */
     border: none !important;
   }
 
@@ -167,7 +167,7 @@
   }
 
   [data-sonner-toast][data-type='info'] {
-    color: #3b82f6 !important;
+    color: oklch(65% 0.15 75) !important; /* Amber shade for info */
     background: #fff !important;
     border: none !important;
   }

@@ -2,13 +2,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import AnimatedBackground from '@/components/AnimatedBackground'; 
 import { useAuth } from '@/hooks/useAuth';
 import { Mail, Lock } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Loading from '@/app/loading';
+import BackgroundBeams from '@/components/ui/BackgroundBeams';
 
 const Login = () => {
   const router = useRouter();
@@ -20,7 +20,7 @@ const Login = () => {
 
   useEffect(() => {
     if (!authLoading && isAuthenticated && user) {
-      const userPrimaryRole = user.roles && user.roles[0] ? user.roles[0].toLowerCase() : 'customer'; 
+      const userPrimaryRole = user.role ? user.role.toLowerCase() : 'customer'; 
       router.replace(`/${userPrimaryRole}/dashboard`);
     }
   }, [isAuthenticated, user, authLoading, router]);
@@ -78,13 +78,15 @@ const Login = () => {
 
   return (
     <>
-      <AnimatedBackground />
+      <div className="fixed inset-0 z-0">
+      <BackgroundBeams />
+      </div>
 
-      <div className="min-h-screen flex items-center justify-center /80 p-4">
+      <div className="relative z-10 min-h-screen flex items-center justify-center bg-transparent p-4">
         {/* Main Container */}
-        <div className="relative w-full max-w-md h-auto bg-card rounded-3xl shadow-2xl overflow-hidden p-6 sm:p-12">
+        <div className="relative w-full max-w-2xl h-auto bg-card/5 backdrop-blur-md rounded-3xl shadow-2xl overflow-hidden p-6 sm:p-12">
           <div className="w-full max-w-sm mx-auto">
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 text-center">
+            <h2 className="text-2xl sm:text-3xl font-bold text-primary mb-2 text-center">
               Welcome Back!
             </h2>
             <p className="text-muted-foreground mb-6 text-sm sm:text-base text-center">
