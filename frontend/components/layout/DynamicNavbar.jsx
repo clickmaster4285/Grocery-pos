@@ -33,7 +33,7 @@ export default function DynamicNavbar() {
 
 
   return (
-    <header className="bg-background border-b border-gray-300 p-4 sticky top-0 z-50">
+    <header className="bg-foreground/1 border-b border-gray-300 p-4 sticky top-0 z-50">
       <div className="container mx-auto flex justify-between items-center">
         <div className="font-bold capitalize text-xl">
           {`${userPrimaryRole} Dashboard`}

@@ -146,7 +146,7 @@ const AllUsers = () => {
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-125">
           <StaffForm
             key={editingUser ? `edit-${editingUser._id}` : 'create'} 
             formData={formData}
@@ -270,7 +270,7 @@ const EmptyState = ({ hasSearchTerm, onAddStaff }) => (
 
 const DeleteConfirmationDialog = ({ open, onOpenChange, userToDelete, onDelete, isLoading }) => (
   <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="sm:max-w-[425px]">
+    <DialogContent className="sm:max-w-107">
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Delete Staff Member</h2>
         <p className="text-muted-foreground">

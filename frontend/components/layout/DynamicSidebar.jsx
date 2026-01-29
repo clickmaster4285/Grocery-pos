@@ -50,14 +50,13 @@ function SidebarItem({ item, isCollapsed, pathname, userPrimaryRole }) {
   };
 
   if (!hasChildren) {
-    // 🔹 Normal flat item (no children)
     return (
       <li>
         <Button
           variant={isActive ? 'secondary' : 'ghost'}
           className={cn(
             'w-full justify-start gap-3 h-10 px-3',
-            isActive ? 'font-medium' : '',
+            isActive ? 'font-medium bg-primary/10' : 'bg-primary/30',
             isCollapsed ? 'justify-center px-0' : ''
           )}
           asChild
@@ -71,7 +70,7 @@ function SidebarItem({ item, isCollapsed, pathname, userPrimaryRole }) {
             >
               {item.icon}
             </span>
-            {!isCollapsed && <span className="truncate">{item.name}</span>}
+            {!isCollapsed && <span className="truncate text-primary">{item.name}</span>}
           </Link>
         </Button>
       </li>
@@ -150,24 +149,23 @@ export default function DynamicSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth(); 
-  const { can } = usePermissions(); // Use the new 'can' function
+  const { can } = usePermissions();
   const { url: avatarUrl, initials } = useAvatar(user); 
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Determine the user's primary role
+
   const userPrimaryRole = useMemo(() => {
-    return user?.role?.toLowerCase() || 'customer'; // Use single 'role'
+    return user?.role?.toLowerCase() || 'customer';
   }, [user]);
 
-  // Build sidebar sections based on user permissions
+  
   const { mainSections, bottomSection } = useMemo(() => {
-    if (!user) { // If user is not yet loaded or authenticated (though parent layout should catch this)
+    if (!user) {
       return { mainSections: [], bottomSection: { items: [] } };
     }
-    return buildSidebarSections(can); // Pass the new 'can' function
+    return buildSidebarSections(can);
   }, [user, can]);
 
-  // Replace [role] in paths with actual role (this will be handled by SidebarItem now)
   const replaceRoleInPath = (path) => {
     return `/${userPrimaryRole}${path}`;
   };
@@ -175,7 +173,6 @@ export default function DynamicSidebar() {
   // Handle logout
   const handleLogout = () => {
     logout();
-    // Redirect to login is handled by logout internally
   };
 
   const toggleSidebar = () => {
@@ -199,7 +196,7 @@ export default function DynamicSidebar() {
       {/* Actual fixed sidebar */}
       <nav
         className={cn(
-          'h-screen border border-gray-300 rounded-tr-2xl bg-background border-r flex flex-col fixed top-0 left-0 z-50 transition-all duration-300',
+          'h-screen border border-gray-300 rounded-tr-2xl bg-foreground/1 border-r flex flex-col fixed top-0 left-0 z-50 transition-all duration-300',
           isCollapsed ? 'w-16' : 'w-64'
         )}
       >
@@ -210,8 +207,8 @@ export default function DynamicSidebar() {
               className="text-xl font-bold cursor-pointer truncate"
               onClick={() => router.push(`/${userPrimaryRole}/dashboard`)}
             >
-              <span className="text-primary">Matrix</span>
-              <span className="text-foreground"> Eng.</span>
+              <span className="text-primary">Grocery</span>
+              <span className="text-foreground"> Store</span>
             </h1>
           )}
           <Button
