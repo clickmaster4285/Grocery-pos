@@ -24,7 +24,6 @@ export default function DynamicNavbar() {
   const handleLogout = (e) => {
     e.preventDefault();
     logout();
-   
   };
 
   if (!user) {

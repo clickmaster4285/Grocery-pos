@@ -30,7 +30,7 @@ export const useAuth = () => {
   const user = useMemo(() => userData?.data, [userData]);
   const isAuthenticated = useMemo(() => !!user, [user]);
 
-  const logout = useCallback((redirectPath = '/login') => {
+  const logout = useCallback((redirectPath = '/') => {
     localStorage.removeItem('token');
     queryClient.clear();
     router.replace(redirectPath);
