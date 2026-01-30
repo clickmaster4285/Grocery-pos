@@ -2,30 +2,20 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { StaffForm } from '@/components/shared-components/staff/StaffForm';
-import { useGetUserById, useCreateUser, useUpdateUser } from '@/features/users/users.api';
+import { useCreateUser } from '@/features/users/users.api';
 import { ROLES } from '@/constants/roles';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
-import { Dialog, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogDescription, Dialog } from "@/components/ui/dialog";
 import { useGetPermissions } from '@/features/users/users.api';
 
-const StaffFormPage = () => {
+const StaffCreatePage = () => {
   const router = useRouter();
   const params = useParams();
-  const { id } = params;
-
-  const isEditMode = !!id;
-
-  const { data: user, isLoading: isUserLoading } = useGetUserById(id, {
-    enabled: isEditMode,
-  });
 
   const { data: allPermissions = [], isLoading: permissionsLoading } = useGetPermissions();
 
-  console.log("the permission in create page", allPermissions)
-
   const createUserMutation = useCreateUser();
-  const updateUserMutation = useUpdateUser();
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -39,18 +29,8 @@ const StaffFormPage = () => {
   });
 
   useEffect(() => {
-    if (isEditMode && user) {
-      setFormData({
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        phone: user.phone || '',
-        role: user.role,
-        permissions: user.permissions || [],
-        isActive: user.isActive,
-        password: '',
-      });
-    } else if (!isEditMode && allPermissions.length > 0) {
+    // For create mode, initialize permissions with all available permissions
+    if (allPermissions.length > 0) {
       const flattenedPermissions = allPermissions.flatMap(module =>
         module.permissions.map(p => p.key)
       );
@@ -59,7 +39,7 @@ const StaffFormPage = () => {
         permissions: flattenedPermissions,
       }));
     }
-  }, [isEditMode, user, allPermissions]);
+  }, [allPermissions]);
 
   const updateFormField = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -67,21 +47,20 @@ const StaffFormPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const toastId = toast.loading(isEditMode ? 'Updating staff...' : 'Creating staff...');
+    const toastId = toast.loading('Creating staff...');
 
     const userData = { ...formData };
     if (!userData.password) {
-      delete userData.password;
+      toast.error('Validation Error', {
+        id: toastId,
+        description: 'Password is required for new users.',
+      });
+      return;
     }
 
     try {
-      if (isEditMode) {
-        await updateUserMutation.mutateAsync({ id, userData });
-        toast.success('Staff updated successfully.', { id: toastId });
-      } else {
-        await createUserMutation.mutateAsync(userData);
-        toast.success('Staff created successfully.', { id: toastId });
-      }
+      await createUserMutation.mutateAsync(userData);
+      toast.success('Staff created successfully.', { id: toastId });
       router.push(`/${params.role}/staff`);
     } catch (err) {
       toast.error('Operation Failed', {
@@ -95,29 +74,25 @@ const StaffFormPage = () => {
     router.back();
   };
 
-  if (isUserLoading) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <div className="p-4 md:p-6">
-      <DialogHeader>
-        <DialogTitle>{isEditMode ? "Edit Staff Member" : "Add New Staff"}</DialogTitle>
-        <DialogDescription>
-          {isEditMode
-            ? "Update staff member details below."
-            : "Add a new staff member to your organization."
-          }
-        </DialogDescription>
-      </DialogHeader>
+      <Dialog>
+        <DialogHeader>
+          <DialogTitle>Add New Staff</DialogTitle>
+          <DialogDescription>
+            Add a new staff member to your organization.
+          </DialogDescription>
+        </DialogHeader>
+      </Dialog>
       <StaffForm
         formData={formData}
         updateFormField={updateFormField}
         handleSubmit={handleSubmit}
         resetForm={resetForm}
-        editingUser={isEditMode ? user : null}
+        editingUser={null} // Always null for create page
         createUserMutation={createUserMutation}
-        updateUserMutation={updateUserMutation}
+        updateUserMutation={null} // Not used in create mode
         allPermissions={allPermissions}
         permissionsLoading={permissionsLoading}
         ROLES={ROLES}
@@ -126,4 +101,4 @@ const StaffFormPage = () => {
   );
 };
 
-export default StaffFormPage;
+export default StaffCreatePage;

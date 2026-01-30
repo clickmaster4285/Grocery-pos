@@ -49,11 +49,11 @@ This section summarizes the significant features and architectural updates imple
 
 ### 3.2. Frontend User Interface & Experience
 
-#### 3.2.1. Staff Management Pages Refactor
+### 3.2.1. Staff Management Pages Refactor
 Refactored staff management from modal-based interactions to dedicated pages for improved UX:
--   **`frontend/app/[role]/staff/create/page.jsx`:** For new staff creation.
--   **`frontend/app/[role]/staff/[id]/page.jsx`:** For viewing staff details (now includes a redesigned permissions table).
--   **`frontend/app/[role]/staff/[id]/edit/page.jsx`:** For editing existing staff.
+-   `frontend/app/[role]/staff/create/page.jsx`: Dedicated page for new staff creation.
+-   `frontend/app/[role]/staff/[id]/page.jsx`: For viewing staff details (now includes a redesigned permissions table).
+-   `frontend/app/[role]/staff/[id]/edit/page.jsx`: For editing existing staff.
 
 #### 3.2.2. Component Enhancements
 -   **`StaffForm`:** Adapted for page-based use (removed `Dialog` context), integrated `ComboBox` for role selection (supporting custom roles), and streamlined permission handling.

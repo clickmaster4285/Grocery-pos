@@ -1,6 +1,6 @@
 'use client';
 
-import { Badge, CalendarDays, Check, CheckCircle, Mail, Phone, X } from 'lucide-react'; // Import Check and X icons
+import { ArrowLeft, Badge, CalendarDays, Check, CheckCircle, Mail, Phone, X } from 'lucide-react'; 
 import {
   Table,
   TableBody,
@@ -8,7 +8,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"; // Import table components
+} from "@/components/ui/table"; 
 import { useGetPermissions, useGetUserById } from '@/features/users/users.api';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { Separator } from '@/components/ui/separator';
+import { formatPhoneNumberForDisplay } from '@/utils/formatters';
 
 const StaffDetailPage = () => {
   const router = useRouter();
@@ -52,11 +53,15 @@ const StaffDetailPage = () => {
   ].sort();
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">{`${user.firstName} ${user.lastName}`}</h1>
         <Button onClick={() => router.push(`/${role}/staff/${user._id}/edit`)}>Edit User</Button>
       </div>
+      <Button variant="outline" onClick={() => router.back()} className="mb-4">
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Go Back
+      </Button>
 
       <Card>
         <CardHeader className="flex flex-row items-center space-x-4">

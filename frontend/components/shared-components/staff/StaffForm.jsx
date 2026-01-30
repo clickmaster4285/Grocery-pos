@@ -203,11 +203,11 @@ export const StaffForm = ({
                </Button>
                <Button
                   type="submit"
-                  disabled={createUserMutation.isLoading || updateUserMutation.isLoading}
+                  disabled={createUserMutation?.isLoading || updateUserMutation?.isLoading || false}
                >
                   {editingUser ?
-                     (updateUserMutation.isLoading ? "Updating..." : "Update Staff") :
-                     (createUserMutation.isLoading ? "Creating..." : "Create Staff")
+                     (updateUserMutation?.isLoading ? "Updating..." : "Update Staff") :
+                     (createUserMutation?.isLoading ? "Creating..." : "Create Staff")
                   }
                </Button>
             </DialogFooter>
