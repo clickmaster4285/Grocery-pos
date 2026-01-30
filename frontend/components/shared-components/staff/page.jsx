@@ -1,9 +1,8 @@
 'use client';
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useMemo, useCallback } from "react"; // Added useState, useMemo, useCallback
-import { toast } from 'sonner'; // Added toast
+import { useEffect, useState, useMemo, useCallback } from "react"; 
+import { toast } from 'sonner'; 
 import {
-  Plus,
   Search,
   Users,
   UserPlus,
@@ -14,19 +13,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StaffForm } from "./StaffForm";
 import { StaffCard } from "./StaffCard";
 import { StatsCard } from "./StatsCard";
-import { useStaffList, useCreateStaff, useUpdateStaff, useDeleteStaff } from "@/features/users/users.hooks";
-import { useAuth } from "@/hooks/useAuth"; 
+import { useStaffList, useDeleteStaff } from "@/features/users/users.api";
+import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
-import { ROLES } from "@/constants/roles"; 
+import { ROLES } from "@/constants/roles";
 
 const AllUsers = () => {
   const router = useRouter();
   const { data: users = [], isLoading, error, refetch } = useStaffList();
-  const createStaffMutation = useCreateStaff();
-  const updateStaffMutation = useUpdateStaff();
+  console.log({users})
   const deleteStaffMutation = useDeleteStaff();
 
   const { user: currentUser } = useAuth();
@@ -53,17 +50,11 @@ const AllUsers = () => {
     const activeUsers = users.filter(user => user.isActive).length;
     const inactiveUsers = users.filter(user => !user.isActive).length;
     return [
-      { label: 'Total Staff', value: users.length, bg: 'bg-blue-100', iconColor: 'text-blue-600', Icon: Users, border: 'border-blue-500' },
+      { label: 'Total Staff', value: users.length, bg: 'bg-sky-100', iconColor: 'text-sky-600', Icon: Users, border: 'border-sky-500' },
       { label: 'Active Staff', value: activeUsers, bg: 'bg-green-100', iconColor: 'text-green-600', Icon: UserCheck, border: 'border-green-500' },
       { label: 'Inactive Staff', value: inactiveUsers, bg: 'bg-red-100', iconColor: 'text-red-600', Icon: XCircle, border: 'border-red-500' },
     ];
   }, [users]);
-
-  
-
-  
-
-  
 
   const confirmDelete = useCallback((user) => {
     setUserToDelete(user);
@@ -86,7 +77,7 @@ const AllUsers = () => {
     }
   }, [userToDelete, currentUser, deleteStaffMutation]);
 
-  
+
 
   const getStatusBadge = useCallback((user) => (user.isActive ? 'Active' : 'Inactive'), []);
   const getStatusVariant = useCallback((user) => (user.isActive ? 'success' : 'destructive'), []);
@@ -162,9 +153,6 @@ const AllUsers = () => {
         searchTerm={searchTerm}
         onAddStaff={() => router.push(`/${currentUser?.role}/staff/create`)}
       />
-
-      {/* Add/Edit Dialog */}
-      
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog

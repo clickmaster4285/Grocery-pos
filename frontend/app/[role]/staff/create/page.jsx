@@ -2,12 +2,12 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { StaffForm } from '@/components/shared-components/staff/StaffForm';
-import { useGetUserById, useCreateUser, useUpdateUser } from '@/features/users/users.hooks';
+import { useGetUserById, useCreateUser, useUpdateUser } from '@/features/users/users.api';
 import { ROLES } from '@/constants/roles';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { useGetPermissions } from '@/features/users/users.hooks';
+import { useGetPermissions } from '@/features/users/users.api';
 
 const StaffFormPage = () => {
   const router = useRouter();
@@ -22,7 +22,7 @@ const StaffFormPage = () => {
 
   const { data: allPermissions = [], isLoading: permissionsLoading } = useGetPermissions();
 
-console.log("the permission in create page" , allPermissions)
+  console.log("the permission in create page", allPermissions)
 
   const createUserMutation = useCreateUser();
   const updateUserMutation = useUpdateUser();

@@ -9,7 +9,7 @@ import { ComboBox } from "@/components/ui/combobox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useGetPermissions } from "@/features/users/users.hooks"; 
+import { useGetPermissions } from "@/features/users/users.api";
 import { useState } from "react";
 import { DialogFooter } from "@/components/ui/dialog";
 
@@ -101,17 +101,17 @@ export const StaffForm = ({
             </div>
 
             <div className="space-y-2">
-                  <Label htmlFor="role">Role *</Label>
-                  <ComboBox
-                    items={ROLES}
-                    value={formData.role}
-                    onValueChange={(value) => updateFormField('role', value)}
-                    placeholder="Select Role"
-                    searchPlaceholder="Search or create role..."
-                    emptyPlaceholder="No role found."
-                    custom
-                  />
-               </div>
+               <Label htmlFor="role">Role *</Label>
+               <ComboBox
+                  items={ROLES}
+                  value={formData.role}
+                  onValueChange={(value) => updateFormField('role', value)}
+                  placeholder="Select Role"
+                  searchPlaceholder="Search or create role..."
+                  emptyPlaceholder="No role found."
+                  custom
+               />
+            </div>
 
             <div className="space-y-2">
                <Label htmlFor="password">
@@ -139,57 +139,57 @@ export const StaffForm = ({
                <Label>Permissions</Label>
                {permissionsLoading && <p className="text-muted-foreground">Loading permissions...</p>}
                {!permissionsLoading && allPermissions && allPermissions.length > 0 ? (
-                 <Tabs defaultValue={allPermissions[0]?.module} className="w-full">
-                   <div className="flex flex-col md:flex-row gap-2 mb-4 justify-between">
-                     <TabsList>
-                       {allPermissions.map((module) => (
-                         <TabsTrigger key={module.module} value={module.module}>
-                           {module.module}
-                         </TabsTrigger>
-                       ))}
-                     </TabsList>
-                     <Input
-                        placeholder="Search permissions..."
-                        value={permissionSearchTerm}
-                        onChange={(e) => setPermissionSearchTerm(e.target.value)}
-                        className="grow md:grow-0 md:max-w-xs"
-                     />
-                   </div>
-                   
-                   {allPermissions.map((module) => (
-                     <TabsContent key={module.module} value={module.module}>
-                       <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto border p-2 rounded-md">
-                         {module.permissions.filter(permission => 
-                           permission.key.toLowerCase().includes(permissionSearchTerm.toLowerCase()) ||
-                           permission.label.toLowerCase().includes(permissionSearchTerm.toLowerCase())
-                         ).length > 0 ? (
-                           module.permissions.filter(permission => 
-                             permission.key.toLowerCase().includes(permissionSearchTerm.toLowerCase()) ||
-                             permission.label.toLowerCase().includes(permissionSearchTerm.toLowerCase())
-                           ).map((permission) => (
-                             <div key={permission.key} className="flex items-center space-x-2 text-sm">
-                               <Checkbox
-                                 id={permission.key}
-                                 checked={formData.permissions.includes(permission.key)}
-                                 onCheckedChange={(checked) => handlePermissionChange(permission.key, checked)}
-                               />
-                               <label
-                                 htmlFor={permission.key}
-                                 className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 capitalize"
-                               >
-                                 {permission.label}
-                               </label>
-                             </div>
-                           ))
-                         ) : (
-                           <p className="col-span-2 text-muted-foreground">No permissions found matching search for this module.</p>
-                         )}
-                       </div>
-                     </TabsContent>
-                   ))}
-                 </Tabs>
+                  <Tabs defaultValue={allPermissions[0]?.module} className="w-full">
+                     <div className="flex flex-col md:flex-row gap-2 mb-4 justify-between">
+                        <TabsList>
+                           {allPermissions.map((module) => (
+                              <TabsTrigger key={module.module} value={module.module}>
+                                 {module.module}
+                              </TabsTrigger>
+                           ))}
+                        </TabsList>
+                        <Input
+                           placeholder="Search permissions..."
+                           value={permissionSearchTerm}
+                           onChange={(e) => setPermissionSearchTerm(e.target.value)}
+                           className="grow md:grow-0 md:max-w-xs"
+                        />
+                     </div>
+
+                     {allPermissions.map((module) => (
+                        <TabsContent key={module.module} value={module.module}>
+                           <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto border p-2 rounded-md">
+                              {module.permissions.filter(permission =>
+                                 permission.key.toLowerCase().includes(permissionSearchTerm.toLowerCase()) ||
+                                 permission.label.toLowerCase().includes(permissionSearchTerm.toLowerCase())
+                              ).length > 0 ? (
+                                 module.permissions.filter(permission =>
+                                    permission.key.toLowerCase().includes(permissionSearchTerm.toLowerCase()) ||
+                                    permission.label.toLowerCase().includes(permissionSearchTerm.toLowerCase())
+                                 ).map((permission) => (
+                                    <div key={permission.key} className="flex items-center space-x-2 text-sm">
+                                       <Checkbox
+                                          id={permission.key}
+                                          checked={formData.permissions.includes(permission.key)}
+                                          onCheckedChange={(checked) => handlePermissionChange(permission.key, checked)}
+                                       />
+                                       <label
+                                          htmlFor={permission.key}
+                                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 capitalize"
+                                       >
+                                          {permission.label}
+                                       </label>
+                                    </div>
+                                 ))
+                              ) : (
+                                 <p className="col-span-2 text-muted-foreground">No permissions found matching search for this module.</p>
+                              )}
+                           </div>
+                        </TabsContent>
+                     ))}
+                  </Tabs>
                ) : (
-                 <p className="text-muted-foreground">No permissions available.</p>
+                  <p className="text-muted-foreground">No permissions available.</p>
                )}
             </div>
 
