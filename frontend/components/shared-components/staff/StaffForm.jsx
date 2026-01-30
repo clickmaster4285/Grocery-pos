@@ -19,6 +19,9 @@ import {
    DialogDescription,
 } from "@/components/ui/dialog";
 import { PhoneInput } from "@/components/ui/PhoneInput";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useGetPermissions } from "@/features/users/users.hooks"; 
+import { useState } from "react";
 
 export const StaffForm = ({
    formData,
@@ -28,10 +31,25 @@ export const StaffForm = ({
    editingUser,
    createUserMutation,
    updateUserMutation,
+   allPermissions,
+   permissionsLoading,
    ROLES,
-   GROUPED_ROLES,
-   DEPARTMENTS
 }) => {
+   const [permissionSearchTerm, setPermissionSearchTerm] = useState('');
+
+   const handlePermissionChange = (permissionKey, checked) => {
+      let updatedPermissions = [...formData.permissions];
+      if (checked) {
+         updatedPermissions.push(permissionKey);
+      } else {
+         updatedPermissions = updatedPermissions.filter((p) => p !== permissionKey);
+      }
+      updateFormField('permissions', updatedPermissions);
+   };
+
+   const filteredPermissions = allPermissions.filter(permission =>
+     permission.toLowerCase().includes(permissionSearchTerm.toLowerCase())
+   ) || [];
 
    // Handle phone change with formatting
    const handlePhoneChange = (phone) => {
@@ -40,26 +58,30 @@ export const StaffForm = ({
 
    return (
       <>
-         <DialogHeader>
-            <DialogTitle>{editingUser ? "Edit Staff Member" : "Add New Staff"}</DialogTitle>
-            <DialogDescription>
-               {editingUser
-                  ? "Update staff member details below."
-                  : "Add a new staff member to your organization."
-               }
-            </DialogDescription>
-         </DialogHeader>
+         
 
          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-               <Label htmlFor="name">Full Name *</Label>
-               <Input
-                  id="name"
-                  placeholder="John Doe"
-                  value={formData.name}
-                  onChange={(e) => updateFormField('name', e.target.value)}
-                  required
-               />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Input
+                     id="firstName"
+                     placeholder="John"
+                     value={formData.firstName}
+                     onChange={(e) => updateFormField('firstName', e.target.value)}
+                     required
+                  />
+               </div>
+               <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Input
+                     id="lastName"
+                     placeholder="Doe"
+                     value={formData.lastName}
+                     onChange={(e) => updateFormField('lastName', e.target.value)}
+                     required
+                  />
+               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -94,7 +116,6 @@ export const StaffForm = ({
                </div>
             </div>
 
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                <div className="space-y-2">
                   <Label htmlFor="role">Role *</Label>
@@ -109,25 +130,6 @@ export const StaffForm = ({
                         {ROLES.map((role) => (
                            <SelectItem key={role.value} value={role.value}>
                               {role.label}
-                           </SelectItem>
-                        ))}
-                     </SelectContent>
-                  </Select>
-               </div>
-
-               <div className="space-y-2">
-                  <Label htmlFor="department">Department *</Label>
-                  <Select
-                     value={formData.department}
-                     onValueChange={(value) => updateFormField('department', value)}
-                  >
-                     <SelectTrigger>
-                        <SelectValue placeholder="Select Department" />
-                     </SelectTrigger>
-                     <SelectContent>
-                        {DEPARTMENTS.map((dept) => (
-                           <SelectItem key={dept.value} value={dept.value}>
-                              {dept.label}
                            </SelectItem>
                         ))}
                      </SelectContent>
@@ -155,6 +157,43 @@ export const StaffForm = ({
                      ? "Leave empty to keep current password"
                      : "User will be able to change this password after first login"}
                </p>
+            </div>
+
+            {/* Permissions Section */}
+            <div className="space-y-2">
+               <Label>Permissions</Label>
+               {permissionsLoading && <p className="text-muted-foreground">Loading permissions...</p>}
+               {!permissionsLoading && allPermissions && (
+                 <>
+                   <Input
+                      placeholder="Search permissions..."
+                      value={permissionSearchTerm}
+                      onChange={(e) => setPermissionSearchTerm(e.target.value)}
+                      className="mb-2"
+                   />
+                   <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border p-2 rounded-md">
+                     {filteredPermissions.length > 0 ? (
+                       filteredPermissions.map((permissionKey) => (
+                         <div key={permissionKey} className="flex items-center space-x-2 text-sm">
+                           <Checkbox
+                             id={permissionKey}
+                             checked={formData.permissions.includes(permissionKey)}
+                             onCheckedChange={(checked) => handlePermissionChange(permissionKey, checked)}
+                           />
+                           <label
+                             htmlFor={permissionKey}
+                             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 capitalize"
+                           >
+                             {permissionKey.replace(/([A-Z])/g, ' $1').trim().replace(/:/g, ' - ')}
+                           </label>
+                         </div>
+                       ))
+                     ) : (
+                       <p className="col-span-2 text-muted-foreground">No permissions found matching search.</p>
+                     )}
+                   </div>
+                 </>
+               )}
             </div>
 
             <DialogFooter className="pt-4">

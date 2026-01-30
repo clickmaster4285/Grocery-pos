@@ -372,3 +372,66 @@ These utilities provide a clean, consistent, and direct way to perform permissio
 -   **Dedicated Error Pages**: `frontend/app/unauthorized.jsx` (for 401) and `frontend/app/forbidden.jsx` (for 403) provide clear feedback to the user when access is denied.
 -   **No Infinite Redirects**: Carefully managed redirect logic in `useAuth` and layouts prevents redirect loops.
 -   **Rationale**: Ensures a smooth and informative user experience even during errors, preventing confusion and guiding users to resolve issues.
+
+## 7. Staff Management Integration Analysis (Phase 1)
+
+This section details the findings from the initial analysis phase for integrating frontend Staff pages with backend User Management APIs.
+
+### 7.1. Existing Staff Pages and Components
+
+-   **Staff List Page:** `frontend/app/[role]/staff/page.jsx` serves as the entry point for the staff list, directly rendering the `AllUsers` component.
+-   **`AllUsers` Component:** Located at `frontend/components/shared-components/staff/page.jsx`, this component orchestrates the Staff list UI. It includes:
+    -   `Header` for title and "Add New Staff" button.
+    -   `StatsCard` components for displaying statistics.
+    -   `SearchBar` for filtering staff.
+    -   `UserList` (rendering `StaffCard`s) for displaying individual staff members.
+    -   `Dialog` components for "Add/Edit Staff" (using `StaffForm`) and "Delete Confirmation".
+    -   It relies heavily on a custom hook, `useStaffManagement()`, which is currently **missing**.
+-   **Staff Detail/Edit Page (Intended):** `frontend/app/[role]/staff/[id]/page.jsx` is intended for displaying and editing individual staff details. However, it currently attempts to render a `SiteDetailPage` from `@/components/shared-components/sites/SiteDetailPage`, which **does not exist**. This component reference needs to be corrected to a suitable Staff Detail/Edit component.
+-   **`StaffCard` Component:** `frontend/components/shared-components/staff/StaffCard.jsx` is a presentational component used within `AllUsers` to display individual staff member information (`name`, `email`, `phone`, `role`, `department`, `createdAt`, `lastLogin`, `isActive`). It provides "Edit" and "Delete" actions via a dropdown menu.
+-   **`StaffForm` Component:** `frontend/components/shared-components/staff/StaffForm.jsx` is a form component used for both creating and editing staff members. It includes fields for `name`, `email`, `phone`, `role`, `department`, and `password`. It dynamically adjusts based on `editingUser` status.
+-   **`StatsCard` Component:** `frontend/components/shared-components/staff/StatsCard.jsx` is a generic presentational component for displaying statistics with icons and customizable styling.
+
+### 7.2. Current API Calls and TanStack Query Usage
+
+-   **User Management API Layer:** `frontend/features/users/users.api.js` explicitly defines `usersAPI` functions that map directly to the backend's User Management APIs:
+    -   `getAllUsers`: `GET /api/users`
+    -   `getUserById`: `GET /api/users/:id`
+    -   `createUser`: `POST /api/users`
+    -   `updateUser`: `PATCH /api/users/:id`
+    -   `deleteUser`: `DELETE /api/users/:id`
+    -   `getPermissions`: `GET /api/users/permissions`
+    These functions utilize the central `axios` instance configured in `frontend/lib/api.js`, which includes token injection via interceptors and handles `NEXT_PUBLIC_API_BASE_URL` from the `.env` file.
+-   **TanStack Query Hooks:** `frontend/features/users/users.hooks.js` provides a robust set of TanStack Query hooks built upon `usersAPI`:
+    -   `useGetAllUsers`
+    -   `useGetUserById`
+    -   `useCreateUser`
+    -   `useUpdateUser`
+    -   `useGetPermissions`
+    These hooks adhere to best practices with well-defined `userKeys` for caching and proper cache invalidation on mutations.
+-   **Missing Hook:** A `useDeleteUser` hook is currently not present in `frontend/features/users/users.hooks.js` and will need to be implemented.
+
+### 7.3. Duplicate or Unused Authentication/User Files
+
+-   **Missing `useStaffManagement` Hook:** The `useStaffManagement` hook (expected at `frontend/hooks/useStaffManagement.js`) is referenced by `AllUsers` but **does not exist**. This is a critical missing piece of the application logic. The functionality intended for this hook will need to be implemented, likely by leveraging and extending the existing `frontend/features/users/users.hooks.js`.
+-   **Non-existent `SiteDetailPage`:** The component `frontend/components/shared-components/sites/SiteDetailPage.jsx` is referenced but **does not exist** in the codebase. Its reference in `frontend/app/[role]/staff/[id]/page.jsx` needs to be replaced with a dedicated staff detail/edit component.
+-   **Existing `useAuth`:** The `frontend/hooks/useAuth.js` provides core authentication state and actions, including `loginMutation` and `logout`. It leverages `authAPI` (from `frontend/features/auth/auth.api.js`) and is used across protected layouts.
+
+### 7.4. Mapping Frontend Staff Actions to Backend Endpoints
+
+The existing `usersAPI` and `users.hooks.js` provide a clear mapping:
+
+| Frontend Action (Staff)   | Backend Endpoint (usersAPI) | TanStack Query Hook (users.hooks.js) | Backend Permissions     |
+| :------------------------ | :-------------------------- | :----------------------------------- | :---------------------- |
+| Create Staff              | `usersAPI.createUser`       | `useCreateUser`                      | `users:create`          |
+| Get Staff List            | `usersAPI.getAllUsers`      | `useGetAllUsers`                     | `users:read`            |
+| Get Single Staff Member   | `usersAPI.getUserById`      | `useGetUserById`                     | `users:read`            |
+| Update Staff Member       | `usersAPI.updateUser`       | `useUpdateUser`                      | `users:update`          |
+| Soft Delete Staff Member  | `usersAPI.deleteUser`       | **Needs `useDeleteUser`**            | `users:delete`          |
+| Get All Permissions       | `usersAPI.getPermissions`   | `useGetPermissions`                  | (Authenticated)         |
+
+### 7.5. Backend Requirements Confirmation
+
+-   **`role` as a single string:** Confirmed. The `User` model, JWT payload, and frontend logic consistently treat `role` as a single string.
+-   **`permissions` as an array of strings:** Confirmed. The `User` model, JWT payload, and frontend `usePermissions` hook expect `permissions` to be an array of strings.
+-   **Authorization is permission-based, not role-based:** Confirmed. The backend's `checkPermission` middleware and the frontend's `usePermissions` (specifically `userCan`) rely on explicit permission strings, not just role names. Roles guide initial assignments but permissions are the ultimate source of truth for authorization checks.

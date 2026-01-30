@@ -19,12 +19,11 @@ router.post('/', checkPermission(PERMISSIONS.USERS.CREATE), createUser);
 
 router.get('/', checkPermission(PERMISSIONS.USERS.READ), getAllUsers);
 
+router.get(
+  '/permissions',
+  checkPermission(PERMISSIONS.USERS.READ),
+  getPermissions,
+);
 router.get('/:id', checkPermission(PERMISSIONS.USERS.READ), getUserById);
-
-router.patch('/:id', checkPermission(PERMISSIONS.USERS.UPDATE), updateUser);
-
-router.delete('/:id', checkPermission(PERMISSIONS.USERS.DELETE), deleteUser);
-
-router.get('/permissions', getPermissions);
 
 module.exports = router;

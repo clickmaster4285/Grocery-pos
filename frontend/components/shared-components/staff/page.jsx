@@ -1,6 +1,7 @@
 'use client';
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react"; // Added useState, useMemo, useCallback
+import { toast } from 'sonner'; // Added toast
 import {
   Plus,
   Search,
@@ -16,61 +17,87 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StaffForm } from "./StaffForm";
 import { StaffCard } from "./StaffCard";
 import { StatsCard } from "./StatsCard";
-import { useStaffManagement } from "@/hooks/useStaffManagement";
-import { ROLES } from "@/constants/roles";
+import { useStaffList, useCreateStaff, useUpdateStaff, useDeleteStaff } from "@/hooks/useStaff";
+import { useAuth } from "@/hooks/useAuth"; 
+import { usePermissions } from "@/hooks/usePermissions";
+import { ROLES } from "@/constants/roles"; 
 
 const AllUsers = () => {
   const router = useRouter();
-  const {
-    // State
-    users,
-    filteredUsers,
-    stats,
-    searchTerm,
-    setSearchTerm,
-    isDialogOpen,
-    setIsDialogOpen,
-    deleteConfirmOpen,
-    setDeleteConfirmOpen,
-    editingUser,
-    userToDelete,
-    formData,
+  const { data: users = [], isLoading, error, refetch } = useStaffList();
+  const createStaffMutation = useCreateStaff();
+  const updateStaffMutation = useUpdateStaff();
+  const deleteStaffMutation = useDeleteStaff();
 
-    // Constants
-    ROLES: ROLE_OPTIONS,
-    GROUPED_ROLES,
-    DEPARTMENTS,
+  const { user: currentUser } = useAuth();
+  const { can } = usePermissions();
 
-    // Loading & Error
-    isLoading,
-    error,
-    refetch,
-    currentUser,
+  const [searchTerm, setSearchTerm] = useState('');
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
 
-    // Mutations
-    createUserMutation,
-    updateUserMutation,
-    deleteUserMutation,
+  const filteredUsers = useMemo(() => {
+    if (!users) return [];
+    const lowerCaseSearchTerm = searchTerm.toLowerCase();
+    return users.filter(user =>
+      user.firstName?.toLowerCase().includes(lowerCaseSearchTerm) ||
+      user.lastName?.toLowerCase().includes(lowerCaseSearchTerm) ||
+      user.email?.toLowerCase().includes(lowerCaseSearchTerm) ||
+      user.phone?.includes(lowerCaseSearchTerm) ||
+      user.role?.toLowerCase().includes(lowerCaseSearchTerm)
+    );
+  }, [users, searchTerm]);
 
-    // Form handlers
-    updateFormField,
-    handleSubmit,
-    resetForm,
-    handleEdit,
-    confirmDelete,
-    handleDelete,
+  const stats = useMemo(() => {
+    if (!users) return [];
+    const activeUsers = users.filter(user => user.isActive).length;
+    const inactiveUsers = users.filter(user => !user.isActive).length;
+    return [
+      { label: 'Total Staff', value: users.length, bg: 'bg-blue-100', iconColor: 'text-blue-600', Icon: Users, border: 'border-blue-500' },
+      { label: 'Active Staff', value: activeUsers, bg: 'bg-green-100', iconColor: 'text-green-600', Icon: UserCheck, border: 'border-green-500' },
+      { label: 'Inactive Staff', value: inactiveUsers, bg: 'bg-red-100', iconColor: 'text-red-600', Icon: XCircle, border: 'border-red-500' },
+    ];
+  }, [users]);
 
-    // Utility functions
-    getStatusBadge,
-    getStatusVariant,
-    getRoleLabel,
-    getRoleGroup,
-    getDepartmentLabel
-  } = useStaffManagement();
+  
+
+  
+
+  
+
+  const confirmDelete = useCallback((user) => {
+    setUserToDelete(user);
+    setDeleteConfirmOpen(true);
+  }, []);
+
+  const handleDelete = useCallback(async () => {
+    if (!userToDelete || !currentUser || !currentUser._id) return;
+    const toastId = toast.loading('Deleting staff...');
+    try {
+      await deleteStaffMutation.mutateAsync(userToDelete._id); // Pass only id
+      toast.success('Staff deleted successfully.', { id: toastId });
+      setDeleteConfirmOpen(false);
+      setUserToDelete(null);
+    } catch (err) {
+      toast.error('Failed to delete staff.', {
+        id: toastId,
+        description: err.message || 'An unexpected error occurred.',
+      });
+    }
+  }, [userToDelete, currentUser, deleteStaffMutation]);
+
+  
+
+  const getStatusBadge = useCallback((user) => (user.isActive ? 'Active' : 'Inactive'), []);
+  const getStatusVariant = useCallback((user) => (user.isActive ? 'success' : 'destructive'), []);
+  const getRoleLabel = useCallback((roleValue) => {
+    const role = ROLES.find(r => r.value === roleValue);
+    return role ? role.label : roleValue;
+  }, [ROLES]);
 
   // Redirect if not admin
   useEffect(() => {
-    if (currentUser && currentUser.role !== ROLES.ADMIN) {
+    if (currentUser && currentUser.role !== 'admin') {
       router.push('/unauthorized');
     }
   }, [currentUser, router]);
@@ -97,15 +124,9 @@ const AllUsers = () => {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <Header
-        onAddStaff={() => {
-          resetForm();
-          setIsDialogOpen(true)
-        }}
-        resetForm={resetForm}
-      />
+      <Header onAddStaff={() => router.push(`/${currentUser?.role}/staff/create`)} />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -133,35 +154,17 @@ const AllUsers = () => {
       {/* User Cards or Empty State */}
       <UserList
         users={filteredUsers}
-        onEdit={handleEdit}
+        onEdit={(user) => router.push(`/${currentUser?.role}/staff/${user._id}/edit`)}
         onDelete={confirmDelete}
         getStatusBadge={getStatusBadge}
         getStatusVariant={getStatusVariant}
         getRoleLabel={getRoleLabel}
-        getRoleGroup={getRoleGroup}
-        getDepartmentLabel={getDepartmentLabel}
         searchTerm={searchTerm}
-        onAddStaff={() => setIsDialogOpen(true)}
+        onAddStaff={() => router.push(`/${currentUser?.role}/staff/create`)}
       />
 
       {/* Add/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-125">
-          <StaffForm
-            key={editingUser ? `edit-${editingUser._id}` : 'create'} 
-            formData={formData}
-            updateFormField={updateFormField}
-            handleSubmit={handleSubmit}
-            resetForm={resetForm}
-            editingUser={editingUser}
-            createUserMutation={createUserMutation}
-            updateUserMutation={updateUserMutation}
-            ROLES={ROLE_OPTIONS}
-            GROUPED_ROLES={GROUPED_ROLES}
-            DEPARTMENTS={DEPARTMENTS}
-          />
-        </DialogContent>
-      </Dialog>
+      
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog
@@ -169,7 +172,7 @@ const AllUsers = () => {
         onOpenChange={setDeleteConfirmOpen}
         userToDelete={userToDelete}
         onDelete={handleDelete}
-        isLoading={deleteUserMutation.isLoading}
+        isLoading={deleteStaffMutation.isLoading}
       />
     </div>
   );
@@ -215,8 +218,6 @@ const UserList = ({
   getStatusBadge,
   getStatusVariant,
   getRoleLabel,
-  getRoleGroup,
-  getDepartmentLabel,
   searchTerm,
   onAddStaff
 }) => {
@@ -224,7 +225,7 @@ const UserList = ({
     return (
       <EmptyState
         hasSearchTerm={!!searchTerm}
-        onAddStaff={onAddStaff}
+        onAddStaff={() => router.push(`/${currentUser?.role}/staff/create`)}
       />
     );
   }
@@ -240,8 +241,6 @@ const UserList = ({
           getStatusBadge={getStatusBadge}
           getStatusVariant={getStatusVariant}
           getRoleLabel={getRoleLabel}
-          getRoleGroup={getRoleGroup}
-          getDepartmentLabel={getDepartmentLabel}
         />
       ))}
     </div>

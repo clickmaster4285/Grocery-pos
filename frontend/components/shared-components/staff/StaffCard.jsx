@@ -34,7 +34,7 @@ export const StaffCard = ({
                      />
 
                      <div>
-                        <h3 className="font-semibold text-lg">{user.name}</h3>
+                        <h3 className="font-semibold text-lg">{`${user.firstName} ${user.lastName}`}</h3>
                         <Badge
                            variant={getStatusVariant(user)}
                            className="mt-1 capitalize"
@@ -99,12 +99,7 @@ export const StaffCard = ({
                      </Badge>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                     <span className="text-sm text-muted-foreground">Department</span>
-                     <span className="text-sm font-medium capitalize">
-                        {getDepartmentLabel(user.department)}
-                     </span>
-                  </div>
+                  
 
                   <div className="flex items-center justify-between">
                      <span className="text-sm text-muted-foreground">Joined</span>

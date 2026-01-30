@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersAPI } from './users.api';
 
-const userKeys = {
+export const userKeys = {
   all: ['users'],
   lists: () => [...userKeys.all, 'list'],
   details: () => [...userKeys.all, 'detail'],
@@ -11,9 +11,9 @@ const userKeys = {
 export const useGetAllUsers = () => {
   return useQuery({
     queryKey: userKeys.lists(),
-    queryFn: usersAPI.getAllUsers,
-    staleTime: 60 * 1000, // 1 minute
-    select: (response) => response.data.data, // Add select transformation
+    queryFn: () => usersAPI.getAllUsers(), 
+    staleTime: 60 * 1000, 
+    select: (response) => response.data.data, 
   });
 };
 
@@ -21,8 +21,8 @@ export const useGetUserById = (id) => {
   return useQuery({
     queryKey: userKeys.detail(id),
     queryFn: () => usersAPI.getUserById(id),
-    enabled: !!id, // Only run query if id is available
-    select: (response) => response.data.data, // Add select transformation
+    enabled: !!id,
+    select: (response) => response.data.data, 
   });
 };
 
@@ -43,6 +43,17 @@ export const useUpdateUser = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: userKeys.lists() });
       queryClient.invalidateQueries({ queryKey: userKeys.detail(variables.id) });
+    },
+  });
+};
+
+export const useDeleteUser = () => { 
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => usersAPI.deleteUser(id), 
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: userKeys.detail(id) });
     },
   });
 };
