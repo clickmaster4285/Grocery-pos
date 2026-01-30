@@ -22,7 +22,6 @@ export const useGetAllUsers = () => {
     queryKey: userKeys.lists(),
     queryFn: async () =>{
        const response = await usersAPI.getAllUsers();
-       console.log('Users fetched successfully:', response.data);
        return response;
       }, 
     staleTime: 60 * 1000, 
@@ -33,9 +32,14 @@ export const useGetAllUsers = () => {
 export const useGetUserById = (id) => {
   return useQuery({
     queryKey: userKeys.detail(id),
-    queryFn: () => usersAPI.getUserById(id),
+    queryFn: async() =>{ 
+      const response = await usersAPI.getUserById(id);
+      console.log('User Response:', response.data);
+      return response;
+    }, 
+    staleTime: 60 * 1000, 
     enabled: !!id,
-    select: (response) => response.data.data, 
+    select: (response) => response.data, 
   });
 };
 

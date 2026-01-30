@@ -7,7 +7,7 @@ const createUser = async (req, res, next) => {
   try {
     const { firstName, lastName, email, password, role = 'customer', permissions = [] } = req.body;
 
-    if (!firstName|| !email || !password) {
+    if (!firstName || !email || !password) {
       return res.status(400).json({ message: 'Please provide all required fields' });
     }
 
@@ -40,7 +40,7 @@ const createUser = async (req, res, next) => {
       ...userData
     });
 
-   const userResponse = user.toObject();
+    const userResponse = user.toObject();
     delete userResponse.password;
     userResponse.role = user.role;
     userResponse.permissions = user.permissions;
@@ -83,7 +83,7 @@ const getAllUsers = async (req, res, next) => {
 
 const getUserById = async (req, res, next) => {
   try {
-    const user = await User.findOne({ userId: req.params.id, isDeleted: false }).select('-password');
+    const user = await User.findOne({ _id: req.params.id, isDeleted: false }).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -95,7 +95,7 @@ const getUserById = async (req, res, next) => {
 
 const updateUser = async (req, res, next) => {
   try {
-    const {userId, ...updateFields } = req.body;
+    const { userId, ...updateFields } = req.body;
     // Basic validation for role and permissions
     if (updateFields.role && typeof updateFields.role !== 'string') {
       return res.status(400).json({ message: 'Role must be a string.' });
@@ -105,7 +105,7 @@ const updateUser = async (req, res, next) => {
     }
 
     const user = await User.findOneAndUpdate(
-      { userId: req.params.id, isDeleted: false },
+      { _id: req.params.id, isDeleted: false },
       updateFields, // Use the filtered updateFields
       { new: true, runValidators: true }
     ).select('-password');
@@ -122,15 +122,15 @@ const updateUser = async (req, res, next) => {
 const deleteUser = async (req, res, next) => {
   try {
     const user = await User.findOneAndUpdate(
-        { userId: req.params.id, isDeleted: false },
-        {
-          isDeleted: true,
-          deletedAt: new Date(),
-          deletedBy: req.user._id, 
-          isActive: false,
-        },
-        { new: true }
-      ).select('-password');
+      { _id: req.params.id, isDeleted: false },
+      {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedBy: req.user._id,
+        isActive: false,
+      },
+      { new: true }
+    ).select('-password');
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });

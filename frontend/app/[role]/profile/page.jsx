@@ -22,7 +22,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { useUpdateProfile, useGetMe } from '@/features/authApi';
+import { useUpdateProfile, useGetMe } from '@/hooks/useAuth';
 
 export default function ProfileSettings() {
   const [showPassword, setShowPassword] = useState(false);
@@ -32,7 +32,7 @@ const [alertMsg, setAlertMsg] = useState('');
 const [alertType, setAlertType] = useState('success');
 
   // 🔹 Get logged-in user
-  const { data: user, isLoading: isUserLoading, error } = useGetMe();
+  const { data: { data: user } = {}, isLoading: isUserLoading, error } = useGetMe();
 
   // 🔹 Personal Information State
   const [personalInfo, setPersonalInfo] = useState({
@@ -44,7 +44,8 @@ const [alertType, setAlertType] = useState('success');
   useEffect(() => {
     if (user) {
       setPersonalInfo({
-        firstName: user.name || '',
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
         email: user.email || '',
         phone: user.phone || '',
       });
@@ -104,9 +105,9 @@ const [alertType, setAlertType] = useState('success');
   const { mutate: updateProfile } = useUpdateProfile();
 
 const handleSavePersonal = () => {
-  if (!personalInfo.firstName || !personalInfo.email) {
+  if (!personalInfo.firstName || !personalInfo.lastName || !personalInfo.email) {
     setAlertType('error');
-    setAlertMsg('Name and email are required.');
+    setAlertMsg('First Name, Last Name, and email are required.');
     return;
   }
 
@@ -114,7 +115,8 @@ const handleSavePersonal = () => {
 
   updateProfile(
     {
-      name: personalInfo.firstName,
+      firstName: personalInfo.firstName,
+      lastName: personalInfo.lastName,
       email: personalInfo.email,
       phone: personalInfo.phone,
     },
@@ -208,6 +210,19 @@ const handleSavePersonal = () => {
                       handlePersonalChange('firstName', e.target.value)
                     }
                     placeholder="First name"
+                    className="bg-background"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Last Name
+                  </label>
+                  <Input
+                    value={personalInfo.lastName}
+                    onChange={(e) =>
+                      handlePersonalChange('lastName', e.target.value)
+                    }
+                    placeholder="Last name"
                     className="bg-background"
                   />
                 </div>

@@ -26,4 +26,8 @@ router.get(
 );
 router.get('/:id', checkPermission(PERMISSIONS.USERS.READ), getUserById);
 
+router.patch('/:id', checkPermission(PERMISSIONS.USERS.UPDATE), updateUser);
+
+router.delete('/:id', checkPermission(PERMISSIONS.USERS.DELETE), deleteUser);
+
 module.exports = router;

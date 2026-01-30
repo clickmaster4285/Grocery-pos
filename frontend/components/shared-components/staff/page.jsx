@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StaffCard } from "./StaffCard";
+import { StaffTable } from "./StaffTable";
 import { StatsCard } from "./StatsCard";
 import { useStaffList, useDeleteStaff } from "@/features/users/users.api";
 import { useAuth } from "@/hooks/useAuth";
@@ -219,19 +219,14 @@ const UserList = ({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {users.map((user) => (
-        <StaffCard
-          key={user._id}
-          user={user}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          getStatusBadge={getStatusBadge}
-          getStatusVariant={getStatusVariant}
-          getRoleLabel={getRoleLabel}
-        />
-      ))}
-    </div>
+    <StaffTable
+      users={users}
+      onEdit={onEdit}
+      onDelete={onDelete}
+      getStatusBadge={getStatusBadge}
+      getStatusVariant={getStatusVariant}
+      getRoleLabel={getRoleLabel}
+    />
   );
 };
 

@@ -100,7 +100,7 @@ const StaffFormPage = () => {
   }
 
   return (
-    <Dialog>
+    <div className="p-4 md:p-6">
       <DialogHeader>
         <DialogTitle>{isEditMode ? "Edit Staff Member" : "Add New Staff"}</DialogTitle>
         <DialogDescription>
@@ -122,7 +122,7 @@ const StaffFormPage = () => {
         permissionsLoading={permissionsLoading}
         ROLES={ROLES}
       />
-    </Dialog>
+    </div>
   );
 };
 
