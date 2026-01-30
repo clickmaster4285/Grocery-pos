@@ -5,23 +5,13 @@ import { Mail, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-   Select,
-   SelectContent,
-   SelectItem,
-   SelectTrigger,
-   SelectValue,
-} from "@/components/ui/select";
-import {
-   DialogFooter,
-   DialogHeader,
-   DialogTitle,
-   DialogDescription,
-} from "@/components/ui/dialog";
+import { ComboBox } from "@/components/ui/combobox";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useGetPermissions } from "@/features/users/users.hooks"; 
 import { useState } from "react";
+import { DialogFooter } from "@/components/ui/dialog";
 
 export const StaffForm = ({
    formData,
@@ -47,10 +37,6 @@ export const StaffForm = ({
       updateFormField('permissions', updatedPermissions);
    };
 
-   const filteredPermissions = allPermissions.filter(permission =>
-     permission.toLowerCase().includes(permissionSearchTerm.toLowerCase())
-   ) || [];
-
    // Handle phone change with formatting
    const handlePhoneChange = (phone) => {
       updateFormField('phone', phone);
@@ -58,8 +44,6 @@ export const StaffForm = ({
 
    return (
       <>
-         
-
          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                <div className="space-y-2">
@@ -116,26 +100,18 @@ export const StaffForm = ({
                </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-               <div className="space-y-2">
+            <div className="space-y-2">
                   <Label htmlFor="role">Role *</Label>
-                  <Select
-                     value={formData.role}
-                     onValueChange={(value) => updateFormField('role', value)}
-                  >
-                     <SelectTrigger>
-                        <SelectValue placeholder="Select Role" />
-                     </SelectTrigger>
-                     <SelectContent>
-                        {ROLES.map((role) => (
-                           <SelectItem key={role.value} value={role.value}>
-                              {role.label}
-                           </SelectItem>
-                        ))}
-                     </SelectContent>
-                  </Select>
+                  <ComboBox
+                    items={ROLES}
+                    value={formData.role}
+                    onValueChange={(value) => updateFormField('role', value)}
+                    placeholder="Select Role"
+                    searchPlaceholder="Search or create role..."
+                    emptyPlaceholder="No role found."
+                    custom
+                  />
                </div>
-            </div>
 
             <div className="space-y-2">
                <Label htmlFor="password">
@@ -159,40 +135,61 @@ export const StaffForm = ({
                </p>
             </div>
 
-            {/* Permissions Section */}
             <div className="space-y-2">
                <Label>Permissions</Label>
                {permissionsLoading && <p className="text-muted-foreground">Loading permissions...</p>}
-               {!permissionsLoading && allPermissions && (
-                 <>
-                   <Input
-                      placeholder="Search permissions..."
-                      value={permissionSearchTerm}
-                      onChange={(e) => setPermissionSearchTerm(e.target.value)}
-                      className="mb-2"
-                   />
-                   <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border p-2 rounded-md">
-                     {filteredPermissions.length > 0 ? (
-                       filteredPermissions.map((permissionKey) => (
-                         <div key={permissionKey} className="flex items-center space-x-2 text-sm">
-                           <Checkbox
-                             id={permissionKey}
-                             checked={formData.permissions.includes(permissionKey)}
-                             onCheckedChange={(checked) => handlePermissionChange(permissionKey, checked)}
-                           />
-                           <label
-                             htmlFor={permissionKey}
-                             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 capitalize"
-                           >
-                             {permissionKey.replace(/([A-Z])/g, ' $1').trim().replace(/:/g, ' - ')}
-                           </label>
-                         </div>
-                       ))
-                     ) : (
-                       <p className="col-span-2 text-muted-foreground">No permissions found matching search.</p>
-                     )}
+               {!permissionsLoading && allPermissions && allPermissions.length > 0 ? (
+                 <Tabs defaultValue={allPermissions[0]?.module} className="w-full">
+                   <div className="flex flex-col md:flex-row gap-2 mb-4 justify-between">
+                     <TabsList>
+                       {allPermissions.map((module) => (
+                         <TabsTrigger key={module.module} value={module.module}>
+                           {module.module}
+                         </TabsTrigger>
+                       ))}
+                     </TabsList>
+                     <Input
+                        placeholder="Search permissions..."
+                        value={permissionSearchTerm}
+                        onChange={(e) => setPermissionSearchTerm(e.target.value)}
+                        className="grow md:grow-0 md:max-w-xs"
+                     />
                    </div>
-                 </>
+                   
+                   {allPermissions.map((module) => (
+                     <TabsContent key={module.module} value={module.module}>
+                       <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto border p-2 rounded-md">
+                         {module.permissions.filter(permission => 
+                           permission.key.toLowerCase().includes(permissionSearchTerm.toLowerCase()) ||
+                           permission.label.toLowerCase().includes(permissionSearchTerm.toLowerCase())
+                         ).length > 0 ? (
+                           module.permissions.filter(permission => 
+                             permission.key.toLowerCase().includes(permissionSearchTerm.toLowerCase()) ||
+                             permission.label.toLowerCase().includes(permissionSearchTerm.toLowerCase())
+                           ).map((permission) => (
+                             <div key={permission.key} className="flex items-center space-x-2 text-sm">
+                               <Checkbox
+                                 id={permission.key}
+                                 checked={formData.permissions.includes(permission.key)}
+                                 onCheckedChange={(checked) => handlePermissionChange(permission.key, checked)}
+                               />
+                               <label
+                                 htmlFor={permission.key}
+                                 className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 capitalize"
+                               >
+                                 {permission.label}
+                               </label>
+                             </div>
+                           ))
+                         ) : (
+                           <p className="col-span-2 text-muted-foreground">No permissions found matching search for this module.</p>
+                         )}
+                       </div>
+                     </TabsContent>
+                   ))}
+                 </Tabs>
+               ) : (
+                 <p className="text-muted-foreground">No permissions available.</p>
                )}
             </div>
 

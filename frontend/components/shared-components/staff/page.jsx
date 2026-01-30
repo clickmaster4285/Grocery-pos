@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StaffForm } from "./StaffForm";
 import { StaffCard } from "./StaffCard";
 import { StatsCard } from "./StatsCard";
-import { useStaffList, useCreateStaff, useUpdateStaff, useDeleteStaff } from "@/hooks/useStaff";
+import { useStaffList, useCreateStaff, useUpdateStaff, useDeleteStaff } from "@/features/users/users.hooks";
 import { useAuth } from "@/hooks/useAuth"; 
 import { usePermissions } from "@/hooks/usePermissions";
 import { ROLES } from "@/constants/roles"; 

@@ -61,8 +61,27 @@ export const useDeleteUser = () => {
 export const useGetPermissions = () => {
   return useQuery({
     queryKey: [...userKeys.all, 'permissions'],
-    queryFn: usersAPI.getPermissions,
-    staleTime: Infinity, // Permissions list is unlikely to change often
-    select: (response) => response.data.data,
+    queryFn: async () => {
+      const response = await usersAPI.getPermissions();
+      console.log('Permissions fetched successfully:', response.data);
+      return response;
+    },
+    select: (response) => {
+      const permissionsObject = response.data; 
+      return Object.entries(permissionsObject).map(([moduleName, perms]) => ({
+        module: moduleName,
+        permissions: Object.entries(perms).map(([key, value]) => ({
+          key: value,
+          label: value.split(':')[1].replace(/([A-Z])/g, ' $1').trim(), 
+        })),
+      }));
+    },
   });
 };
+
+
+export const useStaffList = useGetAllUsers;
+export const useCreateStaff = useCreateUser;
+export const useUpdateStaff = useUpdateUser;
+export const useDeleteStaff = useDeleteUser;
+export const usePermissions = useGetPermissions;

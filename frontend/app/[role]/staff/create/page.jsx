@@ -6,9 +6,7 @@ import { useGetUserById, useCreateUser, useUpdateUser } from '@/features/users/u
 import { ROLES } from '@/constants/roles';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
-
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-
 import { useGetPermissions } from '@/features/users/users.hooks';
 
 const StaffFormPage = () => {
@@ -23,6 +21,8 @@ const StaffFormPage = () => {
   });
 
   const { data: allPermissions = [], isLoading: permissionsLoading } = useGetPermissions();
+
+console.log("the permission in create page" , allPermissions)
 
   const createUserMutation = useCreateUser();
   const updateUserMutation = useUpdateUser();
@@ -50,8 +50,16 @@ const StaffFormPage = () => {
         isActive: user.isActive,
         password: '',
       });
+    } else if (!isEditMode && allPermissions.length > 0) {
+      const flattenedPermissions = allPermissions.flatMap(module =>
+        module.permissions.map(p => p.key)
+      );
+      setFormData((prev) => ({
+        ...prev,
+        permissions: flattenedPermissions,
+      }));
     }
-  }, [isEditMode, user]);
+  }, [isEditMode, user, allPermissions]);
 
   const updateFormField = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -92,9 +100,8 @@ const StaffFormPage = () => {
   }
 
   return (
-    <div>
+    <Dialog>
       <DialogHeader>
-        <Dialog>
         <DialogTitle>{isEditMode ? "Edit Staff Member" : "Add New Staff"}</DialogTitle>
         <DialogDescription>
           {isEditMode
@@ -102,7 +109,6 @@ const StaffFormPage = () => {
             : "Add a new staff member to your organization."
           }
         </DialogDescription>
-          </Dialog >
       </DialogHeader>
       <StaffForm
         formData={formData}
@@ -116,7 +122,7 @@ const StaffFormPage = () => {
         permissionsLoading={permissionsLoading}
         ROLES={ROLES}
       />
-    </div>
+    </Dialog>
   );
 };
 
