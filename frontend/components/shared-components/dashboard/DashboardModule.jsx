@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
 import { Users, FolderKanban, Package, AlertTriangle } from 'lucide-react';
+import { useStaffList, useCreateUser } from '@/features/users/users.api';
 
 // 🔹 Lazy-loaded components
 const AdminHeader = dynamic(

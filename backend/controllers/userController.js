@@ -5,7 +5,7 @@ const { generateToken } = require('../utils/jwt');
 
 const createUser = async (req, res, next) => {
   try {
-    const { firstName, lastName, email, password, role = 'customer', permissions = [] } = req.body;
+    const { firstName, lastName, phone, email, password, role = 'customer', permissions = [] } = req.body;
 
     if (!firstName || !email || !password) {
       return res.status(400).json({ message: 'Please provide all required fields' });
@@ -24,6 +24,7 @@ const createUser = async (req, res, next) => {
       firstName,
       lastName,
       email,
+      phone,
       password: hashedPassword,
       role,
       permissions,
@@ -96,6 +97,24 @@ const getUserById = async (req, res, next) => {
 const updateUser = async (req, res, next) => {
   try {
     const { userId, ...updateFields } = req.body;
+
+    // Fetch the user being updated to check their role
+    const targetUser = await User.findById(req.params.id);
+
+    if (!targetUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Security check: Prevent non-admin users from editing admin profiles
+    if (req.user.role !== 'admin' && targetUser.role === 'admin') {
+      return res.status(403).json({ message: 'Forbidden: You do not have permission to edit an admin user.' });
+    }
+
+    // Security check: Only an admin can set a user's role to 'admin'
+    if (updateFields.role === 'admin' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden: Only an admin can assign the "admin" role.' });
+    }
+
     // Basic validation for role and permissions
     if (updateFields.role && typeof updateFields.role !== 'string') {
       return res.status(400).json({ message: 'Role must be a string.' });

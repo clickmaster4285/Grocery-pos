@@ -36,6 +36,17 @@ const userSchema = new mongoose.Schema(
       required: [true, 'Password is required'],
       select: false, // Do not return password by default
     },
+    phone: {
+      type: Number,
+      required: [true, 'Phone number is required'],
+      unique: true, 
+      trim: true,
+      match: [
+        /^\+?[1-9]\d{1,14}$/,
+        'Please enter a valid phone number',
+      ],
+    },
+
     role: {
       type: String,
       required: true,

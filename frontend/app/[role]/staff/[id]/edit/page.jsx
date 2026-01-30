@@ -22,8 +22,6 @@ const StaffFormPage = () => {
 
   const { data: allPermissions = [], isLoading: permissionsLoading } = useGetPermissions();
 
-  console.log("the permission in create page", allPermissions)
-
   const createUserMutation = useCreateUser();
   const updateUserMutation = useUpdateUser();
 

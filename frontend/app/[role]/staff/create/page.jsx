@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
 import { DialogHeader, DialogTitle, DialogDescription, Dialog } from "@/components/ui/dialog";
 import { useGetPermissions } from '@/features/users/users.api';
+import { useAuth } from '@/hooks/useAuth'; // Import useAuth
+import { usePermissions } from '@/hooks/usePermissions'; // Import usePermissions
 
 const StaffCreatePage = () => {
   const router = useRouter();
@@ -16,6 +18,16 @@ const StaffCreatePage = () => {
   const { data: allPermissions = [], isLoading: permissionsLoading } = useGetPermissions();
 
   const createUserMutation = useCreateUser();
+
+  const { user: currentUser } = useAuth(); // Get currentUser
+  const { can } = usePermissions(); // Get permission check function
+
+  // Redirect if user does not have 'users:create' permission
+  useEffect(() => {
+    if (currentUser && !can('users:create')) {
+      router.push(`/${params.role}/forbidden`);
+    }
+  }, [currentUser, can, router, params.role]);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -78,12 +90,12 @@ const StaffCreatePage = () => {
   return (
     <div className="p-4 md:p-6">
       <Dialog>
-        <DialogHeader>
-          <DialogTitle>Add New Staff</DialogTitle>
-          <DialogDescription>
-            Add a new staff member to your organization.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogHeader>
+        <DialogTitle>Add New Staff</DialogTitle>
+        <DialogDescription>
+          Add a new staff member to your organization.
+        </DialogDescription>
+      </DialogHeader>
       </Dialog>
       <StaffForm
         formData={formData}

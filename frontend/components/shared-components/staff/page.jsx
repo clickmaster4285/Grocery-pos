@@ -115,7 +115,7 @@ const AllUsers = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Header onAddStaff={() => router.push(`/${currentUser?.role}/staff/create`)} />
+      <Header onAddStaff={() => router.push(`/${currentUser?.role}/staff/create`)} canCreateStaff={can('users:create')} />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -150,6 +150,7 @@ const AllUsers = () => {
         getRoleLabel={getRoleLabel}
         searchTerm={searchTerm}
         onAddStaff={() => router.push(`/${currentUser?.role}/staff/create`)}
+        canCreateStaff={can('users:create')}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -166,16 +167,18 @@ const AllUsers = () => {
 
 // Helper Components
 
-const Header = ({ onAddStaff, resetForm }) => (
+const Header = ({ onAddStaff, resetForm, canCreateStaff }) => (
   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div>
       <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Staff Management</h1>
       <p className="text-muted-foreground">Manage all staff members and their permissions</p>
     </div>
 
-    <Button onClick={onAddStaff} className="gap-2">
-      <UserPlus className="h-4 w-4" /> Add New Staff
-    </Button>
+    {canCreateStaff && (
+      <Button onClick={onAddStaff} className="gap-2">
+        <UserPlus className="h-4 w-4" /> Add New Staff
+      </Button>
+    )}
   </div>
 );
 
@@ -205,13 +208,15 @@ const UserList = ({
   getStatusVariant,
   getRoleLabel,
   searchTerm,
-  onAddStaff
+  onAddStaff,
+  canCreateStaff
 }) => {
   if (users.length === 0) {
     return (
       <EmptyState
         hasSearchTerm={!!searchTerm}
-        onAddStaff={() => router.push(`/${currentUser?.role}/staff/create`)}
+        onAddStaff={onAddStaff}
+        canCreateStaff={canCreateStaff}
       />
     );
   }
@@ -228,7 +233,7 @@ const UserList = ({
   );
 };
 
-const EmptyState = ({ hasSearchTerm, onAddStaff }) => (
+const EmptyState = ({ hasSearchTerm, onAddStaff, canCreateStaff }) => (
   <div className="border-2 border-dashed rounded-lg p-8 text-center">
     <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
     <h3 className="text-lg font-medium mb-2">
@@ -240,7 +245,7 @@ const EmptyState = ({ hasSearchTerm, onAddStaff }) => (
         : "Get started by adding your first staff member"
       }
     </p>
-    {!hasSearchTerm && (
+    {!hasSearchTerm && canCreateStaff && (
       <Button onClick={onAddStaff} className="gap-2">
         <UserPlus className="h-4 w-4" /> Add First Staff
       </Button>

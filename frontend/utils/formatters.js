@@ -3,7 +3,7 @@ export const formatPhoneNumber = (phoneNumber) => {
    if (!phoneNumber) return '';
 
    // Remove all non-digit characters
-   const cleaned = phoneNumber.replace(/\D/g, '');
+   const cleaned = String(phoneNumber).replace(/\D/g, '');
 
    // Pakistani phone number format: 0300-0000000
    if (cleaned.length >= 4) {
@@ -16,7 +16,7 @@ export const formatPhoneNumber = (phoneNumber) => {
 export const unformatPhoneNumber = (formattedNumber) => {
    if (!formattedNumber) return '';
    // Remove all non-digit characters to get the raw number
-   return formattedNumber.replace(/\D/g, '');
+   return String(formattedNumber).replace(/\D/g, '');
 };
 
 export const validatePhoneNumber = (phoneNumber) => {
@@ -37,7 +37,7 @@ export const validatePhoneNumber = (phoneNumber) => {
 export const formatPhoneNumberForDisplay = (phoneNumber) => {
    if (!phoneNumber) return '';
 
-   const cleaned = phoneNumber.replace(/\D/g, '');
+   const cleaned = String(phoneNumber).replace(/\D/g, '');
 
    if (cleaned.length === 11) {
       return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 11)}`;

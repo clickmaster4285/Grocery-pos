@@ -12,6 +12,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useGetPermissions } from "@/features/users/users.api";
 import { useState } from "react";
 import { DialogFooter } from "@/components/ui/dialog";
+import { useAuth } from "@/hooks/useAuth"; // Import useAuth hook
+import { usePermissions } from "@/hooks/usePermissions";
+import { getFilteredRoles } from "@/utils/roles"; // Import the utility function
 
 export const StaffForm = ({
    formData,
@@ -25,7 +28,11 @@ export const StaffForm = ({
    permissionsLoading,
    ROLES,
 }) => {
+   const { user: currentUser } = useAuth(); // Get currentUser
+   const { can } = usePermissions();
    const [permissionSearchTerm, setPermissionSearchTerm] = useState('');
+
+   const filteredRoles = getFilteredRoles(ROLES, currentUser?.role);
 
    const handlePermissionChange = (permissionKey, checked) => {
       let updatedPermissions = [...formData.permissions];
@@ -93,9 +100,9 @@ export const StaffForm = ({
                      value={formData.phone}
                      onChange={handlePhoneChange}
                      label="Phone Number *"
-                     required={true}
+                     required={false}
                      placeholder="0300-0000000"
-                     showValidation={true}
+                     showValidation={false}
                   />
                </div>
             </div>
@@ -103,7 +110,7 @@ export const StaffForm = ({
             <div className="space-y-2">
                <Label htmlFor="role">Role *</Label>
                <ComboBox
-                  items={ROLES}
+                  items={filteredRoles}
                   value={formData.role}
                   onValueChange={(value) => updateFormField('role', value)}
                   placeholder="Select Role"
@@ -203,7 +210,11 @@ export const StaffForm = ({
                </Button>
                <Button
                   type="submit"
-                  disabled={createUserMutation?.isLoading || updateUserMutation?.isLoading || false}
+                  disabled={
+                     createUserMutation?.isLoading ||
+                     updateUserMutation?.isLoading ||
+                     (!editingUser && !can('users:create'))
+                  }
                >
                   {editingUser ?
                      (updateUserMutation?.isLoading ? "Updating..." : "Update Staff") :
