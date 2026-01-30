@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth"; // Import useAuth
 import {
   Table,
   TableBody,
@@ -25,13 +26,14 @@ export const StaffTable = ({
   getRoleLabel,
 }) => {
   const router = useRouter();
+  const { user: currentUser } = useAuth(); // Get currentUser from useAuth
 
   return (
     <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[50px]"></TableHead>
+            <TableHead className="w-12.5"></TableHead>
             <TableHead>Name</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Phone</TableHead>
@@ -42,7 +44,7 @@ export const StaffTable = ({
         </TableHeader>
         <TableBody>
           {users.map((user) => (
-            <TableRow key={user._id} className="cursor-pointer" onClick={() => router.push(`/admin/staff/${user._id}`)}>
+            <TableRow key={user._id} className="cursor-pointer" onClick={() => router.push(`/${currentUser?.role}/staff/${user._id}`)}>
               <TableCell>
                 <UserAvatar user={user} size="sm" />
               </TableCell>

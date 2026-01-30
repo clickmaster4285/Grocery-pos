@@ -23,7 +23,7 @@ import { ROLES } from "@/constants/roles";
 const AllUsers = () => {
   const router = useRouter();
   const { data: users = [], isLoading, error, refetch } = useStaffList();
-  console.log({users})
+ 
   const deleteStaffMutation = useDeleteStaff();
 
   const { user: currentUser } = useAuth();
@@ -77,8 +77,6 @@ const AllUsers = () => {
     }
   }, [userToDelete, currentUser, deleteStaffMutation]);
 
-
-
   const getStatusBadge = useCallback((user) => (user.isActive ? 'Active' : 'Inactive'), []);
   const getStatusVariant = useCallback((user) => (user.isActive ? 'success' : 'destructive'), []);
   const getRoleLabel = useCallback((roleValue) => {
@@ -86,12 +84,12 @@ const AllUsers = () => {
     return role ? role.label : roleValue;
   }, [ROLES]);
 
-  // Redirect if not admin
+  // Redirect if user does not have 'users:read' permission
   useEffect(() => {
-    if (currentUser && currentUser.role !== 'admin') {
+    if (currentUser && !can('users:read')) {
       router.push('/unauthorized');
     }
-  }, [currentUser, router]);
+  }, [currentUser, can, router]);
 
   // Loading state
   if (isLoading) {

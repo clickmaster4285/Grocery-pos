@@ -34,7 +34,6 @@ export const useGetUserById = (id) => {
     queryKey: userKeys.detail(id),
     queryFn: async() =>{ 
       const response = await usersAPI.getUserById(id);
-      console.log('User Response:', response.data);
       return response;
     }, 
     staleTime: 60 * 1000, 
