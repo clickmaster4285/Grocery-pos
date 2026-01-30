@@ -34,7 +34,7 @@ export const StaffCard = ({
                      />
 
                      <div>
-                        <h3 className="font-semibold text-lg">{`${user.firstName} ${user.lastName}`}</h3>
+                        <h3 className="font-semibold text-lg">{`${user.firstName} ${user.lastName?user.lastName:""}`}</h3>
                         <Badge
                            variant={getStatusVariant(user)}
                            className="mt-1 capitalize"

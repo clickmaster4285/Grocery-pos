@@ -26,7 +26,7 @@ export const useGetAllUsers = () => {
        return response;
       }, 
     staleTime: 60 * 1000, 
-    select: (response) => response.data.data, 
+    select: (response) => response.data.users, 
   });
 };
 
