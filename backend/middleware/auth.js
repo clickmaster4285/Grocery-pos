@@ -1,6 +1,7 @@
 const { verifyToken } = require('../utils/jwt');
 const User = require('../models/User');
 const errorHandler = require('./errorHandler');
+const { getModulesFromPermissions } = require('../utils/getModules'); // Import the utility
 
 const auth = async (req, res, next) => {
   try {
@@ -37,7 +38,10 @@ const auth = async (req, res, next) => {
         });
     }
 
-    req.user = user;
+    // Populate availableModules for the user
+    const availableModules = getModulesFromPermissions(user.permissions);
+    req.user = { ...user.toObject(), availableModules }; // Convert Mongoose document to plain object
+
     next();
   } catch (error) {
     // Pass to the generic error handler

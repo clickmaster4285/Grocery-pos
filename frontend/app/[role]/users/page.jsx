@@ -1,9 +1,9 @@
 import React from 'react'
-import AllUsers from '@/components/shared-components/staff/page'
+import AllUsers from '@/components/shared-components/users/page'
 
 const page = () => {
   return (
-    <AllUsers/>
+    <AllUsers />
   )
 }
 

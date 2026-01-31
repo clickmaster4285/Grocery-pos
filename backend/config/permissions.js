@@ -1,23 +1,45 @@
-// Single source of truth for all system permissions.
-// Format: MODULE: { ACTION: 'module:action' }
+// backend/config/permissions.js
 
-const PERMISSIONS = {
-  USERS: {
-    CREATE: 'users:create',
-    READ: 'users:read',
-    UPDATE: 'users:update',
-    DELETE: 'users:delete',
-  },
-  PRODUCTS: {
-    CREATE: 'products:create',
-    READ: 'products:read',
-    UPDATE: 'products:update',
-    DELETE: 'products:delete',
-  },
-  DASHBOARD: {
-    VIEW: 'dashboard:view',
-  },
-  // Add new modules and permissions here
+// Define modules and permission types
+const modules = [
+  'Dashboard',
+  'Users',
+  'Products',
+];
+const permissionTypes = [
+  'create',
+  'read',
+  'update',
+  'delete',
+];
+
+// Programmatically generate permissions
+const PERMISSIONS = [];
+modules.forEach((module) => {
+  permissionTypes.forEach((type) => {
+    PERMISSIONS.push({
+      id: `${module.toLowerCase()}:${type}`,
+      name: `${type.charAt(0).toUpperCase() + type.slice(1)} ${module.slice(0, -1)}`,
+      module,
+    });
+  });
+});
+
+// For backwards compatibility, create the nested object structure
+const PERMISSIONS_OBJECT = {};
+PERMISSIONS.forEach(p => {
+  const [moduleName, action] = p.id.split(':');
+  const moduleKey = moduleName.toUpperCase();
+  const actionKey = action.toUpperCase();
+
+  if (!PERMISSIONS_OBJECT[moduleKey]) {
+    PERMISSIONS_OBJECT[moduleKey] = {};
+  }
+  PERMISSIONS_OBJECT[moduleKey][actionKey] = p.id;
+});
+
+
+module.exports = {
+  PERMISSIONS,
+  PERMISSIONS_OBJECT,
 };
-
-module.exports = PERMISSIONS;

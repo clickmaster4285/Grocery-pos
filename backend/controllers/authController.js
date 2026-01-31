@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const { comparePassword } = require('../utils/password');
 const { generateToken } = require('../utils/jwt');
+const { getModulesFromPermissions } = require('../utils/getModules');
 
 const login = async (req, res, next) => {
   try {
@@ -15,19 +16,23 @@ const login = async (req, res, next) => {
     if (!user || !(await comparePassword(password, user.password))) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
-    
+
     if (!user.isActive) {
       return res.status(403).json({ message: 'Your account is deactivated. Please contact support.' });
     }
-    
+
     // Update last login timestamp
     user.lastLogin = new Date();
     await user.save();
 
+    const userPermissions = user.permissions;
+    const availableModules = getModulesFromPermissions(userPermissions);
+
     const token = generateToken({
       userId: user.userId,
       role: user.role,
-      permissions: user.permissions,
+      permissions: userPermissions,
+      availableModules: availableModules, // Add structured modules to JWT
     });
 
     res.json({
@@ -39,7 +44,8 @@ const login = async (req, res, next) => {
         lastName: user.lastName,
         email: user.email,
         role: user.role,
-        permissions: user.permissions, 
+        permissions: userPermissions,
+        availableModules: availableModules, // Add structured modules to response
       },
     });
   } catch (error) {
@@ -49,7 +55,7 @@ const login = async (req, res, next) => {
 
 const getMe = async (req, res, next) => {
   // The user object is attached to the request by the `auth` middleware
-  // We just need to return it.
+  // We just need to return it. It now contains availableModules.
   res.status(200).json(req.user);
 };
 

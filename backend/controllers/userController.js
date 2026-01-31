@@ -2,6 +2,7 @@ const User = require('../models/User');
 const { generateUserId } = require('../utils/userIdGenerator');
 const { hashPassword } = require('../utils/password');
 const { generateToken } = require('../utils/jwt');
+const { PERMISSIONS } = require('../config/permissions'); // Add this line
 
 const createUser = async (req, res, next) => {
   try {
@@ -162,8 +163,19 @@ const deleteUser = async (req, res, next) => {
 
 const getPermissions = (req, res, next) => {
   try {
-    const PERMISSIONS = require('../config/permissions');
-    res.status(200).json(PERMISSIONS);
+    // Group all available permissions by module
+    const allModulesStructured = PERMISSIONS.reduce((acc, perm) => {
+      if (!acc[perm.module]) {
+        acc[perm.module] = {
+          moduleName: perm.module,
+          permissions: [],
+        };
+      }
+      acc[perm.module].permissions.push(perm.id);
+      return acc;
+    }, {});
+
+    res.status(200).json(Object.values(allModulesStructured));
   } catch (error) {
     next(error);
   }

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 
- const usersAPI = {
+const usersAPI = {
   getAllUsers: () => api.get('/users'),
   getUserById: (id) => api.get(`/users/${id}`),
   createUser: (userData) => api.post('/users', userData),

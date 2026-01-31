@@ -115,7 +115,7 @@ const AllUsers = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Header onAddStaff={() => router.push(`/${currentUser?.role}/staff/create`)} canCreateStaff={can('users:create')} />
+      <Header onAddStaff={() => router.push(`/${currentUser?.role}/users/create`)} canCreateStaff={can('users:create')} />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -143,13 +143,13 @@ const AllUsers = () => {
       {/* User Cards or Empty State */}
       <UserList
         users={filteredUsers}
-        onEdit={(user) => router.push(`/${currentUser?.role}/staff/${user._id}/edit`)}
+        onEdit={(user) => router.push(`/${currentUser?.role}/users/${user._id}/edit`)}
         onDelete={confirmDelete}
         getStatusBadge={getStatusBadge}
         getStatusVariant={getStatusVariant}
         getRoleLabel={getRoleLabel}
         searchTerm={searchTerm}
-        onAddStaff={() => router.push(`/${currentUser?.role}/staff/create`)}
+        onAddStaff={() => router.push(`/${currentUser?.role}/users/create`)}
         canCreateStaff={can('users:create')}
       />
 

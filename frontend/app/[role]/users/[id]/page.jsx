@@ -17,11 +17,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { Separator } from '@/components/ui/separator';
 import { formatPhoneNumberForDisplay } from '@/utils/formatters';
+import { useAuth } from "@/hooks/useAuth"
 
 const StaffDetailPage = () => {
   const router = useRouter();
   const params = useParams();
   const { id, role } = params;
+  const { user: currentUser } = useAuth(); // Get currentUser
 
   const { data: user, isLoading, error } = useGetUserById(id);
   const { data: allPermissions, isLoading: permissionsLoading } = useGetPermissions();
@@ -56,7 +58,7 @@ const StaffDetailPage = () => {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">{`${user.firstName} ${user.lastName}`}</h1>
-        <Button onClick={() => router.push(`/${role}/staff/${user._id}/edit`)}>Edit User</Button>
+        <Button onClick={() => router.push(`/${currentUser.role}/users/${user._id}/edit`)}>Edit User</Button>
       </div>
       <Button variant="outline" onClick={() => router.back()} className="mb-4">
         <ArrowLeft className="h-4 w-4 mr-2" />

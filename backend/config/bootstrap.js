@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const { generateUserId } = require('../utils/userIdGenerator');
 const { hashPassword } = require('../utils/password');
-const PERMISSIONS = require('./permissions'); 
+const { PERMISSIONS } = require('./permissions'); 
 
 const initializeAdminAccount = async () => {
   const {
@@ -32,7 +32,7 @@ const initializeAdminAccount = async () => {
 
     console.log('No admin user found. Creating default admin...');
 
-    const allPermissions = Object.values(PERMISSIONS).flatMap(module => Object.values(module));
+    const allPermissions = PERMISSIONS.map(p => p.id);
 
     const hashedPassword = await hashPassword(ADMIN_PASSWORD);
 

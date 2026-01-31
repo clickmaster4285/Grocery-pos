@@ -1,5 +1,5 @@
 'use client';
-import { buildSidebarSections } from '@/constants/sidebarRoutes';
+import { MODULE_ICONS } from '@/constants/sidebarRoutes';
 import { usePathname, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -7,89 +7,32 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
-import { usePermissions } from '@/hooks/usePermissions'; 
 import { useAvatar } from '@/hooks/useAvatar';
 import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  ChevronDown,
 } from 'lucide-react';
-import { useState, useMemo } from 'react'; 
+import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 
 function SidebarItem({ item, isCollapsed, pathname, userPrimaryRole }) {
-  const [open, setOpen] = useState(false);
   const router = useRouter();
-
-  const hasChildren = Array.isArray(item.children) && item.children.length > 0;
   const actualPath = `/${userPrimaryRole}${item.path}`;
-
-  // Check active state for parent & children
-  const childPaths = hasChildren
-    ? item.children.map((child) => `/${userPrimaryRole}${child.path}`)
-    : [];
-
-  const isActive =
-    pathname === actualPath ||
-    pathname.startsWith(actualPath + '/') ||
-    childPaths.some((p) => pathname === p || pathname.startsWith(p + '/'));
-
-  // Auto-open if one of the children or parent is active
-  useMemo(() => {
-    if (isActive && hasChildren) {
-      setOpen(true);
-    }
-  }, [isActive, hasChildren]);
-
-  const handleNavigation = (e) => {
-    if (!hasChildren) {
-        e.preventDefault();
-        router.push(actualPath);
-    }
-  };
-
-  if (!hasChildren) {
-    return (
-      <li>
-        <Button
-          variant={isActive ? 'secondary' : 'ghost'}
-          className={cn(
-            'w-full justify-start gap-3 h-10 px-3',
-            isActive ? 'font-medium bg-primary/10' : 'bg-primary/30',
-            isCollapsed ? 'justify-center px-0' : ''
-          )}
-          asChild
-        >
-          <Link href={actualPath} title={isCollapsed ? item.name : ''}>
-            <span
-              className={cn(
-                'text-muted-foreground shrink-0',
-                isActive ? 'text-primary' : ''
-              )}
-            >
-              {item.icon}
-            </span>
-            {!isCollapsed && <span className="truncate text-primary">{item.name}</span>}
-          </Link>
-        </Button>
-      </li>
-    );
-  }
+  const isActive = pathname === actualPath || pathname.startsWith(actualPath + '/');
 
   return (
     <li>
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
+      <Button
+        variant={isActive ? 'secondary' : 'ghost'}
         className={cn(
-          'w-full flex items-center gap-3 h-10 px-3 rounded-md text-sm transition-colors font-medium',
-          'hover:bg-accent hover:text-accent-foreground',
-          isActive ? 'bg-secondary font-medium' : '',
-          isCollapsed ? 'justify-center px-0' : 'justify-between'
+          'w-full justify-start gap-3 h-10 px-3',
+          isActive ? 'font-medium bg-primary/10' : 'bg-primary/30',
+          isCollapsed ? 'justify-center px-0' : ''
         )}
+        asChild
       >
-        <div className="flex items-center gap-3">
+        <Link href={actualPath} title={isCollapsed ? item.name : ''}>
           <span
             className={cn(
               'text-muted-foreground shrink-0',
@@ -98,49 +41,9 @@ function SidebarItem({ item, isCollapsed, pathname, userPrimaryRole }) {
           >
             {item.icon}
           </span>
-          {!isCollapsed && <span className="truncate">{item.name}</span>}
-        </div>
-
-        {!isCollapsed && (
-          <ChevronDown
-            className={cn(
-              'h-4 w-4 transition-transform',
-              open ? 'rotate-180' : ''
-            )}
-          />
-        )}
-      </button>
-
-      {/* Children links */}
-      {open && (
-        <div className={cn('mt-1 space-y-1', isCollapsed ? 'pl-0' : 'pl-8')}>
-          {item.children.map((child) => {
-            const childPath = `/${userPrimaryRole}${child.path}`;
-            const childActive =
-              pathname === childPath || pathname.startsWith(childPath + '/');
-
-            return (
-              <Button
-                key={child.name}
-                variant={childActive ? 'secondary' : 'ghost'}
-                className={cn(
-                  'w-full justify-start h-9 px-3 text-xs',
-                  childActive ? 'font-medium' : '',
-                  isCollapsed ? 'justify-center px-0' : ''
-                )}
-                asChild
-              >
-                <Link href={childPath} title={isCollapsed ? child.name : ''}>
-                  {!isCollapsed && (
-                    <span className="truncate">{child.name}</span>
-                  )}
-                  {isCollapsed && <span className="sr-only">{child.name}</span>}
-                </Link>
-              </Button>
-            );
-          })}
-        </div>
-      )}
+          {!isCollapsed && <span className="truncate text-primary">{item.name}</span>}
+        </Link>
+      </Button>
     </li>
   );
 }
@@ -148,9 +51,8 @@ function SidebarItem({ item, isCollapsed, pathname, userPrimaryRole }) {
 export default function DynamicSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth(); 
-  const { can } = usePermissions();
-  const { url: avatarUrl, initials } = useAvatar(user); 
+  const { user, logout } = useAuth();
+  const { url: avatarUrl, initials } = useAvatar(user);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
 
@@ -158,17 +60,40 @@ export default function DynamicSidebar() {
     return user?.role?.toLowerCase() || 'customer';
   }, [user]);
 
-  
+
   const { mainSections, bottomSection } = useMemo(() => {
-    if (!user) {
+    if (!user || !user.availableModules) {
       return { mainSections: [], bottomSection: { items: [] } };
     }
-    return buildSidebarSections(can);
-  }, [user, can]);
 
-  const replaceRoleInPath = (path) => {
-    return `/${userPrimaryRole}${path}`;
-  };
+    const allItems = user.availableModules.map(moduleInfo => {
+      // Determine the path based on the module name
+      let path;
+      if (moduleInfo.moduleName === 'Dashboard') {
+        path = '/dashboard'; // Dashboard might have a fixed path
+      } else {
+        path = `/${moduleInfo.moduleName.toLowerCase()}`;
+      }
+
+      return {
+        name: moduleInfo.moduleName,
+        path: path,
+        icon: MODULE_ICONS[moduleInfo.moduleName],
+        permissions: moduleInfo.permissions, // Keep permissions for potential future use
+      };
+    });
+
+    // Separate items into main and bottom sections
+    const mainItems = allItems.filter(item => item.name === 'Dashboard' || item.name === 'Users' || item.name === 'Products');
+    const bottomItems = allItems.filter(item => item.name === 'Settings' || item.name === 'Help');
+
+
+    return {
+      mainSections: mainItems.length > 0 ? [{ title: 'Main Menu', items: mainItems }] : [],
+      bottomSection: { items: bottomItems },
+    };
+
+  }, [user]);
 
   // Handle logout
   const handleLogout = () => {
@@ -180,7 +105,7 @@ export default function DynamicSidebar() {
   };
 
   if (!user) {
-    return null; 
+    return null;
   }
 
   return (
@@ -244,7 +169,7 @@ export default function DynamicSidebar() {
                           item={item}
                           isCollapsed={isCollapsed}
                           pathname={pathname}
-                          userPrimaryRole={userPrimaryRole} // Pass primary role for path construction
+                          userPrimaryRole={userPrimaryRole}
                         />
                       )
                     ))}

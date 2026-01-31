@@ -51,16 +51,16 @@ This section summarizes the significant features and architectural updates imple
 
 ### 3.2.1. Staff Management Pages Refactor
 Refactored staff management from modal-based interactions to dedicated pages for improved UX:
--   `frontend/app/[role]/staff/create/page.jsx`: Dedicated page for new staff creation.
--   `frontend/app/[role]/staff/[id]/page.jsx`: For viewing staff details (now includes a redesigned permissions table).
--   `frontend/app/[role]/staff/[id]/edit/page.jsx`: For editing existing staff.
+-   `frontend/app/[role]/users/create/page.jsx`: Dedicated page for new users creation.
+-   `frontend/app/[role]/users/[id]/page.jsx`: For viewing users details (now includes a redesigned permissions table).
+-   `frontend/app/[role]/users/[id]/edit/page.jsx`: For editing existing users.
 
 #### 3.2.2. Component Enhancements
 -   **`StaffForm`:** Adapted for page-based use (removed `Dialog` context), integrated `ComboBox` for role selection (supporting custom roles), and streamlined permission handling.
 -   **`StaffTable`:** New component replacing `StaffCard` grid for a list-based display of staff members. Table rows are clickable for detail view.
 -   **`StaffCard`:** Updated name display (`firstName`, `lastName`) and removed non-existent 'Department' field.
 -   **`ComboBox` (`frontend/components/ui/combobox.jsx`):** New reusable UI component for flexible selection with custom input capabilities.
--   **`StaffDetailPage` (`frontend/app/[role]/staff/[id]/page.jsx`):** Permissions are now displayed in a structured table with tick/cross icons for clarity.
+-   **`StaffDetailPage` (`frontend/app/[role]/users/[id]/page.jsx`):** Permissions are now displayed in a structured table with tick/cross icons for clarity.
 
 #### 3.2.3. Authentication & Profile Hooks
 -   **`frontend/hooks/useAuth.js`:** Centralized `useGetMe` (fetches current user) and new `useUpdateProfile` (updates user profile) hooks.
