@@ -30,6 +30,8 @@ export const StaffForm = ({
    const [permissionSearchTerm, setPermissionSearchTerm] = useState(''); // Keep this for local search in the form
 
    const filteredRoles = useMemo(() => getFilteredRoles(ROLES, currentUser?.role), [ROLES, currentUser?.role]);
+   
+   console.log("the role are ", filteredRoles)
 
    const handlePermissionChange = (permissionKey, checked) => {
       let updatedPermissions = [...formData.permissions];

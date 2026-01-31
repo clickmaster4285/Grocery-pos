@@ -27,7 +27,7 @@ export const useUsersHook = (userId = null) => {
         lastName: '',
         email: '',
         phone: '',
-        role: ROLES[0]?.value || '',
+        role: '',
         password: '',
         permissions: [],
         isActive: true,
