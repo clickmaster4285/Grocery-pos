@@ -7,7 +7,15 @@ const checkPermission = (requiredPermission) => {
       });
     }
 
-    const userHasPermission = req.user.permissions.includes(requiredPermission);
+    let userHasPermission = false;
+
+    if (Array.isArray(requiredPermission)) {
+      userHasPermission = requiredPermission.some(permission =>
+        req.user.permissions.includes(permission)
+      );
+    } else {
+      userHasPermission = req.user.permissions.includes(requiredPermission);
+    }
 
     if (userHasPermission) {
       return next();

@@ -21,18 +21,20 @@ import { ROLES } from "@/constants/roles";
 
 const AllUsers = () => {
   const router = useRouter();
-  const { data: users = [], isLoading, error, refetch } = useStaffList();
- 
-  const deleteStaffMutation = useDeleteStaff();
-
   const { user: currentUser } = useAuth();
+  const canReadStaff = currentUser?.permissions?.includes('users:read');
 
+  const { data: users = [], isLoading, error, refetch } = useStaffList({
+    enabled: canReadStaff,
+  });
+
+  const deleteStaffMutation = useDeleteStaff(); 
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
 
   const filteredUsers = useMemo(() => {
-    if (!users) return [];
+    if (!users || !canReadStaff) return [];
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
     return users.filter(user =>
       user.firstName?.toLowerCase().includes(lowerCaseSearchTerm) ||
@@ -44,7 +46,7 @@ const AllUsers = () => {
   }, [users, searchTerm]);
 
   const stats = useMemo(() => {
-    if (!users) return [];
+    if (!users || !canReadStaff) return [];
     const activeUsers = users.filter(user => user.isActive).length;
     const inactiveUsers = users.filter(user => !user.isActive).length;
     return [
@@ -82,12 +84,6 @@ const AllUsers = () => {
     return role ? role.label : roleValue;
   }, [ROLES]);
 
-  // Redirect if user does not have 'users:read' permission
-  useEffect(() => {
-    if (currentUser && !currentUser?.permissions?.includes('users:read')) {
-      router.push('/unauthorized');
-    }
-  }, [currentUser, router]);
 
   // Determine permissions for rendering UI elements
   const canCreateStaff = currentUser?.permissions?.includes('users:create');
@@ -114,6 +110,8 @@ const AllUsers = () => {
       </div>
     );
   }
+
+
 
   return (
     <div className="space-y-6">
@@ -144,20 +142,24 @@ const AllUsers = () => {
       />
 
       {/* User Cards or Empty State */}
-      <UserList
-        users={filteredUsers}
-        onEdit={(user) => router.push(`/${currentUser?.role}/users/${user._id}/edit`)}
-        onDelete={confirmDelete}
-        getStatusBadge={getStatusBadge}
-        getStatusVariant={getStatusVariant}
-        getRoleLabel={getRoleLabel}
-        searchTerm={searchTerm}
-        onAddStaff={() => router.push(`/${currentUser?.role}/users/create`)}
-        canCreateStaff={canCreateStaff}
-        canUpdateStaff={canUpdateStaff}
-        canDeleteStaff={canDeleteStaff}
-        currentUserRole={currentUser?.role}
-      />
+      {canReadStaff ? (
+        <UserList
+          users={filteredUsers}
+          onEdit={(user) => router.push(`/${currentUser?.role}/users/${user._id}/edit`)}
+          onDelete={confirmDelete}
+          getStatusBadge={getStatusBadge}
+          getStatusVariant={getStatusVariant}
+          getRoleLabel={getRoleLabel}
+          searchTerm={searchTerm}
+          onAddStaff={() => router.push(`/${currentUser?.role}/users/create`)}
+          canCreateStaff={canCreateStaff}
+          canUpdateStaff={canUpdateStaff}
+          canDeleteStaff={canDeleteStaff}
+          currentUserRole={currentUser?.role}
+        />
+      ) : (
+        <PermissionErrorState />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog
@@ -172,7 +174,6 @@ const AllUsers = () => {
 };
 
 // Helper Components
-
 const Header = ({ onAddStaff, resetForm, canCreateStaff }) => (
   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div>
@@ -260,6 +261,18 @@ const EmptyState = ({ hasSearchTerm, onAddStaff, canCreateStaff }) => (
         <UserPlus className="h-4 w-4" /> Add First Staff
       </Button>
     )}
+  </div>
+);
+
+const PermissionErrorState = () => (
+  <div className="p-6 flex flex-col items-center justify-center space-y-4 text-center">
+    <XCircle className="h-12 w-12 text-red-500 mx-auto" />
+    <h3 className="text-xl font-semibold text-red-600">Access Denied</h3>
+    <p className="text-muted-foreground">
+      You do not have permission to view staff members.
+      <br />
+      Please contact your administrator for assistance.
+    </p>
   </div>
 );
 

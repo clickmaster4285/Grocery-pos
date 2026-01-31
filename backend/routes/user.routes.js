@@ -21,7 +21,7 @@ router.get('/', checkPermission(PERMISSIONS_OBJECT.USERS.READ), getAllUsers);
 
 router.get(
   '/permissions', // Updated route path for getPermissions
-  checkPermission(PERMISSIONS_OBJECT.USERS.READ),
+  checkPermission([PERMISSIONS_OBJECT.USERS.CREATE, PERMISSIONS_OBJECT.USERS.READ]),
   getPermissions,
 );
 

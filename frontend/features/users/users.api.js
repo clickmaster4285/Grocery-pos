@@ -17,7 +17,7 @@ export const userKeys = {
   detail: (id) => [...userKeys.details(), id],
 };
 
-export const useGetAllUsers = () => {
+export const useGetAllUsers = (options) => {
   return useQuery({
     queryKey: userKeys.lists(),
     queryFn: async () =>{
@@ -34,6 +34,7 @@ export const useGetAllUsers = () => {
       // Otherwise, retry up to 3 times
       return failureCount < 3;
     },
+    ...options,
   });
 };
 
