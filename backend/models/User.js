@@ -38,7 +38,7 @@ const userSchema = new mongoose.Schema(
     },
     phone: {
       type: Number,
-      required: [true, 'Phone number is required'],
+      // required: [true, 'Phone number is required'],
       unique: true, 
       trim: true,
       match: [
