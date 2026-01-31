@@ -3,7 +3,7 @@
 import React from 'react'; // Added import
 import DynamicSidebar from '@/components/layout/DynamicSidebar';
 import DynamicNavbar from '@/components/layout/DynamicNavbar';
-import Loading from '../loading';
+import Loading from '@/app/loading/page';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -40,6 +40,8 @@ export default function RoleLayout({ children, params }) {
    if (isLoading || !isAuthenticated || !user) {
       return null;
    }
+
+   console.log("the user is ", user);
 
    return (
       <div className="flex h-screen overflow-hidden">

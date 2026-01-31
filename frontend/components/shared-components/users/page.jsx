@@ -17,7 +17,6 @@ import { StaffTable } from "./StaffTable";
 import { StatsCard } from "./StatsCard";
 import { useStaffList, useDeleteStaff } from "@/features/users/users.api";
 import { useAuth } from "@/hooks/useAuth";
-import { usePermissions } from "@/hooks/usePermissions";
 import { ROLES } from "@/constants/roles";
 
 const AllUsers = () => {
@@ -27,7 +26,6 @@ const AllUsers = () => {
   const deleteStaffMutation = useDeleteStaff();
 
   const { user: currentUser } = useAuth();
-  const { can } = usePermissions();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -86,10 +84,15 @@ const AllUsers = () => {
 
   // Redirect if user does not have 'users:read' permission
   useEffect(() => {
-    if (currentUser && !can('users:read')) {
+    if (currentUser && !currentUser?.permissions?.includes('users:read')) {
       router.push('/unauthorized');
     }
-  }, [currentUser, can, router]);
+  }, [currentUser, router]);
+
+  // Determine permissions for rendering UI elements
+  const canCreateStaff = currentUser?.permissions?.includes('users:create');
+  const canUpdateStaff = currentUser?.permissions?.includes('users:update');
+  const canDeleteStaff = currentUser?.permissions?.includes('users:delete');
 
   // Loading state
   if (isLoading) {
@@ -115,7 +118,7 @@ const AllUsers = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Header onAddStaff={() => router.push(`/${currentUser?.role}/users/create`)} canCreateStaff={can('users:create')} />
+      <Header onAddStaff={() => router.push(`/${currentUser?.role}/users/create`)} canCreateStaff={canCreateStaff} />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -150,7 +153,10 @@ const AllUsers = () => {
         getRoleLabel={getRoleLabel}
         searchTerm={searchTerm}
         onAddStaff={() => router.push(`/${currentUser?.role}/users/create`)}
-        canCreateStaff={can('users:create')}
+        canCreateStaff={canCreateStaff}
+        canUpdateStaff={canUpdateStaff}
+        canDeleteStaff={canDeleteStaff}
+        currentUserRole={currentUser?.role}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -209,7 +215,9 @@ const UserList = ({
   getRoleLabel,
   searchTerm,
   onAddStaff,
-  canCreateStaff
+  canCreateStaff,
+  canUpdateStaff, 
+  canDeleteStaff
 }) => {
   if (users.length === 0) {
     return (
@@ -229,6 +237,8 @@ const UserList = ({
       getStatusBadge={getStatusBadge}
       getStatusVariant={getStatusVariant}
       getRoleLabel={getRoleLabel}
+      canUpdateStaff={canUpdateStaff} 
+      canDeleteStaff={canDeleteStaff} 
     />
   );
 };

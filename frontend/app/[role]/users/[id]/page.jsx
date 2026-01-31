@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table"; 
 import { useGetPermissions, useGetUserById } from '@/features/users/users.api';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react'; // Added useMemo
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserAvatar } from '@/components/ui/UserAvatar';
@@ -26,11 +26,11 @@ const StaffDetailPage = () => {
   const { user: currentUser } = useAuth(); // Get currentUser
 
   const { data: user, isLoading, error } = useGetUserById(id);
-  const { data: allPermissions, isLoading: permissionsLoading } = useGetPermissions();
+  const { data: allPermissionsData, isLoading: permissionsLoading } = useGetPermissions(); // Renamed to allPermissionsData
 
   useEffect(() => {
     if (error) {
-      router.push(`/${role}/staff`);
+      router.push(`/${role}/users`);
     }
   }, [error, router, role]);
 
@@ -46,19 +46,39 @@ const StaffDetailPage = () => {
     );
   }
 
+  // Determine permissions for rendering UI elements
+  const canUpdateStaff = currentUser?.permissions?.includes('users:update');
+  const canDeleteStaff = currentUser?.permissions?.includes('users:delete'); 
+
   const getStatusBadge = (isActive) => (isActive ? 'Active' : 'Inactive');
   const getStatusVariant = (isActive) => (isActive ? 'success' : 'destructive');
 
-  // Extract unique permission types (Create, Read, Update, Delete, View)
-  const uniquePermissionTypes = [
-    ...new Set(allPermissions.flatMap(module => module.permissions.map(p => p.label)))
-  ].sort();
+  // Transform allPermissionsData into the format expected by the rendering logic
+  const transformedAllPermissions = useMemo(() => {
+    if (!allPermissionsData || allPermissionsData.length === 0) {
+      return [];
+    }
+    return allPermissionsData.map(module => ({
+      ...module,
+      permissions: module.permissions.map(pId => ({
+        key: pId,
+        label: pId.split(':')[1].replace(/([A-Z])/g, ' $1').trim(), // Extract label from permission ID
+      })),
+    }));
+  }, [allPermissionsData]);
+
+  // Extract unique permission types (Create, Read, Update, Delete, View) from transformed data
+  const uniquePermissionTypes = useMemo(() => {
+    return [...new Set(transformedAllPermissions.flatMap(module => module.permissions.map(p => p.label)))].sort();
+  }, [transformedAllPermissions]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">{`${user.firstName} ${user.lastName}`}</h1>
-        <Button onClick={() => router.push(`/${currentUser.role}/users/${user._id}/edit`)}>Edit User</Button>
+        {canUpdateStaff && ( 
+          <Button onClick={() => router.push(`/${currentUser.role}/users/${user._id}/edit`)}>Edit User</Button>
+        )}
       </div>
       <Button variant="outline" onClick={() => router.back()} className="mb-4">
         <ArrowLeft className="h-4 w-4 mr-2" />
@@ -104,7 +124,7 @@ const StaffDetailPage = () => {
           <Separator />
           <div>
             <h3 className="text-xl font-semibold mb-2">Permissions</h3>
-            {allPermissions && allPermissions.length > 0 ? (
+            {transformedAllPermissions && transformedAllPermissions.length > 0 ? (
               <div className="rounded-md border overflow-hidden">
                 <Table>
                   <TableHeader>
@@ -116,15 +136,16 @@ const StaffDetailPage = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {allPermissions.map((module) => (
-                      <TableRow key={module.module}>
-                        <TableCell className="font-medium">{module.module}</TableCell>
+                    {transformedAllPermissions.map((module) => (
+                      <TableRow key={module.moduleName}>
+                        <TableCell className="font-medium">{module.moduleName}</TableCell>
                         {uniquePermissionTypes.map((type) => {
-                          const permission = module.permissions.find(p => p.label === type);
-                          const hasPermission = permission ? user.permissions.includes(permission.key) : false;
+                          const hasPermissionInModule = module.permissions.some(p => p.label === type); // Check if module has this permission type
+                          const userHasPermission = user.permissions.includes(module.moduleName.toLowerCase() + ':' + type.toLowerCase()); // Check if user has the specific permission
+
                           return (
                             <TableCell key={type} className="text-center">
-                              {hasPermission ? (
+                              {hasPermissionInModule && userHasPermission ? (
                                 <Check className="h-5 w-5 text-green-500 mx-auto" />
                               ) : (
                                 <X className="h-5 w-5 text-red-500 mx-auto" />

@@ -25,7 +25,15 @@ export const useGetAllUsers = () => {
        return response;
       }, 
     staleTime: 60 * 1000, 
-    select: (response) => response.data.users, 
+    select: (response) => response.data.users,
+    retry: (failureCount, error) => {
+      // Don't retry if the error status is 403 (Forbidden)
+      if (error?.response?.status === 403) {
+        return false;
+      }
+      // Otherwise, retry up to 3 times
+      return failureCount < 3;
+    },
   });
 };
 

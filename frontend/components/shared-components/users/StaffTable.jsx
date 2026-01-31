@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth"; // Import useAuth
 import {
   Table,
   TableBody,
@@ -24,9 +23,11 @@ export const StaffTable = ({
   getStatusBadge,
   getStatusVariant,
   getRoleLabel,
+  canUpdateStaff, 
+  canDeleteStaff, 
+  currentUserRole, 
 }) => {
   const router = useRouter();
-  const { user: currentUser } = useAuth(); // Get currentUser from useAuth
 
   return (
     <div className="rounded-md border">
@@ -44,7 +45,7 @@ export const StaffTable = ({
         </TableHeader>
         <TableBody>
           {users.map((user) => (
-            <TableRow key={user._id} className="cursor-pointer" onClick={() => router.push(`/${currentUser?.role}/staff/${user._id}`)}>
+            <TableRow key={user._id} className="cursor-pointer" onClick={() => router.push(`/${currentUserRole}/users/${user._id}`)}>
               <TableCell>
                 <UserAvatar user={user} size="sm" />
               </TableCell>
@@ -67,27 +68,33 @@ export const StaffTable = ({
                 </Badge>
               </TableCell>
               <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onEdit(user)}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit Details
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => onDelete(user)}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Staff
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {(canUpdateStaff || canDeleteStaff) && ( 
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {canUpdateStaff && (
+                        <DropdownMenuItem onClick={() => onEdit(user)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Details
+                        </DropdownMenuItem>
+                      )}
+                      {canUpdateStaff && canDeleteStaff && <DropdownMenuSeparator />}
+                      {canDeleteStaff && (
+                        <DropdownMenuItem
+                          onClick={() => onDelete(user)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete Staff
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </TableCell>
             </TableRow>
           ))}

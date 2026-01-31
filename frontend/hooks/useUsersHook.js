@@ -99,7 +99,7 @@ export const useUsersHook = (userId = null) => {
                 await createUserMutation.mutateAsync(dataToSubmit);
                 toast.success('User created successfully.', { id: toastId });
             }
-            router.push(`/${params.role}/staff`);
+            router.push(`/${params.role}/users`);
         } catch (err) {
             toast.error('Operation Failed', {
                 id: toastId,
