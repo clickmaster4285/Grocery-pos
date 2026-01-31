@@ -41,13 +41,6 @@ const AnalyticsCharts = dynamic(
   }
 );
 
-const UserManagementSection = dynamic(
-  () => import('@/components/shared-components/dashboard/UserManagementSection'),
-  {
-    loading: () => <div className="h-96 rounded-lg bg-muted animate-pulse" />,
-  }
-);
-
 // ---- MOCK DATA ----
 const initialUsers = [
   {
@@ -309,8 +302,6 @@ const UserManagementPage = () => {
         inventoryByCategory={inventoryByCategory}
         systemHealthData={systemHealthData}
       />
-
-      <UserManagementSection users={users} onDeleteUser={handleDeleteUser} />
     </div>
   );
 };

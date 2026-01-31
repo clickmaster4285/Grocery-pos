@@ -40,9 +40,7 @@ export default function RoleLayout({ children, params }) {
    if (isLoading || !isAuthenticated || !user) {
       return null;
    }
-
-   console.log("the user is ", user);
-
+   
    return (
       <div className="flex h-screen overflow-hidden">
          <DynamicSidebar />

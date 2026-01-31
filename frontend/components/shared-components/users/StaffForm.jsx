@@ -27,11 +27,9 @@ export const StaffForm = ({
    ROLES,
 }) => {
    const { user: currentUser } = useAuth();
-   const [permissionSearchTerm, setPermissionSearchTerm] = useState(''); // Keep this for local search in the form
+   const [permissionSearchTerm, setPermissionSearchTerm] = useState(''); 
 
    const filteredRoles = useMemo(() => getFilteredRoles(ROLES, currentUser?.role), [ROLES, currentUser?.role]);
-   
-   console.log("the role are ", filteredRoles)
 
    const handlePermissionChange = (permissionKey, checked) => {
       let updatedPermissions = [...formData.permissions];
@@ -43,7 +41,6 @@ export const StaffForm = ({
       updateFormField('permissions', updatedPermissions);
    };
 
-   // Handle phone change with formatting
    const handlePhoneChange = (phone) => {
       updateFormField('phone', phone);
    };

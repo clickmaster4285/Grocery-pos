@@ -88,7 +88,6 @@ export const useGetPermissions = () => {
     queryKey: [...userKeys.all, 'permissions'],
     queryFn: async () => {
       const response = await usersAPI.getPermissions();
-      console.log('Permissions response:', response.data);
       return response;
     },
     select: (response) => response.data, // Directly return the structured array
