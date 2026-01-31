@@ -79,18 +79,10 @@ export const useGetPermissions = () => {
     queryKey: [...userKeys.all, 'permissions'],
     queryFn: async () => {
       const response = await usersAPI.getPermissions();
+      console.log('Permissions response:', response.data);
       return response;
     },
-    select: (response) => {
-      const permissionsObject = response.data; 
-      return Object.entries(permissionsObject).map(([moduleName, perms]) => ({
-        module: moduleName,
-        permissions: Object.entries(perms).map(([key, value]) => ({
-          key: value,
-          label: value.split(':')[1].replace(/([A-Z])/g, ' $1').trim(), 
-        })),
-      }));
-    },
+    select: (response) => response.data, // Directly return the structured array
   });
 };
 

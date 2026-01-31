@@ -9,12 +9,10 @@ import { ComboBox } from "@/components/ui/combobox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useGetPermissions } from "@/features/users/users.api";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { DialogFooter } from "@/components/ui/dialog";
-import { useAuth } from "@/hooks/useAuth"; // Import useAuth hook
-import { usePermissions } from "@/hooks/usePermissions";
-import { getFilteredRoles } from "@/utils/roles"; // Import the utility function
+import { useAuth } from "@/hooks/useAuth";
+import { getFilteredRoles } from "@/utils/roles";
 
 export const StaffForm = ({
    formData,
@@ -24,15 +22,14 @@ export const StaffForm = ({
    editingUser,
    createUserMutation,
    updateUserMutation,
-   allPermissions,
+   allPermissions, // This is the structured and transformed data from useUsersHook
    permissionsLoading,
    ROLES,
 }) => {
-   const { user: currentUser } = useAuth(); // Get currentUser
-   const { can } = usePermissions();
-   const [permissionSearchTerm, setPermissionSearchTerm] = useState('');
+   const { user: currentUser } = useAuth();
+   const [permissionSearchTerm, setPermissionSearchTerm] = useState(''); // Keep this for local search in the form
 
-   const filteredRoles = getFilteredRoles(ROLES, currentUser?.role);
+   const filteredRoles = useMemo(() => getFilteredRoles(ROLES, currentUser?.role), [ROLES, currentUser?.role]);
 
    const handlePermissionChange = (permissionKey, checked) => {
       let updatedPermissions = [...formData.permissions];
@@ -146,12 +143,12 @@ export const StaffForm = ({
                <Label>Permissions</Label>
                {permissionsLoading && <p className="text-muted-foreground">Loading permissions...</p>}
                {!permissionsLoading && allPermissions && allPermissions.length > 0 ? (
-                  <Tabs defaultValue={allPermissions[0]?.module} className="w-full">
+                  <Tabs defaultValue={allPermissions[0]?.moduleName} className="w-full">
                      <div className="flex flex-col md:flex-row gap-2 mb-4 justify-between">
                         <TabsList>
                            {allPermissions.map((module) => (
-                              <TabsTrigger key={module.module} value={module.module}>
-                                 {module.module}
+                              <TabsTrigger key={module.moduleName} value={module.moduleName}>
+                                 {module.moduleName}
                               </TabsTrigger>
                            ))}
                         </TabsList>
@@ -164,7 +161,7 @@ export const StaffForm = ({
                      </div>
 
                      {allPermissions.map((module) => (
-                        <TabsContent key={module.module} value={module.module}>
+                        <TabsContent key={module.moduleName} value={module.moduleName}>
                            <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto border p-2 rounded-md">
                               {module.permissions.filter(permission =>
                                  permission.key.toLowerCase().includes(permissionSearchTerm.toLowerCase()) ||
@@ -212,8 +209,7 @@ export const StaffForm = ({
                   type="submit"
                   disabled={
                      createUserMutation?.isLoading ||
-                     updateUserMutation?.isLoading ||
-                     (!editingUser && !can('users:create'))
+                     updateUserMutation?.isLoading
                   }
                >
                   {editingUser ?

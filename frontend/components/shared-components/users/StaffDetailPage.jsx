@@ -20,17 +20,14 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useStaff, useUpdateStaff, useDeleteStaff } from '@/hooks/useStaff';
 import { ROLES } from '@/constants/roles';
 
-// Helper function to get role label (can be moved to utils/staff.js)
+
 const getRoleLabel = (roleValue) => {
   const role = ROLES.find(r => r.value === roleValue);
   return role ? role.label : roleValue;
 };
 
-
-// Helper function to get status badge (can be moved to utils/staff.js)
 const getStatusBadge = (user) => (user.isActive ? 'Active' : 'Inactive');
 const getStatusVariant = (user) => (user.isActive ? 'success' : 'destructive');
-
 
 export const StaffDetailPage = () => {
   const { id } = useParams(); 
