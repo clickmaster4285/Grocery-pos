@@ -1,309 +1,372 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { toast } from 'sonner';
-import dynamic from 'next/dynamic';
-import { Users, FolderKanban, Package, AlertTriangle } from 'lucide-react';
-import { useStaffList, useCreateUser } from '@/features/users/users.api';
+import React from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  FileText,
+  Package,
+  TrendingUp,
+  ShoppingCart,
+  Layers,
+  Box,
+  MoreHorizontal,
+} from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
 
-// 🔹 Lazy-loaded components
-const AdminHeader = dynamic(
-  () => import('@/components/shared-components/dashboard/DashboardHeader'),
-  {
-    loading: () => (
-      <div className="h-16 rounded-lg bg-muted animate-pulse mb-4" />
-    ),
-  }
-);
-
-const StatsCards = dynamic(() => import('@/components/shared-components/dashboard/StatsCards'), {
-  loading: () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="h-28 rounded-lg bg-muted animate-pulse" />
-      ))}
-    </div>
-  ),
-});
-
-const AnalyticsCharts = dynamic(
-  () => import('@/components/shared-components/dashboard/AnalyticsCharts'),
-  {
-    loading: () => (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <div key={i} className="h-80 rounded-lg bg-muted animate-pulse" />
-        ))}
-      </div>
-    ),
-    // If recharts breaks on SSR, you can enable:
-    // ssr: false,
-  }
-);
-
-// ---- MOCK DATA ----
-const initialUsers = [
-  {
-    id: '1',
-    name: 'Ali Khan',
-    email: 'ali.khan@matrix.com',
-    role: 'admin',
-    department: 'IT',
-    status: 'active',
-    lastLogin: '2024-11-20T08:30:00',
-    createdAt: '2024-01-15',
-    phone: '+1-555-0101',
-  },
-  {
-    id: '2',
-    name: 'Sara Ahmed',
-    email: 'sara.ahmed@matrix.com',
-    role: 'manager',
-    department: 'Operations',
-    status: 'active',
-    lastLogin: '2024-11-20T09:15:00',
-    createdAt: '2024-02-20',
-    phone: '+1-555-0102',
-  },
-  {
-    id: '3',
-    name: 'Bilal Hussain',
-    email: 'bilal.hussain@matrix.com',
-    role: 'engineer',
-    department: 'Engineering',
-    status: 'active',
-    lastLogin: '2024-11-19T14:20:00',
-    createdAt: '2024-03-10',
-    phone: '+1-555-0103',
-  },
-  {
-    id: '4',
-    name: 'Guest User',
-    email: 'guest@matrix.com',
-    role: 'viewer',
-    department: 'External',
-    status: 'inactive',
-    lastLogin: '2024-11-10T11:00:00',
-    createdAt: '2024-04-05',
-    phone: '+1-555-0104',
-  },
+// --- Mock Data ---
+const salesData = [
+  { time: "9 AM", value: 0 },
+  { time: "10 AM", value: 500 },
+  { time: "11 AM", value: 1000 },
+  { time: "12 PM", value: 2000 },
+  { time: "1 PM", value: 2400 },
+  { time: "2 PM", value: 1800 },
+  { time: "3 PM", value: 2300 },
+  { time: "4 PM", value: 2600 },
+  { time: "5 PM", value: 3100 },
+  { time: "6 PM", value: 2800 },
+  { time: "7 PM", value: 1800 },
+  { time: "8 PM", value: 1200 },
 ];
 
-const initialProjects = [
-  {
-    id: 'p1',
-    name: 'Tower Upgrade',
-    description: '4G to 5G upgrade for key sites',
-    status: 'active',
-    assignedTo: ['1', '3'],
-    startDate: '2025-01-10',
-    endDate: '2025-03-15',
-    progress: 45,
-    priority: 'high',
-  },
-  {
-    id: 'p2',
-    name: 'Fiber Rollout',
-    description: 'Metro fiber expansion phase 2',
-    status: 'completed',
-    assignedTo: ['2'],
-    startDate: '2024-09-01',
-    endDate: '2024-12-20',
-    progress: 100,
-    priority: 'medium',
-  },
-  {
-    id: 'p3',
-    name: 'IBS Project',
-    description: 'In-building solution for mall',
-    status: 'on-hold',
-    assignedTo: ['3'],
-    startDate: '2025-02-01',
-    endDate: '2025-05-30',
-    progress: 20,
-    priority: 'high',
-  },
+const paymentData = [
+  { name: "Card", value: 65, color: "#ea580c" }, // Orange-600
+  { name: "Cash", value: 20, color: "#9ca3af" }, // Gray-400
+  { name: "Digital Wallet", value: 10, color: "#e5e7eb" }, // Gray-200
+  { name: "Other", value: 5, color: "#f3f4f6" }, // Gray-100
 ];
 
-const initialInventory = [
-  {
-    id: 'i1',
-    name: 'RF Antenna',
-    category: 'RF Equipment',
-    quantity: 15,
-    unit: 'pcs',
-    minimumStock: 10,
-    location: 'Warehouse A',
-    lastUpdated: '2025-03-01',
-    status: 'in-stock',
-  },
-  {
-    id: 'i2',
-    name: 'Fiber Patch Cord',
-    category: 'Fiber',
-    quantity: 8,
-    unit: 'pcs',
-    minimumStock: 15,
-    location: 'Warehouse B',
-    lastUpdated: '2025-03-02',
-    status: 'low-stock',
-  },
-  {
-    id: 'i3',
-    name: 'Rack Mount Switch',
-    category: 'Networking',
-    quantity: 4,
-    unit: 'pcs',
-    minimumStock: 5,
-    location: 'Warehouse C',
-    lastUpdated: '2025-03-03',
-    status: 'critical',
-  },
-  {
-    id: 'i4',
-    name: 'Battery Bank',
-    category: 'Power',
-    quantity: 20,
-    unit: 'pcs',
-    minimumStock: 10,
-    location: 'Warehouse A',
-    lastUpdated: '2025-03-04',
-    status: 'in-stock',
-  },
+const topSellingProducts = [
+  { name: "Milk 1L", price: "$2,340" },
+  { name: "Eggs (Dozen)", price: "$1,980" },
+  { name: "Bread", price: "$1,620" },
+  { name: "Apples", price: "$1,310" },
 ];
 
-function getCategoryColor(category) {
-  const colors = {
-    'RF Equipment': '#8b5cf6',
-    Fiber: '#06b6d4',
-    Networking: '#f59e0b',
-    Power: '#ef4444',
-  };
-  return colors[category] || '#6b7280';
-}
+const lowStockAlerts = [
+  { name: "Rice 5kg", status: "Critical", variant: "destructive" },
+  { name: "Cooking Oil", status: "Low", variant: "warning" },
+  { name: "Sugar", status: "Low", variant: "warning" },
+];
 
-const UserManagementPage = () => {
-  const [users, setUsers] = useState(initialUsers);
-  const [projects] = useState(initialProjects);
-  const [inventory] = useState(initialInventory);
+const activePromotions = [
+  { name: "Buy 1 Get 1 - Snacks", value: "$2,340" },
+  { name: "10% Off Dairy", value: "$1,980" },
+  { name: "Weekend Combo Deal", value: "$1,620" },
+];
 
-  // ---- derived values ----
-  const activeUsers = users.filter((u) => u.status === 'active').length;
-  const activeProjects = projects.filter((p) => p.status === 'active').length;
-  const lowStockItems = inventory.filter(
-    (item) => item.quantity <= item.minimumStock
-  ).length;
-
-  const inventoryByCategory = inventory.reduce((acc, item) => {
-    const existing = acc.find((i) => i.category === item.category);
-    if (existing) {
-      existing.quantity += item.quantity;
-    } else {
-      acc.push({
-        category: item.category,
-        quantity: item.quantity,
-        color: getCategoryColor(item.category),
-      });
-    }
-    return acc;
-  }, []);
-
-  const roleDistribution = [
-    {
-      name: 'Admin',
-      value: users.filter((u) => u.role === 'admin').length,
-      color: '#ef4444',
-    },
-    {
-      name: 'Manager',
-      value: users.filter((u) => u.role === 'manager').length,
-      color: '#3b82f6',
-    },
-    {
-      name: 'Engineer',
-      value: users.filter((u) => u.role === 'engineer').length,
-      color: '#10b981',
-    },
-    {
-      name: 'Viewer',
-      value: users.filter((u) => u.role === 'viewer').length,
-      color: '#6b7280',
-    },
-  ];
-
-  const projectStatusData = [
-    {
-      name: 'Active',
-      value: projects.filter((p) => p.status === 'active').length,
-      color: '#10b981',
-    },
-    {
-      name: 'Completed',
-      value: projects.filter((p) => p.status === 'completed').length,
-      color: '#3b82f6',
-    },
-    {
-      name: 'On Hold',
-      value: projects.filter((p) => p.status === 'on-hold').length,
-      color: '#f59e0b',
-    },
-  ];
-
-  const systemHealthData = [
-    { name: 'Users', value: (activeUsers / users.length) * 100 },
-    { name: 'Projects', value: (activeProjects / projects.length) * 100 },
-    {
-      name: 'Inventory',
-      value: ((inventory.length - lowStockItems) / inventory.length) * 100,
-    },
-  ];
-
-  // ---- handlers ----
-  const handleAddUser = (payload) => {
-    const userToAdd = {
-      ...payload,
-      id: Date.now().toString(),
-      status: 'active',
-      lastLogin: new Date().toISOString(),
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-
-    setUsers((prev) => [...prev, userToAdd]);
-
-    toast.success('User Added Successfully', {
-      description: `${payload.name} has been added to the system.`,
-    });
-  };
-
-  const handleDeleteUser = (id, name) => {
-    setUsers((prev) => prev.filter((u) => u.id !== id));
-    toast.info('User Removed', {
-      description: `${name} has been removed from the system.`,
-    });
-  };
-
+export default function Dashboard() {
   return (
-    <div className="min-h-screen p-6 space-y-6 animate-fade-in">
-      <AdminHeader onAddUser={handleAddUser} />
+    <div className="min-h-screen bg-gray-50/50 p-8">
+      {/* --- Header --- */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-500 mt-1">
+            Real-time store performance snapshot
+          </p>
+        </div>
+        <div className="flex gap-3 mt-4 md:mt-0">
+          <Button variant="outline" className="bg-white">
+            <FileText className="mr-2 h-4 w-4" /> View Reports
+          </Button>
+          <Button variant="outline" className="bg-white">
+            <Package className="mr-2 h-4 w-4" /> Manage Inventory
+          </Button>
+        </div>
+      </div>
 
-      <StatsCards
-        usersCount={users.length}
-        activeUsers={activeUsers}
-        projectsCount={projects.length}
-        activeProjects={activeProjects}
-        inventoryCount={inventory.length}
-        categoryCount={inventoryByCategory.length}
-        lowStockItems={lowStockItems}
-      />
+      {/* --- KPI Cards --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Card 1: Sales Today (Highlighted) */}
+        <Card className="border-orange-200 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-gray-500 text-sm">Sales Today</span>
+              <div className="p-2 bg-orange-50 rounded-md">
+                <TrendingUp className="h-5 w-5 text-orange-500" />
+              </div>
+            </div>
+            <div className="flex items-end justify-between">
+              <h3 className="text-4xl font-semibold text-gray-900">$6,250</h3>
+              <span className="text-green-500 text-sm font-medium flex items-center">
+                <TrendingUp className="h-3 w-3 mr-1" /> +8.4%
+              </span>
+            </div>
+          </CardContent>
+        </Card>
 
-      <AnalyticsCharts
-        roleDistribution={roleDistribution}
-        projectStatusData={projectStatusData}
-        inventoryByCategory={inventoryByCategory}
-        systemHealthData={systemHealthData}
-      />
+        {/* Card 2: Transactions */}
+        <Card className="shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-gray-500 text-sm">Transactions Today</span>
+              <div className="p-2 bg-orange-50 rounded-md">
+                <ShoppingCart className="h-5 w-5 text-orange-500" />
+              </div>
+            </div>
+            <div className="flex items-end justify-between">
+              <h3 className="text-4xl font-semibold text-gray-900">426</h3>
+              <span className="text-green-500 text-sm font-medium flex items-center">
+                <TrendingUp className="h-3 w-3 mr-1" /> +8.4%
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Card 3: Avg Transaction */}
+        <Card className="shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-gray-500 text-sm">Avg. Transaction Value</span>
+              <div className="p-2 bg-orange-50 rounded-md">
+                <Layers className="h-5 w-5 text-orange-500" />
+              </div>
+            </div>
+            <div className="flex items-end justify-between">
+              <h3 className="text-4xl font-semibold text-gray-900">$43.30</h3>
+              <span className="text-green-500 text-sm font-medium flex items-center">
+                <TrendingUp className="h-3 w-3 mr-1" /> +8.4%
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Card 4: Items Sold */}
+        <Card className="shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-gray-500 text-sm">Items Sold</span>
+              <div className="p-2 bg-orange-50 rounded-md">
+                <Box className="h-5 w-5 text-orange-500" />
+              </div>
+            </div>
+            <div className="flex items-end justify-between">
+              <h3 className="text-4xl font-semibold text-gray-900">2,184</h3>
+              <span className="text-green-500 text-sm font-medium flex items-center">
+                <TrendingUp className="h-3 w-3 mr-1" /> +8.4%
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* --- Main Charts Section --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Line Chart */}
+        <Card className="lg:col-span-2 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div>
+              <CardTitle className="text-lg font-semibold text-gray-800">
+                Sales by Hour
+              </CardTitle>
+              <CardDescription className="text-green-600 font-medium">
+                Today
+              </CardDescription>
+            </div>
+            <Select defaultValue="today">
+              <SelectTrigger className="w-[140px] text-gray-500 bg-gray-50 border-gray-200">
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Sales by Hour</SelectItem>
+                <SelectItem value="week">Sales by Week</SelectItem>
+              </SelectContent>
+            </Select>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px] w-full mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={salesData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#e5e7eb"
+                  />
+                  <XAxis
+                    dataKey="time"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#6b7280", fontSize: 12 }}
+                    dy={10}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#6b7280", fontSize: 12 }}
+                    tickFormatter={(value) => `$${value}`}
+                  />
+                  <Tooltip
+                    contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#ea580c"
+                    strokeWidth={3}
+                    dot={{ fill: "#ea580c", strokeWidth: 2, r: 4, stroke: "#fff" }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Donut Chart */}
+        <Card className="shadow-sm flex flex-col">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-gray-800">
+              Sales by Payment Method
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col items-center justify-center">
+            <div className="h-[250px] w-full relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={paymentData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={0}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {paymentData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Legend matching the image layout */}
+              <div className="flex justify-center gap-4 mt-2 text-xs text-gray-500">
+                {paymentData.map((item, index) => (
+                  <div key={index} className="flex items-center gap-1">
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    ></span>
+                    {item.name}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* --- Bottom Lists Section --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Top Selling Products */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold text-gray-800">
+              Top Selling Products
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {topSellingProducts.map((product, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between pb-4 border-b last:border-0 last:pb-0 border-gray-100"
+                >
+                  <span className="text-gray-600 font-medium text-sm">
+                    {product.name}
+                  </span>
+                  <span className="text-gray-500 text-sm">{product.price}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Low Stock Alerts */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold text-gray-800">
+              Low Stock Alerts
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {lowStockAlerts.map((item, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between pb-4 border-b last:border-0 last:pb-0 border-gray-100"
+                >
+                  <span className="text-gray-600 font-medium text-sm">
+                    {item.name}
+                  </span>
+                  <Badge
+                    variant={item.variant === "destructive" ? "destructive" : "secondary"}
+                    className={`text-xs font-normal px-2 py-0.5 rounded-sm ${item.variant === "destructive"
+                        ? "bg-red-100 text-red-600 hover:bg-red-100"
+                        : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
+                      }`}
+                  >
+                    {item.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Active Promotions */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold text-gray-800">
+              Active Promotions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {activePromotions.map((promo, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between pb-4 border-b last:border-0 last:pb-0 border-gray-100"
+                >
+                  <span className="text-gray-600 font-medium text-sm">
+                    {promo.name}
+                  </span>
+                  <span className="text-gray-500 text-sm">{promo.value}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
-};
-
-export default UserManagementPage;
+}
