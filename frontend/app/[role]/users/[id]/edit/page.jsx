@@ -5,6 +5,7 @@ import { StaffForm } from '@/components/shared-components/users/StaffForm';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useUsersHook } from '@/hooks/useUsersHook';
 import { ROLES } from '@/constants/roles';
+import { useGetAllBranches } from '@/features/branch/branch.api';
 
 const StaffFormPage = () => {
   const params = useParams();
@@ -23,7 +24,10 @@ const StaffFormPage = () => {
     isEditMode,
   } = useUsersHook(id); 
 
-  if (isUserLoading) {
+  const { data: branchesData, isLoading: branchesLoading } = useGetAllBranches();
+  const branches = branchesData?.data || [];
+
+  if (isUserLoading || branchesLoading) {
     return <div>Loading user data...</div>;
   }
 
@@ -51,6 +55,7 @@ const StaffFormPage = () => {
         allPermissions={transformedAllPermissions} 
         permissionsLoading={permissionsLoading}
         ROLES={ROLES}
+        branches={branches}
       />
     </div>
   );

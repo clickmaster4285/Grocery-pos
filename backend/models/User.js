@@ -77,6 +77,11 @@ const userSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+    branch_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Branch',
+      default: null,
+    },
   },
   {
     timestamps: true,

@@ -3,7 +3,8 @@
 import { StaffForm } from '@/components/shared-components/users/StaffForm';
 import { DialogHeader, DialogTitle, DialogDescription, Dialog } from "@/components/ui/dialog";
 import { useUsersHook } from '@/hooks/useUsersHook';
-import { ROLES } from '@/constants/roles'; // Still needed for StaffForm prop
+import { ROLES } from '@/constants/roles';
+import { useGetAllBranches } from '@/features/branch/branch.api';
 
 const StaffCreatePage = () => {
   const {
@@ -20,7 +21,10 @@ const StaffCreatePage = () => {
     currentUser, 
   } = useUsersHook(); 
 
-  if (isUserLoading) {
+  const { data: branchesData, isLoading: branchesLoading } = useGetAllBranches();
+  const branches = branchesData?.data || [];
+
+  if (isUserLoading || branchesLoading) {
     return <div>Loading...</div>; 
   }
 
@@ -45,6 +49,7 @@ const StaffCreatePage = () => {
         allPermissions={transformedAllPermissions}
         permissionsLoading={permissionsLoading}
         ROLES={ROLES}
+        branches={branches}
       />
     </div>
   );

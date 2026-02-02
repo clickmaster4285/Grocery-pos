@@ -16,7 +16,7 @@ const BranchSchema = new mongoose.Schema({
     type: String,
     enum: ["ACTIVE", "INACTIVE"],
     default: "ACTIVE"
-  }, 
+  },
   address: {
     city: String,
     state: String,

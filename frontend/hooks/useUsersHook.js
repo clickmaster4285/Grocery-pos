@@ -117,14 +117,28 @@ export const useUsersHook = (userId = null) => {
         if (!allPermissions || allPermissions.length === 0) {
             return [];
         }
-        return allPermissions.map(module => ({
-            ...module,
-            permissions: module.permissions.map(pId => ({
-                key: pId,
-                label: pId.split(':')[1].replace(/([A-Z])/g, ' $1').trim(),
-            })),
-        }));
-    }, [allPermissions]);
+
+        const filteredModules = allPermissions.map(module => {
+            const filteredPermissions = module.permissions.filter(pId => {
+                // If current user is admin, show all permissions
+                if (currentUser?.role === 'admin') {
+                    return true;
+                }
+                // Otherwise, only show permissions the current user has
+                return currentUser?.permissions?.includes(pId);
+            });
+
+            return {
+                ...module,
+                permissions: filteredPermissions.map(pId => ({
+                    key: pId,
+                    label: pId.split(':')[1].replace(/([A-Z])/g, ' $1').trim(),
+                })),
+            };
+        }).filter(module => module.permissions.length > 0); // Only include modules that have permissions after filtering
+
+        return filteredModules;
+    }, [allPermissions, currentUser]);
 
 
     return {

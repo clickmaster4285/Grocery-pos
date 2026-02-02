@@ -1,15 +1,27 @@
+const mongoose = require('mongoose');
 const User = require('../models/User');
+const Branch = require('../models/branch.model');
 const { generateUserId } = require('../utils/userIdGenerator');
 const { hashPassword } = require('../utils/password');
 const { generateToken } = require('../utils/jwt');
-const { PERMISSIONS } = require('../config/permissions'); // Add this line
+const { PERMISSIONS } = require('../config/permissions');
 
 const createUser = async (req, res, next) => {
   try {
-    const { firstName, lastName, phone, email, password, role = 'customer', permissions = [] } = req.body;
+    const { firstName, lastName, phone, email, password, role = 'customer', permissions = [], branch_id } = req.body;
 
     if (!firstName || !email || !password) {
       return res.status(400).json({ message: 'Please provide all required fields' });
+    }
+
+    if (branch_id) {
+      if (!mongoose.Types.ObjectId.isValid(branch_id)) {
+        return res.status(400).json({ message: 'Invalid branch ID format' });
+      }
+      const branchExists = await Branch.findOne({ _id: branch_id, status: 'ACTIVE' });
+      if (!branchExists) {
+        return res.status(400).json({ message: 'Branch not found or is inactive' });
+      }
     }
 
     const existingUser = await User.findOne({ email, isDeleted: false });
@@ -29,6 +41,7 @@ const createUser = async (req, res, next) => {
       password: hashedPassword,
       role,
       permissions,
+      branch_id,
     };
 
     const token = generateToken({
@@ -62,12 +75,12 @@ const getAllUsers = async (req, res, next) => {
 
     // Execute queries in parallel for better performance
     const [users, total] = await Promise.all([
-      User.find({ isDeleted: false })
+      User.find({ isDeleted: false, role: { $ne: 'admin' } })
         .select('-password')
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 }),
-      User.countDocuments({ isDeleted: false })
+      User.countDocuments({ isDeleted: false, role: { $ne: 'admin' } })
     ]);
 
     res.status(200).json({
@@ -121,7 +134,15 @@ const updateUser = async (req, res, next) => {
       return res.status(400).json({ message: 'Role must be a string.' });
     }
     if (updateFields.permissions && (!Array.isArray(updateFields.permissions) || !updateFields.permissions.every(p => typeof p === 'string'))) {
-      return res.status(400).json({ message: 'Permissions must be an array of strings.' });
+    }
+    if (updateFields.branch_id) {
+      if (!mongoose.Types.ObjectId.isValid(updateFields.branch_id)) {
+        return res.status(400).json({ message: 'Invalid branch ID format' });
+      }
+      const branchExists = await Branch.findOne({ _id: updateFields.branch_id, status: 'ACTIVE' });
+      if (!branchExists) {
+        return res.status(400).json({ message: 'Branch not found or is inactive' });
+      }
     }
 
     const user = await User.findOneAndUpdate(
