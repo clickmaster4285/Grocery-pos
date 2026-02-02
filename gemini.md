@@ -86,13 +86,55 @@ A new feature for managing store branches has been implemented.
     -   Modals for creating/editing (`branch-modal.jsx`) and confirming status changes (`delete-confirmation-modal.jsx`).
 -   **State Management & API:**
     -   API requests and caching are handled using `@tanstack/react-query` in `frontend/features/branch/branch.api.js`. It provides hooks like `useGetAllBranches`, `useCreateBranch`, `useUpdateBranch`, and `useToggleBranchStatus`.
-    -   A new (currently empty) hook `frontend/hooks/useBranchesHook.js` is intended for branch-related logic.
 -   **UI Integration:**
     -   The `DynamicSidebar.jsx` and `DashboardModule.jsx` have been modified to integrate the new branch management feature.
+
+### 3.4. General Frontend Improvements & Bug Fixes
+
+*   **Sidebar Icon Integration:**
+    *   `frontend/constants/sidebarRoutes.js`: Added icons for 'Branches' and 'Products' modules to `MODULE_ICONS`.
+*   **Sidebar Theming Update:**
+    *   `frontend/components/layout/DynamicSidebar.jsx`: Reversed the color scheme for active and normal states in sidebar navigation items for better visual distinction.
+*   **Next.js Client Component Directives:**
+    *   `frontend/components/shared-components/branches/branch-modal.jsx` and `frontend/components/shared-components/branches/branches.jsx`: Added `"use client";` directives to resolve build errors related to React Hooks usage in App Router.
+
+### 3.5. Enhanced User Management
+
+#### 3.5.1. User-Branch Association
+-   **Backend Model Update:**
+    *   `backend/models/User.js`: Added an optional `branch_id` field (Mongoose `ObjectId` referencing the `Branch` model) to the User schema.
+-   **API Controller Logic:**
+    *   `backend/controllers/userController.js`:
+        *   Imported `mongoose` and `Branch` model.
+        *   `createUser` function: Modified to accept and validate the `branch_id` from the request body, ensuring it's a valid and active branch.
+        *   `updateUser` function: Modified to accept and validate `branch_id` if present in update fields.
+-   **Frontend Integration:**
+    *   `frontend/app/[role]/users/create/page.jsx` and `frontend/app/[role]/users/[id]/edit/page.jsx`: Updated to fetch all available branches using `useGetAllBranches` and pass them to the `StaffForm` component.
+    *   `frontend/components/shared-components/users/StaffForm.jsx`:
+        *   Modified to accept a `branches` prop.
+        *   Integrated a `ComboBox` for selecting a branch, mapping branch names to IDs.
+        *   Updated form data to include the selected `branch_id` for user creation/updates.
+
+#### 3.5.2. Admin User Exclusion
+-   **API Controller Logic:**
+    *   `backend/controllers/userController.js`: Modified the `getAllUsers` function to filter out users with the `role: 'admin'` from the returned list and total count.
+
+#### 3.5.3. Permission Filtering for Non-Admins
+-   **Frontend Logic:**
+    *   `frontend/hooks/useUsersHook.js`: Implemented logic to filter the available permissions displayed in the user creation/edit form (`StaffForm`). Non-admin users can only see and assign permissions that they themselves possess. Admin users retain the ability to see and assign all permissions.
+
+### 3.6. Avatar Generation Refinements
+
+*   **Frontend Utility Update:**
+    *   `frontend/utils/avatarUtils.js`:
+        *   Corrected `primaryRole` calculation to use `user.role` (string) instead of `user.roles` (array).
+        *   Refined `roleStyles` mappings for 'admin' (micah), 'manager' (personas), 'supervisor' (lorelei), 'staff' (avataaars), and 'customer' (notionists) to ensure human-like and role-appropriate styles.
+        *   Modified `generateAvatar` to pass all additional options as query parameters to DiceBear.
+        *   **Simplified Approach:** Following user feedback, the detailed `roleSpecificOptions` were removed. Avatar generation now relies only on the `style` and `backgroundColor` derived from the user's role, providing a simplified yet functional and good-looking avatar.
+        *   Cleaned up `console.log` statements.
 
 ## 4. Open Problems & Next Steps
 
 -   **Frontend-Backend Integration:** Continue to ensure seamless communication and data flow between frontend and backend.
--   **Branch Management Frontend:** The frontend for branch management is incomplete and has some broken imports. This needs to be fixed to make the feature fully functional.
 -   **Comprehensive Testing:** Implement unit and integration tests for new features across both frontend and backend.
 -   **Specific Grocery Features:** Begin implementation of core grocery store functionalities (e.g., product catalog, shopping cart, order processing).

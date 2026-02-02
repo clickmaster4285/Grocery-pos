@@ -6,7 +6,8 @@ export const generateAvatar = (
    const {
       style = 'identicon',
       size = 128,
-      backgroundColor = 'f0f0f0'
+      backgroundColor = 'f0f0f0',
+      ...restOptions // Capture all other options
    } = options;
 
    // Clean the seed
@@ -14,40 +15,49 @@ export const generateAvatar = (
       seed.toString().trim().toLowerCase().replace(/\s+/g, '-')
    );
 
-   return `https://api.dicebear.com/7.x/${style}/svg?seed=${cleanSeed}&size=${size}&backgroundColor=${backgroundColor}`;
+   let url = `https://api.dicebear.com/7.x/${style}/svg?seed=${cleanSeed}&size=${size}&backgroundColor=${backgroundColor}`;
+
+   // Append restOptions as query parameters
+   for (const key in restOptions) {
+       if (Object.hasOwnProperty.call(restOptions, key)) {
+           url += `&${key}=${encodeURIComponent(restOptions[key])}`;
+       }
+   }
+
+   return url;
 };
 
 export const generateUserAvatar = (user) => {
-   if (!user) return null;
+   if (!user) {
+      return null;
+   }
 
-   // Priority: ID > email > name > random
    const seed = user._id || user.email || user.firstName || user.lastName || Math.random().toString();
-   const primaryRole = user.roles && user.roles.length > 0 ? user.roles[0].toLowerCase() : 'customer';
+   const primaryRole = user.role ? user.role.toLowerCase() : 'customer';
 
-   // Map roles to different avatar styles
    const roleStyles = {
-      'admin': 'avataaars',
+      'admin': 'micah',
       'manager': 'personas',
-      'supervisor': 'lorelei',
-      'customer': 'big-smile', // Default style for customers
+      'staff': 'avataaars',
+      'customer': 'notionists',
    };
 
-   const style = roleStyles[primaryRole] || 'personas';
-
-   // Different background colors based on role
+   const style = roleStyles[primaryRole] || 'personas'; 
    const roleColors = {
       'admin': '4f46e5', // Indigo
       'manager': '10b981', // Emerald
-      'supervisor': '3b82f6', // Blue
+      'staff': '3b82f6', // Blue
       'customer': 'f97316', // Orange
    };
 
    const backgroundColor = roleColors[primaryRole] || 'f0f0f0';
 
-   return generateAvatar(seed, {
+   const avatarUrl = generateAvatar(seed, {
       style,
-      backgroundColor
+      backgroundColor,
    });
+
+   return avatarUrl;
 };
 
 export const getInitials = (name = '') => {
