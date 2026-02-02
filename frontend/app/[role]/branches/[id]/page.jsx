@@ -49,7 +49,7 @@ const BranchDetailPage = () => {
         <div>
           <h2 className="text-lg font-semibold mb-3 text-primary">General Information</h2>
           <p className="text-sm text-muted-foreground mb-1">
-            <span className="font-medium text-foreground">Branch ID:</span> {branch._id}
+            {/* <span className="font-medium text-foreground">Branch ID:</span> {branch._id} */}
           </p>
           <p className="text-sm text-muted-foreground mb-1">
             <span className="font-medium text-foreground">Tax Region:</span> {branch.tax_region || 'N/A'}

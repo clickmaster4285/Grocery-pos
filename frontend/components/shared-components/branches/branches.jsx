@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Building2, Search } from "lucide-react";
+import { toast } from 'sonner'; // Import toast
 import { useAuth } from '@/hooks/useAuth'; // Import useAuth
 import BranchesTable from "@/components/shared-components/branches/branches-table";
 import BranchModal from "@/components/shared-components/branches/branch-modal";
@@ -80,19 +81,27 @@ const Branches = () => {
    };
 
    // CRUD operations
-   const handleSaveBranch = (formData) => {
-      if (modalState.mode === "add") {
-         createBranchMutation.mutate(formData);
-      }
+   const handleSaveBranch = async (formData) => { // Made async
+      try {
+         if (modalState.mode === "add") {
+            await createBranchMutation.mutateAsync(formData); // Use mutateAsync
+            toast.success("Branch created successfully.");
+         }
 
-      if (modalState.mode === "edit" && modalState.branch) {
-         updateBranchMutation.mutate({
-            id: modalState.branch._id,
-            data: formData,
+         if (modalState.mode === "edit" && modalState.branch) {
+            await updateBranchMutation.mutateAsync({ // Use mutateAsync
+               id: modalState.branch._id,
+               data: formData,
+            });
+            toast.success("Branch updated successfully.");
+         }
+         closeModal(); // Close modal only on success
+      } catch (error) {
+         console.error("Failed to save branch:", error);
+         toast.error("Failed to save branch.", {
+            description: error?.response?.data?.message || "An unexpected error occurred.",
          });
       }
-
-      closeModal();
    };
 
 
@@ -102,7 +111,14 @@ const Branches = () => {
       toggleStatusMutation.mutate(toggleModal.branch._id, {
          onSuccess: () => {
             setToggleModal({ isOpen: false, branch: null });
+            toast.success("Branch status updated successfully.");
          },
+         onError: (error) => {
+            console.error("Failed to update branch status:", error);
+            toast.error("Failed to update branch status.", {
+               description: error?.response?.data?.message || "An unexpected error occurred.",
+            });
+         }
       });
    };
 
