@@ -1,10 +1,11 @@
+"use client";
 
 import { useState, useMemo } from "react";
 import { Search, Plus, Building2 } from "lucide-react";
 
-import BranchesTable from "@/components/branches/branches-table";
-import BranchModal from "@/components/branches/branch-modal";
-import DeleteConfirmationModal from "@/components/branches/delete-confirmation-modal";
+import BranchesTable from "@/components/shared-components/branches/branches-table";
+import BranchModal from "@/components/shared-components/branches/branch-modal";
+import DeleteConfirmationModal from "@/components/shared-components/branches/delete-confirmation-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,17 +16,17 @@ import {
    SelectValue,
 } from "@/components/ui/select";
 import {
-   useBranches,
+   useGetAllBranches,
    useCreateBranch,
    useUpdateBranch,
    useToggleBranchStatus,
-} from "@/hooks/useBranches";
+} from "@/features/branch/branch.api.js";
 
 
 
 const Branches = () => {
 
-   const { data, isLoading } = useBranches();
+   const { data, isLoading } = useGetAllBranches();
    const createBranchMutation = useCreateBranch();
    const updateBranchMutation = useUpdateBranch();
    const toggleStatusMutation = useToggleBranchStatus();

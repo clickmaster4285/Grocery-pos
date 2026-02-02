@@ -24,10 +24,10 @@ function SidebarItem({ item, isCollapsed, pathname, userPrimaryRole }) {
   return (
     <li>
       <Button
-        variant={isActive ? 'secondary' : 'ghost'}
+        variant={isActive ? 'ghost' : 'secondary'}
         className={cn(
           'w-full justify-start gap-3 h-10 px-3',
-          isActive ? 'font-medium bg-primary/10' : 'bg-primary/30',
+          isActive ? 'bg-primary/30' : 'font-medium bg-primary/10',
           isCollapsed ? 'justify-center px-0' : ''
         )}
         asChild
@@ -36,12 +36,12 @@ function SidebarItem({ item, isCollapsed, pathname, userPrimaryRole }) {
           <span
             className={cn(
               'text-muted-foreground shrink-0',
-              isActive ? 'text-primary' : ''
+              isActive ? '' : 'text-primary'
             )}
           >
             {item.icon}
           </span>
-          {!isCollapsed && <span className="truncate text-primary">{item.name}</span>}
+          {!isCollapsed && <span className={cn('truncate', isActive ? 'text-muted-foreground' : 'text-primary')}>{item.name}</span>}
         </Link>
       </Button>
     </li>
@@ -132,8 +132,8 @@ export default function DynamicSidebar() {
               className="text-xl font-bold cursor-pointer truncate"
               onClick={() => router.push(`/${userPrimaryRole}/dashboard`)}
             >
-              <span className="text-primary">Grocery</span>
-              <span className="text-foreground"> Store</span>
+              <span className="text-primary">Super</span>
+              <span className="text-foreground"> Market</span>
             </h1>
           )}
           <Button
@@ -196,10 +196,10 @@ export default function DynamicSidebar() {
               return (
                 <li key={item.name}>
                   <Button
-                    variant={isActive ? 'secondary' : 'ghost'}
+                    variant={isActive ? 'ghost' : 'secondary'}
                     className={cn(
                       'w-full justify-start gap-3 h-10 px-3',
-                      isActive ? 'font-medium' : '',
+                      isActive ? '' : 'font-medium',
                       isCollapsed ? 'justify-center px-0' : ''
                     )}
                     asChild
@@ -211,13 +211,13 @@ export default function DynamicSidebar() {
                       <span
                         className={cn(
                           'text-muted-foreground shrink-0',
-                          isActive ? 'text-primary' : ''
+                          isActive ? '' : 'text-primary'
                         )}
                       >
                         {item.icon}
                       </span>
                       {!isCollapsed && (
-                        <span className="truncate">{item.name}</span>
+                        <span className={cn('truncate', isActive ? '' : 'text-primary')}>{item.name}</span>
                       )}
                     </Link>
                   </Button>
@@ -248,22 +248,9 @@ export default function DynamicSidebar() {
           <>
             <Separator />
             <div className="px-4 py-3 border-t border-gray-300">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={avatarUrl} />
-                  <AvatarFallback className="bg-muted text-xs">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {user.firstName} {user.lastName}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate capitalize">
-                    {userPrimaryRole ? userPrimaryRole.replace(/-/g, ' ') : 'User'}
-                  </p>
-                </div>
-              </div>
+              <p className="flex items-center gap-3 text-primary">
+                @ powered by Clickamster
+              </p>
             </div>
           </>
         )}

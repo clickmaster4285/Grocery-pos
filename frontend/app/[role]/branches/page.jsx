@@ -1,10 +1,7 @@
-// [role]/branches/page
-import React from 'react'
+import Branches from "@/components/shared-components/branches/branches";
 
-const Branch = () => {
-  return (
-    <div>Branch</div>
-  )
-}
+const BranchPage = () => {
+  return <Branches />;
+};
 
-export default Branch
+export default BranchPage;
