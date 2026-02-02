@@ -66,8 +66,33 @@ Refactored staff management from modal-based interactions to dedicated pages for
 -   **`frontend/hooks/useAuth.js`:** Centralized `useGetMe` (fetches current user) and new `useUpdateProfile` (updates user profile) hooks.
 -   **`frontend/app/[role]/profile/page.jsx`:** Updated to use new auth hooks, correctly handles `firstName`/`lastName`, and includes `lastName` input.
 
+### 3.3. Branch Management
+A new feature for managing store branches has been implemented.
+
+#### 3.3.1. Backend
+-   **`Branch` Model:** A new model `backend/models/branch.model.js` has been created. It includes `branch_name`, `tax_region`, `opening_time`, `closing_time`, `status` ('ACTIVE' or 'INACTIVE'), and `address`.
+-   **API Endpoints:** New endpoints have been added for branch management under `/api/branches`.
+    -   `POST /` (`branches:create`): Create a new branch.
+    -   `GET /` (`branches:read`): Retrieve all branches.
+    -   `GET /:id` (`branches:read`): Retrieve a single branch.
+    -   `PUT /:id` (`branches:update`): Update a branch.
+    -   `DELETE /:id` (`branches:delete`): Toggle the status of a branch between 'ACTIVE' and 'INACTIVE'.
+-   **Permissions:** New permissions `branches:create`, `branches:read`, `branches:update`, and `branches:delete` have been added to `backend/config/permissions.js`.
+
+#### 3.3.2. Frontend
+-   **Branch Management Page:** A new page at `frontend/app/[role]/branches/page.jsx` provides a UI for managing branches.
+-   **Components:**
+    -   A filterable and searchable table `frontend/components/shared-components/branches/branches-table.jsx` to display branches.
+    -   Modals for creating/editing (`branch-modal.jsx`) and confirming status changes (`delete-confirmation-modal.jsx`).
+-   **State Management & API:**
+    -   API requests and caching are handled using `@tanstack/react-query` in `frontend/features/branch/branch.api.js`. It provides hooks like `useGetAllBranches`, `useCreateBranch`, `useUpdateBranch`, and `useToggleBranchStatus`.
+    -   A new (currently empty) hook `frontend/hooks/useBranchesHook.js` is intended for branch-related logic.
+-   **UI Integration:**
+    -   The `DynamicSidebar.jsx` and `DashboardModule.jsx` have been modified to integrate the new branch management feature.
+
 ## 4. Open Problems & Next Steps
 
 -   **Frontend-Backend Integration:** Continue to ensure seamless communication and data flow between frontend and backend.
+-   **Branch Management Frontend:** The frontend for branch management is incomplete and has some broken imports. This needs to be fixed to make the feature fully functional.
 -   **Comprehensive Testing:** Implement unit and integration tests for new features across both frontend and backend.
 -   **Specific Grocery Features:** Begin implementation of core grocery store functionalities (e.g., product catalog, shopping cart, order processing).

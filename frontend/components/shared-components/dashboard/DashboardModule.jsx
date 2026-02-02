@@ -193,7 +193,7 @@ export default function Dashboard() {
               </CardDescription>
             </div>
             <Select defaultValue="today">
-              <SelectTrigger className="w-[140px] text-gray-500 bg-gray-50 border-gray-200">
+              <SelectTrigger className="w-35 text-gray-500 bg-gray-50 border-gray-200">
                 <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent>
@@ -203,7 +203,7 @@ export default function Dashboard() {
             </Select>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] w-full mt-4">
+            <div className="h-75 w-full mt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={salesData}>
                   <CartesianGrid
@@ -249,7 +249,7 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col items-center justify-center">
-            <div className="h-[250px] w-full relative">
+            <div className="h-62.5 w-full relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie

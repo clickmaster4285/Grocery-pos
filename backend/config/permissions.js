@@ -5,6 +5,7 @@ const modules = [
   'Dashboard',
   'Users',
   'Products',
+  'Branches',
 ];
 const permissionTypes = [
   'create',
