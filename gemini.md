@@ -128,7 +128,7 @@ A new feature for managing store branches has been implemented.
 *   **Frontend Utility Update:**
     *   `frontend/utils/avatarUtils.js`:
         *   Corrected `primaryRole` calculation to use `user.role` (string) instead of `user.roles` (array).
-        *   Refined `roleStyles` mappings for 'admin' (micah), 'manager' (personas), 'supervisor' (lorelei), 'staff' (avataaars), and 'customer' (notionists) to ensure human-like and role-appropriate styles.
+        *   Refined `roleStyles` mappings for 'admin' (micah), 'manager' (personas), 'staff' (avataaars), and 'customer' (notionists) to ensure human-like and role-appropriate styles.
         *   Modified `generateAvatar` to pass all additional options as query parameters to DiceBear.
         *   **Simplified Approach:** Following user feedback, the detailed `roleSpecificOptions` were removed. Avatar generation now relies only on the `style` and `backgroundColor` derived from the user's role, providing a simplified yet functional and good-looking avatar.
         *   Cleaned up `console.log` statements.

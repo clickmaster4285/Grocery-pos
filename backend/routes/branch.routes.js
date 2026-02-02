@@ -11,14 +11,10 @@ const {
 } = require("../controllers/branch.controller");
 
 
-router.post("/", auth,checkPermission("branches:create"), createBranch);
-
-router.get("/", auth, checkPermission("branches:read"),getAllBranches);
-
-router.get("/:id", checkPermission("branches:read"),auth, getBranchById);
-
+router.post("/", auth, checkPermission("branches:create"), createBranch);
+router.get("/", auth, checkPermission("branches:read"), getAllBranches);
+router.get("/:id", auth, checkPermission("branches:read"), getBranchById);
 router.put("/:id", auth, checkPermission("branches:update"), updateBranch);
-
 router.delete("/:id", auth, checkPermission("branches:delete"), toggleBranchStatus);
 
 module.exports = router;

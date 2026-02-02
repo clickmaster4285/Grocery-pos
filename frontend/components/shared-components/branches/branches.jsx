@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Plus, Building2 } from "lucide-react";
+import { Plus, Building2, Search } from "lucide-react";
+import { useAuth } from '@/hooks/useAuth'; // Import useAuth
 import BranchesTable from "@/components/shared-components/branches/branches-table";
 import BranchModal from "@/components/shared-components/branches/branch-modal";
 import DeleteConfirmationModal from "@/components/shared-components/branches/delete-confirmation-modal";
@@ -26,6 +27,8 @@ const Branches = () => {
    const createBranchMutation = useCreateBranch();
    const updateBranchMutation = useUpdateBranch();
    const toggleStatusMutation = useToggleBranchStatus();
+   const { user } = useAuth(); // Get user from useAuth
+   const userPrimaryRole = user?.role?.toLowerCase() || 'customer'; // Determine userPrimaryRole
 
    const branches = data?.data ?? [];
 
@@ -33,6 +36,7 @@ const Branches = () => {
    const [statusFilter, setStatusFilter] = useState("all");
    const [modalState, setModalState] = useState({ isOpen: false, mode: "add", branch: null });
    const [toggleModal, setToggleModal] = useState({ isOpen: false, branch: null });
+
 
    // Filter branches based on search and status
    const filteredBranches = useMemo(() => {
@@ -172,6 +176,7 @@ const Branches = () => {
                onView={openViewModal}
                onEdit={openEditModal}
                onToggleStatus={openToggleModal}
+               userPrimaryRole={userPrimaryRole}
             />
          </main>
 

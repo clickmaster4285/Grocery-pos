@@ -1,5 +1,5 @@
-import React from 'react'
-import { Eye, Pencil, Settings } from "lucide-react";
+'use client';
+import { Pencil, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -8,14 +8,21 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-
+import { useRouter } from 'next/navigation';
 import { Switch } from "@/components/ui/switch";
 
 
 export default function BranchesTable({ branches,
-    onView,
     onEdit,
-    onToggleStatus, }) {
+    onToggleStatus,
+    userPrimaryRole,
+}) {
+    const router = useRouter();
+
+    const handleRowClick = (branchId) => {
+        router.push(`/${userPrimaryRole}/branches/${branchId}`);
+    };
+
     const formatTime = (time) => {
         if (!time) return "N/A";
         const [hours, minutes] = time.split(":");
@@ -56,7 +63,7 @@ export default function BranchesTable({ branches,
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                             Created
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-foreground">
                             Actions
                         </th>
                     </tr>
@@ -65,7 +72,8 @@ export default function BranchesTable({ branches,
                     {branches.map((branch) => (
                         <tr
                             key={branch._id}
-                            className="transition-colors hover:bg-muted/20"
+                            className="transition-colors hover:bg-muted/20 cursor-pointer"
+                            onClick={() => handleRowClick(branch._id)}
                         >
                             <td className="px-4 py-4">
                                 <div className="font-medium text-foreground">
@@ -111,16 +119,7 @@ export default function BranchesTable({ branches,
                                 </span>
                             </td>
                             <td className="px-4 py-4">
-                                <div className="flex items-center gap-1">
-                                    {/* <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => onView(branch)}
-                                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-primary/10"
-                                    >
-                                        <Eye className="h-4 w-4" />
-                                        <span className="sr-only">View</span>
-                                    </Button> */}
+                                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                                     <Button
                                         variant="ghost"
                                         size="sm"
@@ -156,14 +155,8 @@ export default function BranchesTable({ branches,
                                                     pointerEvents="none"
                                                 />
                                             </DropdownMenuItem>
-
-
-
-                                           
-
                                         </DropdownMenuContent>
                                     </DropdownMenu>
-
                                 </div>
                             </td>
                         </tr>

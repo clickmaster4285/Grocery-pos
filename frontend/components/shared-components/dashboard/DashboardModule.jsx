@@ -84,7 +84,7 @@ const activePromotions = [
 
 export default function Dashboard() {
   return (
-    <div className="min-h-screen bg-gray-50/50 p-8">
+    <div className="min-h-screen bg-gray-50/50">
       {/* --- Header --- */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
         <div>
