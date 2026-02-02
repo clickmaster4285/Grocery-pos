@@ -1,9 +1,6 @@
 const mongoose = require("mongoose");
 const Branch = require("../models/branch.model");
 
-/**
- * CREATE BRANCH
- */
 exports.createBranch = async (req, res) => {
   try {
     const branch = await Branch.create(req.body);
@@ -21,15 +18,9 @@ exports.createBranch = async (req, res) => {
   }
 };
 
-/**
- * GET ALL BRANCHES (ACTIVE ONLY)
- */
 exports.getAllBranches = async (req, res) => {
   try {
-    const branches = await Branch.find(
-      {
-        // status: { $ne: "INACTIVE" }
-      })
+    const branches = await Branch.find()
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -45,9 +36,6 @@ exports.getAllBranches = async (req, res) => {
   }
 };
 
-/**
- * GET SINGLE BRANCH
- */
 exports.getBranchById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -83,9 +71,6 @@ exports.getBranchById = async (req, res) => {
   }
 };
 
-/**
- * UPDATE BRANCH
- */
 exports.updateBranch = async (req, res) => {
   try {
     const { id } = req.params;
@@ -115,8 +100,6 @@ exports.updateBranch = async (req, res) => {
     });
   }
 };
-
-
 
 exports.toggleBranchStatus = async (req, res) => {
   try {
@@ -149,4 +132,3 @@ exports.toggleBranchStatus = async (req, res) => {
     });
   }
 };
-

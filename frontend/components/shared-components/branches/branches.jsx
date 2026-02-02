@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from "react";
 import { Search, Plus, Building2 } from "lucide-react";
-
 import BranchesTable from "@/components/shared-components/branches/branches-table";
 import BranchModal from "@/components/shared-components/branches/branch-modal";
 import DeleteConfirmationModal from "@/components/shared-components/branches/delete-confirmation-modal";
@@ -22,10 +21,7 @@ import {
    useToggleBranchStatus,
 } from "@/features/branch/branch.api.js";
 
-
-
 const Branches = () => {
-
    const { data, isLoading } = useGetAllBranches();
    const createBranchMutation = useCreateBranch();
    const updateBranchMutation = useUpdateBranch();
@@ -112,16 +108,9 @@ const Branches = () => {
    }
 
    return (
-      <div className="flex min-h-screen bg-background">
+      <div className="flex">
          {/* Page Content */}
          <main className="flex-1">
-            {/* Breadcrumb */}
-            <div className="mb-2 flex items-center gap-2 text-sm">
-               <span className="text-muted-foreground">Home</span>
-               <span className="text-muted-foreground">•</span>
-               <span className="text-primary font-medium">Branches</span>
-            </div>
-
             {/* Page Header */}
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                <div>
