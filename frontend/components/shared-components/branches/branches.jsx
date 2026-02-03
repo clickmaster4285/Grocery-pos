@@ -91,7 +91,7 @@ const Branches = () => {
          if (modalState.mode === "edit" && modalState.branch) {
             await updateBranchMutation.mutateAsync({ // Use mutateAsync
                id: modalState.branch._id,
-               data: formData,
+               branchData: formData,
             });
             toast.success("Branch updated successfully.");
          }
