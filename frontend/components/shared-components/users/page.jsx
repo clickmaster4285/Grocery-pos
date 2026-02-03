@@ -218,7 +218,8 @@ const UserList = ({
   onAddStaff,
   canCreateStaff,
   canUpdateStaff, 
-  canDeleteStaff
+  canDeleteStaff,
+  currentUserRole,
 }) => {
   if (users.length === 0) {
     return (
@@ -239,7 +240,8 @@ const UserList = ({
       getStatusVariant={getStatusVariant}
       getRoleLabel={getRoleLabel}
       canUpdateStaff={canUpdateStaff} 
-      canDeleteStaff={canDeleteStaff} 
+      canDeleteStaff={canDeleteStaff}
+      currentUserRole={currentUserRole}
     />
   );
 };
