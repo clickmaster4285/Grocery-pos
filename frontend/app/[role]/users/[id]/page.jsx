@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Badge, CalendarDays, Check, CheckCircle, Mail, Phone, X } from 'lucide-react'; 
+import { ArrowLeft, Badge, CalendarDays, Check, CheckCircle, Mail, Phone, X, ShieldX } from 'lucide-react'; 
 import {
   Table,
   TableBody,
@@ -18,6 +18,7 @@ import { UserAvatar } from '@/components/ui/UserAvatar';
 import { Separator } from '@/components/ui/separator';
 import { formatPhoneNumberForDisplay } from '@/utils/formatters';
 import { useAuth } from "@/hooks/useAuth"
+import StaffDetailSkeleton from '@/components/shared-components/users/StaffDetailSkeleton';
 
 const StaffDetailPage = () => {
   const router = useRouter();
@@ -54,9 +55,7 @@ const StaffDetailPage = () => {
   }, [error, router, role]);
 
   if (isLoading || permissionsLoading) {
-    return (
-      <div className="p-6 text-center">Loading user details...</div>
-    );
+    return <StaffDetailSkeleton />;
   }
 
   if (!user) {
@@ -79,14 +78,14 @@ const StaffDetailPage = () => {
   const getStatusVariant = (isActive) => (isActive ? 'success' : 'destructive');
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">{`${user.firstName} ${user.lastName}`}</h1>
-        {canUpdateStaff && ( 
+        <h1 className="text-3xl font-bold capitalize">{`${user.firstName} ${user.lastName}`}</h1>
+        {canUpdateStaff && (
           <Button onClick={() => router.push(`/${currentUser.role}/users/${user._id}/edit`)}>Edit User</Button>
         )}
       </div>
-      
+
       {user?._id !== currentUser?._id && (
         <Button variant="outline" onClick={() => router.back()} className="mb-4">
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -94,90 +93,116 @@ const StaffDetailPage = () => {
         </Button>
       )}
 
-      <Card>
-        <CardHeader className="flex flex-row items-center space-x-4">
-          <UserAvatar user={user} size="xl" className="ring-2 ring-primary" />
-          <div>
-            <CardTitle className="text-2xl capitalize">{`${user.firstName} ${user.lastName}`}</CardTitle>
-            <p className="text-muted-foreground"> <span className='font-semibold text-primary'>Role: </span> {user.role.toUpperCase()}</p>
-            {user?.branch_id && (
-              <div className="text-muted-foreground text-sm">
-                <span className='font-semibold text-primary'>Branch: </span>  <span>{user.branch_id.branch_name}</span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: User Info */}
+        <div className="lg:col-span-1 space-y-6">
+          <Card>
+            <CardHeader className="p-6">
+              <UserAvatar user={user} size="xl" className="ring-4 ring-primary mb-4" />
+              <CardTitle className="text-2xl capitalize">{`${user.firstName} ${user.lastName}`}</CardTitle>
+              <p className="text-lg font-semibold text-muted-foreground capitalize">{user.role}</p>
+              {user?.branch_id && (
+                <p className="text-sm font-semibold text-primary">
+                  {user.branch_id.branch_name}
+                </p>
+              )}
+              <Badge variant={getStatusVariant(user.isActive)} className="mt-4">
+                {user.isActive ? <CheckCircle className="h-4 w-4 mr-1" /> : <X className="h-4 w-4 mr-1" />}
+                {getStatusBadge(user.isActive)}
+              </Badge>
+            </CardHeader>
+            <CardContent className="space-y-4 px-6 pb-6">
+              <Separator />
+              <div className="space-y-3">
+                <div className="flex items-start space-x-3">
+                  <Mail className="h-5 w-5 text-muted-foreground mt-1" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Email</p>
+                    <p className="text-sm font-medium">{user.email}</p>
+                  </div>
+                </div>
+                {user.phone && (
+                  <div className="flex items-start space-x-3">
+                    <Phone className="h-5 w-5 text-muted-foreground mt-1" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Phone</p>
+                      <p className="text-sm font-medium">{formatPhoneNumberForDisplay(user.phone)}</p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-start space-x-3">
+                  <CalendarDays className="h-5 w-5 text-muted-foreground mt-1" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Joined</p>
+                    <p className="text-sm font-medium">{new Date(user.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                {user.lastLogin && (
+                  <div className="flex items-start space-x-3">
+                    <CalendarDays className="h-5 w-5 text-muted-foreground mt-1" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Last Login</p>
+                      <p className="text-sm font-medium">{new Date(user.lastLogin).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-            <Badge variant={getStatusVariant(user.isActive)} className="mt-2">
-              {user.isActive ? <CheckCircle className="h-3 w-3 mr-1" /> : <XCircle className="h-3 w-3 mr-1" />}
-              {getStatusBadge(user.isActive)}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Separator />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center space-x-2">
-              <Mail className="h-5 w-5 text-muted-foreground" />
-              <span className="text-lg">{user.email}</span>
-            </div>
-            {user.phone && (
-              <div className="flex items-center space-x-2">
-                <Phone className="h-5 w-5 text-muted-foreground" />
-                <span className="text-lg">{formatPhoneNumberForDisplay(user.phone)}</span>
-              </div>
-            )}
-            <div className="flex items-center space-x-2">
-              <CalendarDays className="h-5 w-5 text-muted-foreground" />
-              <span className="text-lg">Joined: {new Date(user.createdAt).toLocaleDateString()}</span>
-            </div>
-            {user.lastLogin && (
-              <div className="flex items-center space-x-2">
-                <CalendarDays className="h-5 w-5 text-muted-foreground" />
-                <span className="text-lg">Last Login: {new Date(user.lastLogin).toLocaleDateString()}</span>
-              </div>
-            )}
-          </div>
-          <Separator />
-          <div>
-            <h3 className="text-xl font-semibold mb-2">Permissions</h3>
-            {transformedAllPermissions && transformedAllPermissions.length > 0 ? (
-              <div className="rounded-md border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-38">Module</TableHead>
-                      {uniquePermissionTypes.map((type) => (
-                        <TableHead key={type} className="text-center">{type}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transformedAllPermissions.map((module) => (
-                      <TableRow key={module.moduleName}>
-                        <TableCell className="font-medium">{module.moduleName}</TableCell>
-                        {uniquePermissionTypes.map((type) => {
-                          const hasPermissionInModule = module.permissions.some(p => p.label === type); // Check if module has this permission type
-                          const userHasPermission = user.permissions.includes(module.moduleName.toLowerCase() + ':' + type.toLowerCase()); // Check if user has the specific permission
+            </CardContent>
+          </Card>
+        </div>
 
-                          return (
-                            <TableCell key={type} className="text-center">
-                              {hasPermissionInModule && userHasPermission ? (
-                                <Check className="h-5 w-5 text-green-500 mx-auto" />
-                              ) : (
-                                <X className="h-5 w-5 text-red-500 mx-auto" />
-                              )}
-                            </TableCell>
-                          );
-                        })}
+        {/* Right Column: Permissions */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Permissions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {transformedAllPermissions && transformedAllPermissions.length > 0 ? (
+                <div className="rounded-md border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-38">Module</TableHead>
+                        {uniquePermissionTypes.map((type) => (
+                          <TableHead key={type} className="text-center">{type}</TableHead>
+                        ))}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <p className="text-muted-foreground">No permissions information available.</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {transformedAllPermissions.map((module) => (
+                        <TableRow key={module.moduleName}>
+                          <TableCell className="font-medium capitalize">{module.moduleName}</TableCell>
+                          {uniquePermissionTypes.map((type) => {
+                            const hasPermissionInModule = module.permissions.some(p => p.label === type);
+                            const userHasPermission = user.permissions.includes(`${module.moduleName.toLowerCase()}:${type.toLowerCase()}`);
+
+                            return (
+                              <TableCell key={type} className="text-center">
+                                {hasPermissionInModule && userHasPermission ? (
+                                  <Check className="h-5 w-5 text-green-500 mx-auto" />
+                                ) : (
+                                  <X className="h-5 w-5 text-red-500 mx-auto" />
+                                )}
+                              </TableCell>
+                            );
+                          })}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center p-8">
+                  <ShieldX className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-4 text-lg font-medium text-gray-900">No Permissions Found</h3>
+                  <p className="mt-1 text-sm text-gray-500">This user has not been assigned any permissions yet.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };
