@@ -98,11 +98,11 @@ const StaffDetailPage = () => {
         <CardHeader className="flex flex-row items-center space-x-4">
           <UserAvatar user={user} size="xl" className="ring-2 ring-primary" />
           <div>
-            <CardTitle className="text-2xl">{`${user.firstName} ${user.lastName}`}</CardTitle>
-            <p className="text-muted-foreground">{user.role.toUpperCase()}</p>
-            {user?.branch && (
+            <CardTitle className="text-2xl capitalize">{`${user.firstName} ${user.lastName}`}</CardTitle>
+            <p className="text-muted-foreground"> <span className='font-semibold text-primary'>Role: </span> {user.role.toUpperCase()}</p>
+            {user?.branch_id && (
               <div className="text-muted-foreground text-sm">
-                Branch: {user.branch.branch_name}
+                <span className='font-semibold text-primary'>Branch: </span>  <span>{user.branch_id.branch_name}</span>
               </div>
             )}
             <Badge variant={getStatusVariant(user.isActive)} className="mt-2">

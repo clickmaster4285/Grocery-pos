@@ -76,6 +76,8 @@ const getAllUsers = async (req, res, next) => {
     // Execute queries in parallel for better performance
     const [users, total] = await Promise.all([
       User.find({ isDeleted: false, role: { $ne: 'admin' } })
+        .populate('branch_id', 'branch_name')
+        .populate('deletedBy', 'firstName lastName')
         .select('-password')
         .skip(skip)
         .limit(limit)
@@ -98,7 +100,7 @@ const getAllUsers = async (req, res, next) => {
 
 const getUserById = async (req, res, next) => {
   try {
-    const user = await User.findOne({ _id: req.params.id, isDeleted: false }).select('-password');
+    const user = await User.findOne({ _id: req.params.id, isDeleted: false }).populate('branch_id', 'branch_name').populate('deletedBy', 'firstName lastName').select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
