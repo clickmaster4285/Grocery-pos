@@ -22,13 +22,13 @@ export const StaffForm = ({
    editingUser,
    createUserMutation,
    updateUserMutation,
-   allPermissions, 
+   allPermissions,
    permissionsLoading,
    ROLES,
    branches,
 }) => {
    const { user: currentUser } = useAuth();
-   const [permissionSearchTerm, setPermissionSearchTerm] = useState(''); 
+   const [permissionSearchTerm, setPermissionSearchTerm] = useState('');
 
    const filteredRoles = useMemo(() => getFilteredRoles(ROLES, currentUser?.role), [ROLES, currentUser?.role]);
 
@@ -119,15 +119,15 @@ export const StaffForm = ({
 
             {/* New Branch Selection ComboBox */}
             <div className="space-y-2">
-                <Label htmlFor="branch">Branch</Label>
-                <ComboBox
-                    items={branches.map(branch => ({ label: branch.branch_name, value: branch._id }))}
-                    value={formData.branch_id}
-                    onValueChange={(value) => updateFormField('branch_id', value)}
-                    placeholder="Select Branch"
-                    searchPlaceholder="Search branch..."
-                    emptyPlaceholder="No branches found."
-                />
+               <Label htmlFor="branch">Branch</Label>
+               <ComboBox
+                  items={branches.map(branch => ({ label: branch.branch_name, value: branch._id }))}
+                  value={formData.branch_id}
+                  onValueChange={(value) => updateFormField('branch_id', value)}
+                  placeholder="Select Branch"
+                  searchPlaceholder="Search branch..."
+                  emptyPlaceholder="No branches found."
+               />
             </div>
 
             <div className="space-y-2">

@@ -15,20 +15,22 @@ export default function RoleLayout({ children, params }) {
    const router = useRouter();
    const pathname = usePathname();
 
-   const currentRoleInPath = React.use(params).role; 
+   const currentRoleInPath = React.use(params).role;
 
-   useEffect(() => {
-    if (!isLoading && isAuthenticated && user) {
-        const userPrimaryRole = user.role?.toLowerCase(); 
-        if (!hasRole(currentRoleInPath.toLowerCase())) { 
-            if (userPrimaryRole) {
-                router.replace(`/${userPrimaryRole}/dashboard`);
-            } else {
-                router.replace('/unauthorized');
-            }
-        }
-    }
-   }, [user, isLoading, isAuthenticated, router, currentRoleInPath, hasRole, logout]); 
+ 
+
+   // useEffect(() => {
+   //  if (!isLoading && isAuthenticated && user) {
+   //      const userPrimaryRole = user.role?.toLowerCase(); 
+   //      if (!hasRole(currentRoleInPath.toLowerCase())) { 
+   //          if (userPrimaryRole) {
+   //              router.replace(`/${userPrimaryRole}/dashboard`);
+   //          } else {
+   //              router.replace('/unauthorized');
+   //          }
+   //      }
+   //  }
+   // }, [user, isLoading, isAuthenticated, router, currentRoleInPath, hasRole, logout]); 
 
    useEffect(() => {
      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;

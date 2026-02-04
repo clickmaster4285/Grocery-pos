@@ -1,10 +1,10 @@
 # Gemini Technical Assistant & Project Documentation
 
-This document serves as the living technical memory, architectural overview, and decision log for the **Grocery Store** project. It is maintained by the Gemini technical assistant.
+This document serves as the living technical memory, architectural overview, and decision log for the **SuperMaret** project. It is maintained by the Gemini technical assistant.
 
 ## 1. Project Overview & Architecture
 
-The project is a full-stack web application designed to serve as a digital platform for a grocery store. It follows a modern, decoupled architecture with a separate frontend (Next.js/React) and backend (Node.js/Express).
+The project is a full-stack web application designed to serve as a digital platform for a SuperMaret. It follows a modern, decoupled architecture with a separate frontend (Next.js/React) and backend (Node.js/Express).
 
 ## 2. Technologies & Frameworks
 
@@ -137,4 +137,4 @@ A new feature for managing store branches has been implemented.
 
 -   **Frontend-Backend Integration:** Continue to ensure seamless communication and data flow between frontend and backend.
 -   **Comprehensive Testing:** Implement unit and integration tests for new features across both frontend and backend.
--   **Specific Grocery Features:** Begin implementation of core grocery store functionalities (e.g., product catalog, shopping cart, order processing).
+-   **Specific Grocery Features:** Begin implementation of core SuperMaret functionalities (e.g., product catalog, shopping cart, order processing).

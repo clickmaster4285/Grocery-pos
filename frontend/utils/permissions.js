@@ -10,5 +10,8 @@ export const userHasRole = (userRole, roleName) => {
   if (!userRole) {
     return false;
   }
-  return userRole === roleName;
+  const normalizedUserRole = userRole.toLowerCase().replace(/_/g, ' ').trim();
+  const normalizedRoleName = roleName.toLowerCase().replace(/_/g, ' ').trim(); 
+
+  return normalizedUserRole === normalizedRoleName;
 };
