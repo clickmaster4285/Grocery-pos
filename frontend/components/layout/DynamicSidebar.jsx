@@ -27,21 +27,21 @@ function SidebarItem({ item, isCollapsed, pathname, userPrimaryRole }) {
         variant={isActive ? 'ghost' : 'secondary'}
         className={cn(
           'w-full justify-start gap-3 h-10 px-3',
-          isActive ? 'bg-primary/30' : 'font-medium bg-primary/10',
+          isActive ? 'bg-primary/30 text-primary' : 'font-medium bg-transparent',
           isCollapsed ? 'justify-center px-0' : ''
         )}
         asChild
       >
-        <Link href={actualPath} title={isCollapsed ? item.name : ''}>
+        <Link className='text-foreground' href={actualPath} title={isCollapsed ? item.name : ''}>
           <span
             className={cn(
               'text-muted-foreground shrink-0',
-              isActive ? '' : 'text-primary'
+              isActive ? 'text-primary' : ''
             )}
           >
             {item.icon}
           </span>
-          {!isCollapsed && <span className={cn('truncate', isActive ? 'text-muted-foreground' : 'text-primary')}>{item.name}</span>}
+          {!isCollapsed && <span className={cn('truncate font-medium tracking-tight', isActive ? 'text-primary/400' : 'text-foreground')}>{item.name}</span>}
         </Link>
       </Button>
     </li>
@@ -129,7 +129,7 @@ export default function DynamicSidebar() {
         <div className="px-4 py-4 border-b border-gray-300 flex items-center justify-between">
           {!isCollapsed && (
             <h1
-              className="text-xl font-bold cursor-pointer truncate"
+              className="text-xl font-extrabold cursor-pointer tracking-tight truncate"
               onClick={() => router.push(`/${userPrimaryRole}/dashboard`)}
             >
               <span className="text-primary">Super</span>
@@ -157,11 +157,11 @@ export default function DynamicSidebar() {
               section && section.items && Array.isArray(section.items) ? (
                 <div key={section.title || 'section'} className="mb-4">
                   {!isCollapsed && section.title && (
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-2">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-normal mb-2 px-2">
                       {section.title}
                     </h3>
                   )}
-                  <ul className="space-y-1">
+                  <ul className="">
                     {section.items.map((item) => (
                       item && (
                         <SidebarItem
@@ -248,7 +248,7 @@ export default function DynamicSidebar() {
           <>
             <Separator />
             <div className="px-4 py-3 border-t border-gray-300">
-              <p className="flex items-center gap-3 text-primary">
+              <p className="flex items-center gap-3 text-primary tracking-tight">
                 @ powered by Clickamster
               </p>
             </div>
