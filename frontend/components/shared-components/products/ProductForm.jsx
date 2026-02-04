@@ -1,36 +1,329 @@
-// frontend/components/shared-components/products/ProductForm.jsx
-// This is a placeholder component for a product form.
-
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { PlusCircle, XCircle, UploadCloud, Image as ImageIcon } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
+import Image from 'next/image';
+
+// Define the schema for product variants
+const variantSchema = z.object({
+  sku: z.string().optional(),
+  price: z.preprocess(
+    (val) => Number(val),
+    z.number().min(0.01, { message: 'Price must be at least 0.01' })
+  ),
+  stock: z.preprocess(
+    (val) => Number(val),
+    z.number().int().min(0, { message: 'Stock must be a non-negative integer' })
+  ),
+  images: z.array(z.string().url({ message: 'Each image must be a valid URL' })).optional(), // Assuming image URLs for now
+});
+
+// Define the main product schema
+const productFormSchema = z.object({
+  name: z.string().min(2, { message: 'Product name must be at least 2 characters.' }),
+  description: z.string().optional(),
+  brand: z.string().min(1, { message: 'Brand is required.' }),
+  category: z.string().min(1, { message: 'Category is required.' }),
+  variants: z.array(variantSchema).min(1, { message: 'At least one variant is required.' }),
+});
+
+const generateSku = (productName, variantIndex) => {
+  const namePart = productName ? productName.replace(/\s+/g, '-').toUpperCase().substring(0, 5) : 'PROD';
+  const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `${namePart}-${variantIndex + 1}-${randomPart}`;
+};
 
 const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
-  // Placeholder for form state and logic
-  // const [formData, setFormData] = useState(initialData || {});
+  const form = useForm({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: initialData || {
+      name: '',
+      description: '',
+      brand: '',
+      category: '',
+      variants: [{ sku: '', price: 0.01, stock: 0, images: [] }],
+    },
+    mode: 'onChange',
+  });
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // onSubmit(formData);
-    console.log('Form submitted!');
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'variants',
+  });
+
+  // Calculate total stock dynamically
+  const totalStock = useMemo(() => {
+    return form.watch('variants').reduce((sum, variant) => sum + (Number(variant.stock) || 0), 0);
+  }, [form.watch('variants')]);
+
+  // Handle SKU auto-generation when product name changes or a new variant is added
+  useEffect(() => {
+    const subscription = form.watch((value, { name, type }) => {
+      if (name === 'name' || (name?.startsWith('variants.') && name?.endsWith('.sku') && type === 'change')) {
+        const currentVariants = form.getValues('variants');
+        const updatedVariants = currentVariants.map((variant, index) => {
+          if (!variant.sku) {
+            return { ...variant, sku: generateSku(value.name, index) };
+          }
+          return variant;
+        });
+        form.setValue('variants', updatedVariants, { shouldValidate: true });
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+
+  const handleAddVariant = () => {
+    append({ sku: generateSku(form.getValues('name'), fields.length), price: 0.01, stock: 0, images: [] });
+  };
+
+  const handleImageUpload = (index, e) => {
+    // Placeholder for actual image upload logic
+    // In a real application, you would upload files to a server (e.g., S3, Cloudinary)
+    // and get a URL back. For now, we'll simulate it with a dummy URL or use local previews.
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const newImages = [...(form.getValues(`variants.${index}.images`) || []), reader.result]; // Use reader.result as base64 for preview
+        form.setValue(`variants.${index}.images`, newImages, { shouldValidate: true });
+      };
+      reader.readAsDataURL(file); // For local preview
+      toast.success('Image selected for upload.');
+    }
+  };
+
+  const handleRemoveImage = (variantIndex, imageIndex) => {
+    const currentImages = form.getValues(`variants.${variantIndex}.images`);
+    const newImages = currentImages.filter((_, i) => i !== imageIndex);
+    form.setValue(`variants.${variantIndex}.images`, newImages, { shouldValidate: true });
+    toast.info('Image removed.');
+  };
+
+
+  const onSubmitHandler = (data) => {
+    onSubmit(data);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <h2 className="text-xl font-semibold">
-        {isEditing ? 'Edit Product' : 'Create New Product'}
-      </h2>
-      <p>This is a placeholder for the Product Form component.</p>
-      {/* Actual form fields will go here */}
-      <div className="flex justify-end space-x-2">
-        <button type="button" className="btn btn-outline">
-          Cancel
-        </button>
-        <button type="submit" className="btn btn-primary" disabled={isLoading}>
-          {isLoading ? 'Saving...' : 'Save Product'}
-        </button>
-      </div>
-    </form>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmitHandler)} className="space-y-8">
+        <h2 className="text-3xl font-bold tracking-tight text-primary">
+          {isEditing ? 'Edit Product' : 'Create New Product'}
+        </h2>
+        <p className="text-muted-foreground text-sm">
+          {isEditing ? 'Update the details for your product.' : 'Fill in the details to add a new product to your inventory.'}
+        </p>
+
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Product Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="E.g., Organic Apples" {...field} />
+                </FormControl>
+                <FormDescription>The name of your product.</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="brand"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Brand</FormLabel>
+                <FormControl>
+                  <Input placeholder="E.g., Fresh Harvest" {...field} />
+                </FormControl>
+                <FormDescription>The brand of the product.</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="category"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Category</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {/* Placeholder categories */}
+                    <SelectItem value="fruits">Fruits</SelectItem>
+                    <SelectItem value="vegetables">Vegetables</SelectItem>
+                    <SelectItem value="dairy">Dairy</SelectItem>
+                    <SelectItem value="meat">Meat</SelectItem>
+                    <SelectItem value="bakery">Bakery</SelectItem>
+                    <SelectItem value="beverages">Beverages</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormDescription>The category this product belongs to.</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea placeholder="A detailed description of the product..." rows={5} {...field} />
+              </FormControl>
+              <FormDescription>Provide a detailed description of the product.</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="mt-8 space-y-6 border p-4 rounded-md shadow-inner">
+          <h3 className="text-xl font-semibold flex justify-between items-center">
+            Product Variants ({fields.length})
+            <Button type="button" onClick={handleAddVariant} size="sm">
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Variant
+            </Button>
+          </h3>
+          <p className="text-muted-foreground text-sm">
+            Define different variations of your product (e.g., size, color, weight)
+            along with their unique SKU, price, stock, and images.
+          </p>
+
+          {fields.map((field, index) => (
+            <div key={field.id} className="grid gap-4 border-t pt-4 relative md:grid-cols-2 lg:grid-cols-3">
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon"
+                onClick={() => remove(index)}
+                className="absolute top-2 right-2 h-7 w-7 rounded-full"
+              >
+                <XCircle className="h-4 w-4" />
+                <span className="sr-only">Remove variant</span>
+              </Button>
+
+              <FormField
+                control={form.control}
+                name={`variants.${index}.sku`}
+                render={({ field: skuField }) => (
+                  <FormItem>
+                    <FormLabel>SKU (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder={generateSku(form.getValues('name'), index)} {...skuField} />
+                    </FormControl>
+                    <FormDescription>Unique identifier for this variant. Auto-generated if left blank.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name={`variants.${index}.price`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Price</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name={`variants.${index}.stock`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Stock</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormItem className="lg:col-span-3">
+                <FormLabel>Variant Images</FormLabel>
+                <FormControl>
+                  <div className="flex flex-wrap gap-3 p-3 border rounded-md min-h-[100px] items-center">
+                    {(form.watch(`variants.${index}.images`) || []).map((imageUrl, imgIdx) => (
+                      <div key={imgIdx} className="relative w-24 h-24 rounded-md overflow-hidden group">
+                        <Image src={imageUrl} alt={`Variant image ${imgIdx + 1}`} layout="fill" objectFit="cover" />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleRemoveImage(index, imgIdx)}
+                        >
+                          <XCircle className="h-3 w-3" />
+                          <span className="sr-only">Remove image</span>
+                        </Button>
+                      </div>
+                    ))}
+                    <label className="flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
+                      <UploadCloud className="h-6 w-6 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground mt-1">Upload</span>
+                      <Input type="file" className="sr-only" onChange={(e) => handleImageUpload(index, e)} accept="image/*" />
+                    </label>
+                  </div>
+                </FormControl>
+                <FormDescription>Upload images specific to this variant.</FormDescription>
+                <FormMessage />
+              </FormItem>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end space-x-4 mt-8">
+          <Button type="button" variant="outline" onClick={() => form.reset()}>
+            Reset
+          </Button>
+          <Button type="submit" disabled={isLoading || !form.formState.isValid}>
+            {isLoading ? 'Saving...' : (isEditing ? 'Update Product' : 'Create Product')}
+          </Button>
+        </div>
+
+        {/* Display total stock outside form, perhaps in a stats card or summary */}
+        <div className="text-right text-sm text-muted-foreground">
+          Total Stock Across Variants: <span className="font-bold text-primary">{totalStock}</span>
+        </div>
+      </form>
+    </Form>
   );
 };
 

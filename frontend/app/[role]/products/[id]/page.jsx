@@ -1,18 +1,32 @@
-// frontend/app/[role]/products/[id]/page.jsx
-// This page will display the details of a single product.
-
 "use client";
 
 import React from 'react';
+import { useGetProductById } from '@/features/product/product.api';
+import ProductDetail from '@/components/shared-components/products/ProductDetail';
+import ProductDetailSkeleton from '@/components/shared-components/products/ProductDetailSkeleton';
+import { toast } from 'sonner';
 
 const ProductDetailPage = ({ params }) => {
-  const { id } = params; // Product ID from the URL
+  const { id, role } = params; // Product ID and role from the URL
+
+  const { data: product, isLoading, isError, error } = useGetProductById(id);
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-4">
+        <ProductDetailSkeleton />
+      </div>
+    );
+  }
+
+  if (isError) {
+    toast.error(error?.message || 'Failed to load product details.');
+    return <div className="container mx-auto p-4 text-red-500">Error: {error?.message || 'Failed to load product details.'}</div>;
+  }
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Product Detail for ID: {id}</h1>
-      <p>This page will display comprehensive details for product with ID {id}.</p>
-      {/* Product detail component will go here */}
+      <ProductDetail product={product} role={role} />
     </div>
   );
 };

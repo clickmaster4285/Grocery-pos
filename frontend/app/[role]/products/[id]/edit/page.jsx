@@ -1,19 +1,51 @@
-// frontend/app/[role]/products/[id]/edit/page.jsx
-// This page will provide a form for editing an existing product.
-
 "use client";
 
 import React from 'react';
+import ProductForm from '@/components/shared-components/products/ProductForm';
+import { useGetProductById, useUpdateProduct } from '@/features/product/product.api';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import ProductDetailSkeleton from '@/components/shared-components/products/ProductDetailSkeleton';
 
 const EditProductPage = ({ params }) => {
-  const { id } = params; // Product ID from the URL
+  const { id, role } = params; // Product ID and role from the URL
+  const router = useRouter();
+
+  const { data: product, isLoading, isError, error } = useGetProductById(id);
+  const updateProductMutation = useUpdateProduct();
+
+  const handleSubmit = async (formData) => {
+    try {
+      await updateProductMutation.mutateAsync({ id, ...formData });
+      toast.success('Product updated successfully!');
+      router.push(`/${role}/products/${id}`);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update product.');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-4">
+        <ProductDetailSkeleton />
+      </div>
+    );
+  }
+
+  if (isError) {
+    toast.error(error?.message || 'Failed to load product for editing.');
+    return <div className="container mx-auto p-4 text-red-500">Error: {error?.message || 'Failed to load product.'}</div>;
+  }
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Edit Product with ID: {id}</h1>
-      <p>This page will contain the form for editing product with ID {id}.</p>
-      {/* Product editing form component will go here */}
-    </div>
+    <>
+      <ProductForm
+        initialData={product}
+        onSubmit={handleSubmit}
+        isLoading={updateProductMutation.isPending}
+        isEditing={true}
+      />
+    </>
   );
 };
 
