@@ -66,9 +66,12 @@ const createProduct = async (req, res, next) => {
       category,
       brand,
       supplier,
-      imageUrl,
+      branch_id, // Added branch_id
       variants, // Array of variant objects
     } = req.body;
+
+    const imageUrls = req.files ? req.files.map(file => `/uploads/products/${file.filename}`) : [];
+    // If no images were uploaded, imageUrls will be an empty array
 
     // Basic validation for required fields
     if (!productName) {
@@ -127,7 +130,8 @@ const createProduct = async (req, res, next) => {
       category,
       brand,
       supplier,
-      imageUrl,
+      branch_id, // Added branch_id
+      imageUrls, // Using imageUrls array
       totalStock: calculatedTotalStock,
       variants: processedVariants,
       isDeleted: false, // Ensure product is not deleted on creation
@@ -146,12 +150,12 @@ const getAllProducts = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const [products, total] = await Promise.all([
-      Product.find({ isDeleted: false })
-        .populate('variants.priceHistory.changedBy', 'firstName lastName')
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 }),
-      Product.countDocuments({ isDeleted: false })
+                Product.find({ isDeleted: false })
+                  .populate('variants.priceHistory.changedBy', 'firstName lastName')
+                  .populate('branch_id', 'branch_name') // Populate branch_id to get branch_name
+                  .skip(skip)
+                  .limit(limit)
+                  .sort({ createdAt: -1 }),      Product.countDocuments({ isDeleted: false })
     ]);
 
     res.status(200).json({
@@ -173,10 +177,10 @@ const getProductById = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid product ID format' });
     }
 
-    const product = await Product.findOne({ _id: req.params.id, isDeleted: false })
-      .populate('variants.priceHistory.changedBy', 'firstName lastName') // Populate who changed the price for variants
-      .lean(); // Use .lean() for faster query execution if no Mongoose methods are needed on the result
-
+            const product = await Product.findOne({ _id: req.params.id, isDeleted: false })
+              .populate('variants.priceHistory.changedBy', 'firstName lastName') // Populate who changed the price for variants
+              .populate('branch_id', 'branch_name') // Populate branch_id to get branch_name
+              .lean(); // Use .lean() for faster query execution if no Mongoose methods are needed on the result
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
@@ -190,6 +194,18 @@ const updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
     const updateFields = req.body;
+
+    // Handle uploaded image files if any
+    if (req.files && req.files.length > 0) {
+      updateFields.imageUrls = req.files.map(file => `/uploads/products/${file.filename}`);
+    } else if (updateFields.imageUrls === null || updateFields.imageUrls === undefined) {
+      // If imageUrls is explicitly set to null/undefined in body, clear it,
+      // otherwise, if no new files, don't touch existing imageUrls in DB.
+      // Or, if user wants to delete existing images, they should send an empty array.
+    } else if (Array.isArray(updateFields.imageUrls) && updateFields.imageUrls.length === 0) {
+      // If an empty array is sent, it means the user wants to clear all images
+      updateFields.imageUrls = [];
+    }
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: 'Invalid product ID format' });
