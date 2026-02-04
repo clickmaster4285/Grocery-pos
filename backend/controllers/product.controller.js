@@ -21,19 +21,24 @@ const generateUniqueSku = (productName, variantName, variantValue) => {
 const validateVariantData = async (variant, productName, existingProductId = null, existingVariantSkusInRequest) => {
   let { name, value, sku, buyingPrice, sellingPrice, stock } = variant;
 
+  // Ensure prices are numbers for validation
+  buyingPrice = Number(buyingPrice);
+  sellingPrice = Number(sellingPrice);
+  stock = Number(stock);
+
   // Auto-generate SKU if not provided
   if (!sku) {
     sku = generateUniqueSku(productName, name, value);
     variant.sku = sku; // Update the variant object with the generated SKU
   }
 
-  if (!sku || !buyingPrice || !sellingPrice) {
-    return `Variant SKU, buying price, and selling price are required. Missing in variant: ${sku || (name ? `${name} ${value}` : 'unknown')}`;
+  if (!sku || isNaN(buyingPrice) || isNaN(sellingPrice)) {
+    return `Variant SKU, buying price, and selling price are required and must be valid numbers. Missing in variant: ${sku || (name ? `${name} ${value}` : 'unknown')}`;
   }
   if (buyingPrice < 0 || sellingPrice < 0) {
     return `Variant prices cannot be negative. SKU: ${sku}`;
   }
-  if (stock !== undefined && stock < 0) {
+  if (!isNaN(stock) && stock < 0) {
     return `Variant stock cannot be negative. SKU: ${sku}`;
   }
 
@@ -44,7 +49,6 @@ const validateVariantData = async (variant, productName, existingProductId = nul
   existingVariantSkusInRequest.add(sku.toUpperCase());
 
   // Check for global unique SKU across all products and variants
-  // This needs to be done carefully to exclude the current product's variants during an update
   const query = { 'variants.sku': sku.toUpperCase(), isDeleted: false };
   if (existingProductId) {
     query._id = { $ne: existingProductId };
@@ -57,22 +61,59 @@ const validateVariantData = async (variant, productName, existingProductId = nul
   return null; // No validation errors
 };
 
+// Helper function to process and move uploaded variant images
+const processAndMoveVariantImages = (files, variants, productName) => {
+  const uploadDir = path.join(__dirname, '../uploads/products');
+  fs.mkdirSync(uploadDir, { recursive: true });
+
+  const uploadedFileMap = new Map();
+  files.forEach(file => {
+    // Extract variantIndex and imageIndex from filename (e.g., "variant_0_image_0")
+    const match = file.fieldname.match(/variant_(\d+)_image_(\d+)/);
+    if (match) {
+      const variantIndex = parseInt(match[1]);
+      const imageIndex = parseInt(match[2]);
+
+      const newFilename = `${productName.replace(/\s/g, '-')}-variant-${variantIndex}-img-${Date.now()}${path.extname(file.originalname)}`;
+      const newPath = path.join(uploadDir, newFilename);
+      
+      fs.renameSync(file.path, newPath); // Move file
+
+      const fileUrl = `/uploads/products/${newFilename}`;
+      uploadedFileMap.set(`${variantIndex}_${imageIndex}`, fileUrl);
+    } else {
+      // Clean up unhandled files from temp if any
+      fs.unlinkSync(file.path);
+    }
+  });
+
+  // Update variants with new image URLs
+  return variants.map((variant, variantIdx) => {
+    const updatedImages = variant.images.map((imgUrl, imageIdx) => {
+      const mapKey = `${variantIdx}_${imageIdx}`;
+      return uploadedFileMap.has(mapKey) ? uploadedFileMap.get(mapKey) : imgUrl;
+    });
+    return { ...variant, images: updatedImages };
+  });
+};
 
 const createProduct = async (req, res, next) => {
   try {
-    const {
+    const parsedProductData = JSON.parse(req.body.productData);
+    let {
       productName,
       description,
       category,
       brand,
       supplier,
-      branch_id, // Added branch_id
-      variants, // Array of variant objects
-    } = req.body;
+      branch_id,
+      variants,
+    } = parsedProductData;
 
-    const imageUrls = req.files ? req.files.map(file => `/uploads/products/${file.filename}`) : [];
-    // If no images were uploaded, imageUrls will be an empty array
-
+    // Process and move uploaded images, updating variant image URLs
+    if (req.files && req.files.length > 0) {
+      variants = processAndMoveVariantImages(req.files, variants, productName);
+    }
     // Basic validation for required fields
     if (!productName) {
       return res.status(400).json({ message: 'Product name is required.' });
@@ -93,7 +134,6 @@ const createProduct = async (req, res, next) => {
     const existingVariantSkusInRequest = new Set(); // To check for unique SKUs within this request
 
     for (const variant of variants) {
-      // Make sure 'variant' is mutable if validateVariantData modifies 'variant.sku'
       let mutableVariant = { ...variant };
 
       // Validate variant data using the helper
@@ -102,7 +142,7 @@ const createProduct = async (req, res, next) => {
         return res.status(400).json({ message: validationError });
       }
 
-      const { name, value, sku, buyingPrice, sellingPrice, stock, imageUrl: variantImageUrl } = mutableVariant; // Destructure after validation
+      const { name, value, sku, buyingPrice, sellingPrice, stock, images } = mutableVariant;
 
       // Create initial price history for the variant
       const priceHistory = [{
@@ -116,9 +156,9 @@ const createProduct = async (req, res, next) => {
         name,
         value,
         sku: sku.toUpperCase(),
-        priceHistory, // Only priceHistory, not direct buyingPrice/sellingPrice
+        priceHistory,
         stock: stock !== undefined ? stock : 0,
-        imageUrl: variantImageUrl,
+        images: images || [], // Ensure images array is stored
       });
 
       calculatedTotalStock += (stock || 0);
@@ -130,15 +170,18 @@ const createProduct = async (req, res, next) => {
       category,
       brand,
       supplier,
-      branch_id, // Added branch_id
-      imageUrls, // Using imageUrls array
+      branch_id,
       totalStock: calculatedTotalStock,
       variants: processedVariants,
-      isDeleted: false, // Ensure product is not deleted on creation
+      isDeleted: false,
     });
 
     res.status(201).json(product);
   } catch (error) {
+    // If files were uploaded, clean them up on error
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => fs.unlinkSync(file.path));
+    }
     next(error);
   }
 };
@@ -193,82 +236,74 @@ const getProductById = async (req, res, next) => {
 const updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updateFields = req.body;
+    const parsedProductData = JSON.parse(req.body.productData);
+    let {
+      productName,
+      description,
+      category,
+      brand,
+      supplier,
+      branch_id,
+      variants,
+    } = parsedProductData;
 
-    // Handle uploaded image files if any
+    // Process and move uploaded images, updating variant image URLs
     if (req.files && req.files.length > 0) {
-      updateFields.imageUrls = req.files.map(file => `/uploads/products/${file.filename}`);
-    } else if (updateFields.imageUrls === null || updateFields.imageUrls === undefined) {
-      // If imageUrls is explicitly set to null/undefined in body, clear it,
-      // otherwise, if no new files, don't touch existing imageUrls in DB.
-      // Or, if user wants to delete existing images, they should send an empty array.
-    } else if (Array.isArray(updateFields.imageUrls) && updateFields.imageUrls.length === 0) {
-      // If an empty array is sent, it means the user wants to clear all images
-      updateFields.imageUrls = [];
+      variants = processAndMoveVariantImages(req.files, variants, productName);
     }
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: 'Invalid product ID format' });
     }
 
-    const product = await Product.findOne({ _id: id, isDeleted: false }); // Ensure we're not updating a soft-deleted product
+    const product = await Product.findOne({ _id: id, isDeleted: false });
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Handle productName uniqueness if updated
-
     // Prevent setting isDeleted to true via updateFields
-    if (updateFields.isDeleted === true) {
+    if (parsedProductData.isDeleted === true) {
       return res.status(400).json({ message: 'Use the DELETE endpoint to soft-delete a product.' });
     }
 
     // --- Handle Variants Update ---
-    if (updateFields.variants) {
-      const incomingVariants = updateFields.variants;
-      const currentVariantIds = new Set(product.variants.map(v => v._id.toString()));
-      const incomingVariantIds = new Set(incomingVariants.filter(v => v._id).map(v => v._id.toString()));
+    if (variants) {
+      const incomingVariants = variants; // Use the processed variants
       let newTotalStock = 0;
       const processedVariantSkus = new Set(); // To check for unique SKUs within this update request
 
-      const updatedVariantsArray = []; // To build the new variants array for the product
+      // Keep track of variant IDs that are still present or newly added
+      const incomingVariantIds = new Set(incomingVariants.filter(v => v._id).map(v => v._id.toString()));
 
+      // First, process updates to existing variants and add new ones
       for (const incomingVariant of incomingVariants) {
-        // Make variant data mutable for the helper
         let mutableIncomingVariant = { ...incomingVariant };
 
         // Validate variant data using the helper
-        // Pass product._id to exclude current product's other variants from global SKU check
         const validationError = await validateVariantData(mutableIncomingVariant, product.productName, product._id, processedVariantSkus);
         if (validationError) {
           return res.status(400).json({ message: validationError });
         }
 
-        // Destructure again after validation as SKU might have been generated or updated by the helper
-        let { _id, name, value, sku, buyingPrice, sellingPrice, stock, imageUrl: variantImageUrl } = mutableIncomingVariant;
+        let { _id, name, value, sku, buyingPrice, sellingPrice, stock, images } = mutableIncomingVariant;
 
+        if (_id) { // This is an existing variant being updated
+          let variantToUpdate = product.variants.id(_id);
 
-        let variantToSave;
-
-        if (_id && currentVariantIds.has(_id.toString())) {
-          // --- Update existing variant ---
-          variantToSave = product.variants.id(_id); // Find the subdocument by its _id
-
-          if (!variantToSave) {
+          if (!variantToUpdate) {
             return res.status(404).json({ message: `Variant with ID ${_id} not found in product.` });
           }
 
           // Check if SKU exists in another variant within THIS product (if _id is different)
-          // This specific check was not part of validateVariantData as it needs `product.variants` context
           const duplicateSkuInSameProduct = product.variants.some(v => v._id && v._id.toString() !== _id.toString() && v.sku.toUpperCase() === sku.toUpperCase());
           if (duplicateSkuInSameProduct) {
             return res.status(409).json({ message: `Duplicate SKU found in other variants of this product: ${sku}` });
           }
 
           // Check if prices have changed to add to history
-          const latestPriceEntry = variantToSave.priceHistory[variantToSave.priceHistory.length - 1];
+          const latestPriceEntry = variantToUpdate.priceHistory[variantToUpdate.priceHistory.length - 1];
           if (!latestPriceEntry || latestPriceEntry.buyingPrice !== buyingPrice || latestPriceEntry.sellingPrice !== sellingPrice) {
-            variantToSave.priceHistory.push({
+            variantToUpdate.priceHistory.push({
               buyingPrice,
               sellingPrice,
               effectiveDate: new Date(),
@@ -277,15 +312,14 @@ const updateProduct = async (req, res, next) => {
           }
 
           // Update other fields
-          variantToSave.name = name;
-          variantToSave.value = value;
-          variantToSave.sku = sku.toUpperCase(); // Update SKU
-          variantToSave.stock = stock !== undefined ? stock : variantToSave.stock;
-          variantToSave.imageUrl = variantImageUrl;
+          variantToUpdate.name = name;
+          variantToUpdate.value = value;
+          variantToUpdate.sku = sku.toUpperCase();
+          variantToUpdate.stock = stock !== undefined ? stock : variantToUpdate.stock;
+          variantToUpdate.images = images || []; // Update images array
 
-        } else {
-          // --- Add new variant ---
-          variantToSave = {
+        } else { // This is a new variant being added
+          const newVariant = {
             name,
             value,
             sku: sku.toUpperCase(),
@@ -296,41 +330,39 @@ const updateProduct = async (req, res, next) => {
               changedBy: req.user ? req.user._id : null,
             }],
             stock: stock !== undefined ? stock : 0,
-            imageUrl: variantImageUrl,
+            images: images || [],
           };
-          // Mongoose will assign _id when pushed or created
+          product.variants.push(newVariant); // Mongoose will assign _id
         }
-        updatedVariantsArray.push(variantToSave); // Add to our new array
         newTotalStock += (stock || 0);
       }
 
-      // --- Remove variants not present in the incoming update ---
-      product.variants = updatedVariantsArray.filter(v => currentVariantIds.has(v._id.toString()) || !v._id); // Keep updated existing and newly added
-
-      // Update general product fields that are not variants or price related
-      Object.keys(updateFields).forEach(key => {
-        if (updateFields[key] !== undefined && key !== 'variants' && key !== 'productName') {
-          product[key] = updateFields[key];
+      // Second, remove variants that are no longer present in the incoming request
+      for (let i = product.variants.length - 1; i >= 0; i--) {
+        const existingVariant = product.variants[i];
+        if (existingVariant._id && !incomingVariantIds.has(existingVariant._id.toString())) {
+          product.variants.pull(existingVariant._id);
         }
-      });
+      }
 
       product.totalStock = newTotalStock; // Update total stock based on processed variants
-
-    } else if (updateFields.totalStock !== undefined && updateFields.totalStock < 0) {
-      return res.status(400).json({ message: 'Total stock cannot be negative.' });
     }
 
-    // Apply remaining direct updates (e.g., description, category, brand, supplier, imageUrl)
-    Object.keys(updateFields).forEach(key => {
-      if (key !== 'variants' && key !== 'productName' && product[key] !== undefined) {
-        product[key] = updateFields[key];
+    // Apply remaining direct updates (e.g., description, category, brand, supplier)
+    Object.keys(parsedProductData).forEach(key => {
+      if (parsedProductData[key] !== undefined && key !== 'variants' && key !== 'productName') {
+        product[key] = parsedProductData[key];
       }
     });
-
+    
     await product.save();
 
     res.status(200).json(product);
   } catch (error) {
+    // If files were uploaded, clean them up on error
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => fs.unlinkSync(file.path));
+    }
     next(error);
   }
 };

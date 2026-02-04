@@ -23,6 +23,9 @@ import Image from 'next/image';
 
 // Define the schema for product variants
 const variantSchema = z.object({
+  _id: z.string().optional(), // For existing variants
+  name: z.string().optional(), // Optional variant name
+  value: z.string().optional(), // Optional variant value (e.g., "Red", "Large")
   sku: z.string().optional(),
   price: z.preprocess(
     (val) => Number(val),
@@ -32,7 +35,8 @@ const variantSchema = z.object({
     (val) => Number(val),
     z.number().int().min(0, { message: 'Stock must be a non-negative integer' })
   ),
-  images: z.array(z.string().url({ message: 'Each image must be a valid URL' })).optional(), // Assuming image URLs for now
+  // images can be string (URL) or File object
+  images: z.array(z.union([z.string().url(), z.instanceof(File)])).optional(),
 });
 
 // Define the main product schema
@@ -95,29 +99,24 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
     append({ sku: generateSku(form.getValues('name'), fields.length), price: 0.01, stock: 0, images: [] });
   };
 
-  const handleImageUpload = (index, e) => {
-    // Placeholder for actual image upload logic
-    // In a real application, you would upload files to a server (e.g., S3, Cloudinary)
-    // and get a URL back. For now, we'll simulate it with a dummy URL or use local previews.
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const newImages = [...(form.getValues(`variants.${index}.images`) || []), reader.result]; // Use reader.result as base64 for preview
-        form.setValue(`variants.${index}.images`, newImages, { shouldValidate: true });
-      };
-      reader.readAsDataURL(file); // For local preview
-      toast.success('Image selected for upload.');
+  // Handles adding new files to a variant's images array
+  const handleImageUpload = (variantIndex, e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      const currentImages = form.getValues(`variants.${variantIndex}.images`) || [];
+      const newImagesArray = [...currentImages, ...files];
+      form.setValue(`variants.${variantIndex}.images`, newImagesArray, { shouldValidate: true });
+      toast.success(`${files.length} image(s) added to variant.`);
     }
   };
 
+  // Handles removing an image (either File or URL) from a variant's images array
   const handleRemoveImage = (variantIndex, imageIndex) => {
-    const currentImages = form.getValues(`variants.${variantIndex}.images`);
+    const currentImages = form.getValues(`variants.${variantIndex}.images`) || [];
     const newImages = currentImages.filter((_, i) => i !== imageIndex);
     form.setValue(`variants.${variantIndex}.images`, newImages, { shouldValidate: true });
     toast.info('Image removed.');
   };
-
 
   const onSubmitHandler = (data) => {
     onSubmit(data);
@@ -125,7 +124,7 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmitHandler)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(onSubmitHandler)} className="space-y-8 p-4">
         <h2 className="text-3xl font-bold tracking-tight text-primary">
           {isEditing ? 'Edit Product' : 'Create New Product'}
         </h2>
@@ -235,6 +234,34 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
 
               <FormField
                 control={form.control}
+                name={`variants.${index}.name`}
+                render={({ field: variantNameField }) => (
+                  <FormItem>
+                    <FormLabel>Variant Name (e.g. Color)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Color" {...variantNameField} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name={`variants.${index}.value`}
+                render={({ field: variantValueField }) => (
+                  <FormItem>
+                    <FormLabel>Variant Value (e.g. Red)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Red" {...variantValueField} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name={`variants.${index}.sku`}
                 render={({ field: skuField }) => (
                   <FormItem>
@@ -280,29 +307,32 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
                 <FormLabel>Variant Images</FormLabel>
                 <FormControl>
                   <div className="flex flex-wrap gap-3 p-3 border rounded-md min-h-[100px] items-center">
-                    {(form.watch(`variants.${index}.images`) || []).map((imageUrl, imgIdx) => (
-                      <div key={imgIdx} className="relative w-24 h-24 rounded-md overflow-hidden group">
-                        <Image src={imageUrl} alt={`Variant image ${imgIdx + 1}`} layout="fill" objectFit="cover" />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleRemoveImage(index, imgIdx)}
-                        >
-                          <XCircle className="h-3 w-3" />
-                          <span className="sr-only">Remove image</span>
-                        </Button>
-                      </div>
-                    ))}
+                    {(form.watch(`variants.${index}.images`) || []).map((image, imgIdx) => {
+                      const imageUrl = image instanceof File ? URL.createObjectURL(image) : image;
+                      return (
+                        <div key={imgIdx} className="relative w-24 h-24 rounded-md overflow-hidden group">
+                          <Image src={imageUrl} alt={`Variant image ${imgIdx + 1}`} layout="fill" objectFit="cover" />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => handleRemoveImage(index, imgIdx)}
+                          >
+                            <XCircle className="h-3 w-3" />
+                            <span className="sr-only">Remove image</span>
+                          </Button>
+                        </div>
+                      );
+                    })}
                     <label className="flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
                       <UploadCloud className="h-6 w-6 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground mt-1">Upload</span>
-                      <Input type="file" className="sr-only" onChange={(e) => handleImageUpload(index, e)} accept="image/*" />
+                      <span className="text-xs text-muted-foreground mt-1">Add Images</span>
+                      <Input type="file" multiple className="sr-only" onChange={(e) => handleImageUpload(index, e)} accept="image/*" />
                     </label>
                   </div>
                 </FormControl>
-                <FormDescription>Upload images specific to this variant.</FormDescription>
+                <FormDescription>Upload multiple images specific to this variant.</FormDescription>
                 <FormMessage />
               </FormItem>
             </div>

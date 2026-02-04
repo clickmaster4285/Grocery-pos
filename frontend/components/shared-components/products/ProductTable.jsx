@@ -49,30 +49,38 @@ import {
 
 // This is a placeholder for a more robust type definition
 /**
+ * @typedef {Object} ProductVariant
+ * @property {string[]} images
+ */
+/**
  * @typedef {Object} Product
  * @property {string} _id
  * @property {string} name
  * @property {string} brand
  * @property {number} totalStock
- * @property {string} imageUrl
+ * @property {ProductVariant[]} variants
  */
 
 /** @type {ColumnDef<Product>[]} */
 export const columns = [
   {
-    accessorKey: 'imageUrl',
+    accessorKey: 'primaryImage', // New accessor key for the primary image
     header: 'Image',
-    cell: ({ row }) => (
-      <div className="w-10 h-10 relative">
-        <Image
-          src={row.getValue('imageUrl') || '/placeholder.png'}
-          alt={row.getValue('name')}
-          layout="fill"
-          objectFit="cover"
-          className="rounded-full"
-        />
-      </div>
-    ),
+    cell: ({ row }) => {
+      const firstVariantImages = row.original.variants?.[0]?.images;
+      const imageUrl = firstVariantImages && firstVariantImages.length > 0 ? firstVariantImages[0] : '/placeholder.png';
+      return (
+        <div className="w-10 h-10 relative">
+          <Image
+            src={imageUrl}
+            alt={row.original.name}
+            layout="fill"
+            objectFit="cover"
+            className="rounded-full"
+          />
+        </div>
+      );
+    },
   },
   {
     accessorKey: 'name',

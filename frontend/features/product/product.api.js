@@ -47,7 +47,37 @@ export const useGetProductById = (id) => {
 
 // Create a new product
 const createProduct = async (productData) => {
-  const { data } = await api.post('/products', productData);
+  const formData = new FormData();
+  const processedProductData = { ...productData };
+  const filesToUpload = [];
+
+  processedProductData.variants = productData.variants.map((variant, variantIndex) => {
+    const newVariant = { ...variant };
+    newVariant.images = []; // This will store only URLs
+
+    variant.images.forEach((image, imageIndex) => {
+      if (image instanceof File) {
+        // This is a new file, append to FormData and add a placeholder to newVariant.images
+        const fileName = `variant_${variantIndex}_image_${imageIndex}`;
+        formData.append(fileName, image, image.name);
+        newVariant.images.push(fileName); // Use file name as a temporary placeholder URL
+        filesToUpload.push(fileName); // Keep track of files to be handled by backend
+      } else {
+        // This is an existing URL, keep it
+        newVariant.images.push(image);
+      }
+    });
+    return newVariant;
+  });
+
+  // Append product data (excluding files) as a JSON string
+  formData.append('productData', JSON.stringify(processedProductData));
+
+  const { data } = await api.post('/products', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return data;
 };
 
@@ -67,7 +97,37 @@ export const useCreateProduct = () => {
 
 // Update an existing product
 const updateProduct = async ({ id, ...productData }) => {
-  const { data } = await api.put(`/products/${id}`, productData);
+  const formData = new FormData();
+  const processedProductData = { ...productData };
+  const filesToUpload = [];
+
+  processedProductData.variants = productData.variants.map((variant, variantIndex) => {
+    const newVariant = { ...variant };
+    newVariant.images = []; // This will store only URLs
+
+    variant.images.forEach((image, imageIndex) => {
+      if (image instanceof File) {
+        // This is a new file, append to FormData and add a placeholder to newVariant.images
+        const fileName = `variant_${variantIndex}_image_${imageIndex}`;
+        formData.append(fileName, image, image.name);
+        newVariant.images.push(fileName); // Use file name as a temporary placeholder URL
+        filesToUpload.push(fileName); // Keep track of files to be handled by backend
+      } else {
+        // This is an existing URL, keep it
+        newVariant.images.push(image);
+      }
+    });
+    return newVariant;
+  });
+
+  // Append product data (excluding files) as a JSON string
+  formData.append('productData', JSON.stringify(processedProductData));
+
+  const { data } = await api.put(`/products/${id}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return data;
 };
 

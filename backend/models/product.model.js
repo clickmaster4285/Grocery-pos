@@ -51,7 +51,7 @@ const variantSchema = new mongoose.Schema(
       min: [0, 'Variant stock cannot be negative'],
       default: 0,
     },
-    imageUrl: [{
+    images: [{
       type: String,
       trim: true,
     }],
@@ -92,10 +92,6 @@ const productSchema = new mongoose.Schema(
       ref: 'Branch',
       required: [true, 'Branch ID is required'],
     },
-    imageUrls: [{
-      type: String,
-      trim: true,
-    }],
     totalStock: {
       type: Number,
       required: [true, 'Total stock quantity is required'],
