@@ -1,12 +1,13 @@
 "use client";
 
-import React from 'react';
+import React, { use } from 'react';
 import { useGetProductById } from '@/features/product/product.api';
 import ProductDetail from '@/components/shared-components/products/ProductDetail';
 import ProductDetailSkeleton from '@/components/shared-components/products/ProductDetailSkeleton';
 import { toast } from 'sonner';
 
-const ProductDetailPage = ({ params }) => {
+const ProductDetailPage = props => {
+  const params = use(props.params);
   const { id, role } = params; // Product ID and role from the URL
 
   const { data: product, isLoading, isError, error } = useGetProductById(id);

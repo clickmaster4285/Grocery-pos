@@ -1,13 +1,14 @@
 "use client";
 
-import React from 'react';
+import React, { use } from 'react';
 import ProductForm from '@/components/shared-components/products/ProductForm';
 import { useGetProductById, useUpdateProduct } from '@/features/product/product.api';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import ProductDetailSkeleton from '@/components/shared-components/products/ProductDetailSkeleton';
 
-const EditProductPage = ({ params }) => {
+const EditProductPage = props => {
+  const params = use(props.params);
   const { id, role } = params; // Product ID and role from the URL
   const router = useRouter();
 

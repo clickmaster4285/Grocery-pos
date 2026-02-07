@@ -1,12 +1,13 @@
 "use client";
 
-import React from 'react';
+import React, { use } from 'react';
 import ProductForm from '@/components/shared-components/products/ProductForm';
 import { useCreateProduct } from '@/features/product/product.api';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
-const CreateProductPage = ({ params }) => {
+const CreateProductPage = props => {
+  const params = use(props.params);
   const router = useRouter();
   const { role } = params;
   const createProductMutation = useCreateProduct();
