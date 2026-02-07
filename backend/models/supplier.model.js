@@ -27,7 +27,7 @@ const supplierSchema = new mongoose.Schema(
       type: String, // Changed to String to handle various formats
       trim: true,
       match: [
-        /^\+?[1-9]\d{1,14}$/, // E.164 format, flexible
+        /^(?:\+?[1-9]\d{1,14}|03\d{9})$/,
         'Please enter a valid phone number',
       ],
     },

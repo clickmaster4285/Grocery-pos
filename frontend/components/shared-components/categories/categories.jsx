@@ -3,11 +3,16 @@
 import { useMemo, useState } from "react";
 import { Plus, Tag, Search } from "lucide-react";
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // Still needed for page navigation (e.g. to forbidden)
 import { useAuth } from '@/hooks/useAuth';
 import CategoriesTable from "@/components/shared-components/categories/categories-table";
-import { useGetAllCategories } from "@/features/category.api";
-import { useCategoryHook } from "@/hooks/useCategoryHook"; // Import the hook for delete
+import CategoryModal from "@/components/shared-components/categories/category-modal"; // Import the modal
+import {
+    useGetAllCategories,
+    useCreateCategory, // Import mutations for direct use
+    useUpdateCategory,
+    useDeleteCategory,
+} from "@/features/category.api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,7 +31,6 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
 const Categories = () => {
@@ -34,13 +38,17 @@ const Categories = () => {
     const { user } = useAuth();
     const userPrimaryRole = user?.role?.toLowerCase() || 'customer';
 
-    const { data, isLoading } = useGetAllCategories();
-    const { handleDelete } = useCategoryHook(); // Get handleDelete from the hook
+    const { data, isLoading, refetch } = useGetAllCategories(); // Add refetch from react-query
+    const createCategoryMutation = useCreateCategory();
+    const updateCategoryMutation = useUpdateCategory();
+    const deleteCategoryMutation = useDeleteCategory();
 
-    const categories = data ?? []; // Assuming data directly contains the array of categories
+
+    const categories = data ?? [];
 
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [modalState, setModalState] = useState({ isOpen: false, mode: "add", category: null }); // State for the category modal
     const [categoryToDelete, setCategoryToDelete] = useState(null);
 
     // Filter categories based on search and status
@@ -59,22 +67,58 @@ const Categories = () => {
         });
     }, [categories, searchQuery, statusFilter]);
 
-    const handleAddCategory = () => {
-        router.push(`/${userPrimaryRole}/categories/create`);
+    // Handlers for Category Modal
+    const openAddModal = () => {
+        setModalState({ isOpen: true, mode: "add", category: null });
     };
 
-    const handleEditCategory = (category) => {
-        router.push(`/${userPrimaryRole}/categories/${category._id}/edit`);
+    const openEditModal = (category) => {
+        setModalState({ isOpen: true, mode: "edit", category: category });
     };
 
+    const closeCategoryModal = () => {
+        setModalState({ isOpen: false, mode: "add", category: null });
+    };
+
+    const handleSaveCategory = async (formData, categoryId) => {
+        const toastId = toast.loading(modalState.mode === "add" ? 'Creating category...' : 'Saving category...');
+        try {
+            if (modalState.mode === "add") {
+                await createCategoryMutation.mutateAsync(formData);
+                toast.success('Category created successfully.', { id: toastId });
+            } else if (modalState.mode === "edit" && categoryId) {
+                await updateCategoryMutation.mutateAsync({ id: categoryId, categoryData: formData });
+                toast.success('Category updated successfully.', { id: toastId });
+            }
+            closeCategoryModal();
+            refetch(); // Refetch categories to update the table
+        } catch (err) {
+            toast.error('Operation Failed', {
+                id: toastId,
+                description: err.message || 'An unexpected error occurred.',
+            });
+        }
+    };
+
+
+    // Handlers for Delete Confirmation
     const confirmDeleteCategory = (categoryId) => {
         setCategoryToDelete(categoryId);
     };
 
     const executeDelete = async () => {
-        if (categoryToDelete) {
-            await handleDelete(categoryToDelete); // Call handleDelete from the hook
+        if (!categoryToDelete) return;
+        const toastId = toast.loading('Deleting category...');
+        try {
+            await deleteCategoryMutation.mutateAsync(categoryToDelete);
+            toast.success('Category status updated successfully.', { id: toastId });
             setCategoryToDelete(null); // Clear the category to delete
+            refetch(); // Refetch categories to update the table
+        } catch (err) {
+            toast.error('Operation Failed', {
+                id: toastId,
+                description: err.message || 'An unexpected error occurred.',
+            });
         }
     };
 
@@ -94,7 +138,7 @@ const Categories = () => {
                         </p>
                     </div>
                     <Button
-                        onClick={handleAddCategory}
+                        onClick={openAddModal}
                         className="gap-2 bg-primary hover:bg-primary/90"
                     >
                         <Plus className="h-4 w-4" />
@@ -138,12 +182,24 @@ const Categories = () => {
 
                 <CategoriesTable
                     categories={filteredCategories}
-                    onEdit={handleEditCategory}
-                    onDelete={confirmDeleteCategory} // Pass the function to confirm deletion
+                    onEdit={openEditModal}
+                    onDelete={confirmDeleteCategory}
                     userPrimaryRole={userPrimaryRole}
                 />
             </main>
 
+            {/* Category Modal */}
+            <CategoryModal
+                isOpen={modalState.isOpen}
+                onClose={closeCategoryModal}
+                onSave={handleSaveCategory}
+                category={modalState.category}
+                mode={modalState.mode}
+                createCategoryMutation={createCategoryMutation}
+                updateCategoryMutation={updateCategoryMutation}
+            />
+
+            {/* Delete Confirmation AlertDialog */}
             <AlertDialog open={!!categoryToDelete} onOpenChange={(open) => !open && setCategoryToDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>

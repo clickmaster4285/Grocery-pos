@@ -1,7 +1,7 @@
 'use client';
 
 import { BrandForm } from '@/components/shared-components/brands/brand-form';
-import { DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog , DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useBrandHook } from '@/hooks/useBrandHook';
 
 const BrandCreatePage = () => {
@@ -17,12 +17,14 @@ const BrandCreatePage = () => {
 
   return (
     <div className="p-4 md:p-6">
-      <DialogHeader>
-        <DialogTitle>Add New Brand</DialogTitle>
-        <DialogDescription>
-          Create a new product brand.
-        </DialogDescription>
-      </DialogHeader>
+      <Dialog>
+        <DialogHeader>
+          <DialogTitle>Add New Brand</DialogTitle>
+          <DialogDescription>
+            Create a new product brand.
+          </DialogDescription>
+        </DialogHeader>
+      </Dialog>
       <BrandForm
         formData={formData}
         updateFormField={updateFormField}

@@ -1,13 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Building2, Search } from "lucide-react"; // Using Building2 icon for brand
+import { Plus, Building2, Search } from "lucide-react";
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import BrandsTable from "@/components/shared-components/brands/brands-table";
-import { useGetAllBrands } from "@/features/brand.api";
-import { useBrandHook } from "@/hooks/useBrandHook";
+import BrandModal from "@/components/shared-components/brands/brand-modal"; // Import the modal
+import {
+    useGetAllBrands,
+    useCreateBrand,
+    useUpdateBrand,
+    useDeleteBrand,
+} from "@/features/brand.api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,7 +31,6 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
 const Brands = () => {
@@ -34,13 +38,17 @@ const Brands = () => {
     const { user } = useAuth();
     const userPrimaryRole = user?.role?.toLowerCase() || 'customer';
 
-    const { data, isLoading } = useGetAllBrands();
-    const { handleDelete } = useBrandHook();
+    const { data, isLoading, refetch } = useGetAllBrands();
+    const createBrandMutation = useCreateBrand();
+    const updateBrandMutation = useUpdateBrand();
+    const deleteBrandMutation = useDeleteBrand();
+
 
     const brands = data ?? [];
 
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [modalState, setModalState] = useState({ isOpen: false, mode: "add", brand: null });
     const [brandToDelete, setBrandToDelete] = useState(null);
 
     const filteredBrands = useMemo(() => {
@@ -58,22 +66,57 @@ const Brands = () => {
         });
     }, [brands, searchQuery, statusFilter]);
 
-    const handleAddBrand = () => {
-        router.push(`/${userPrimaryRole}/brands/create`);
+    // Handlers for Brand Modal
+    const openAddModal = () => {
+        setModalState({ isOpen: true, mode: "add", brand: null });
     };
 
-    const handleEditBrand = (brand) => {
-        router.push(`/${userPrimaryRole}/brands/${brand._id}/edit`);
+    const openEditModal = (brand) => {
+        setModalState({ isOpen: true, mode: "edit", brand: brand });
     };
 
+    const closeBrandModal = () => {
+        setModalState({ isOpen: false, mode: "add", brand: null });
+    };
+
+    const handleSaveBrand = async (formData, brandId) => {
+        const toastId = toast.loading(modalState.mode === "add" ? 'Creating brand...' : 'Saving brand...');
+        try {
+            if (modalState.mode === "add") {
+                await createBrandMutation.mutateAsync(formData);
+                toast.success('Brand created successfully.', { id: toastId });
+            } else if (modalState.mode === "edit" && brandId) {
+                await updateBrandMutation.mutateAsync({ id: brandId, brandData: formData });
+                toast.success('Brand updated successfully.', { id: toastId });
+            }
+            closeBrandModal();
+            refetch();
+        } catch (err) {
+            toast.error('Operation Failed', {
+                id: toastId,
+                description: err.message || 'An unexpected error occurred.',
+            });
+        }
+    };
+
+    // Handlers for Delete Confirmation
     const confirmDeleteBrand = (brandId) => {
         setBrandToDelete(brandId);
     };
 
     const executeDelete = async () => {
-        if (brandToDelete) {
-            await handleDelete(brandToDelete);
+        if (!brandToDelete) return;
+        const toastId = toast.loading('Deleting brand...');
+        try {
+            await deleteBrandMutation.mutateAsync(brandToDelete);
+            toast.success('Brand status updated successfully.', { id: toastId });
             setBrandToDelete(null);
+            refetch();
+        } catch (err) {
+            toast.error('Operation Failed', {
+                id: toastId,
+                description: err.message || 'An unexpected error occurred.',
+            });
         }
     };
 
@@ -93,7 +136,7 @@ const Brands = () => {
                         </p>
                     </div>
                     <Button
-                        onClick={handleAddBrand}
+                        onClick={openAddModal}
                         className="gap-2 bg-primary hover:bg-primary/90"
                     >
                         <Plus className="h-4 w-4" />
@@ -127,7 +170,7 @@ const Brands = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-muted-foreground" /> {/* Changed icon to Building2 */}
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm text-muted-foreground">
                             {filteredBrands.length} brand
                             {filteredBrands.length !== 1 ? "s" : ""} found
@@ -137,12 +180,24 @@ const Brands = () => {
 
                 <BrandsTable
                     brands={filteredBrands}
-                    onEdit={handleEditBrand}
+                    onEdit={openEditModal}
                     onDelete={confirmDeleteBrand}
                     userPrimaryRole={userPrimaryRole}
                 />
             </main>
 
+            {/* Brand Modal */}
+            <BrandModal
+                isOpen={modalState.isOpen}
+                onClose={closeBrandModal}
+                onSave={handleSaveBrand}
+                brand={modalState.brand}
+                mode={modalState.mode}
+                createBrandMutation={createBrandMutation}
+                updateBrandMutation={updateBrandMutation}
+            />
+
+            {/* Delete Confirmation AlertDialog */}
             <AlertDialog open={!!brandToDelete} onOpenChange={(open) => !open && setBrandToDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>

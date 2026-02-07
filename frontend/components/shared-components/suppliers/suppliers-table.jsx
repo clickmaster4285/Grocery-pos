@@ -40,7 +40,13 @@ export default function SuppliersTable({ suppliers,
                             Supplier Name
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                            Description
+                            Contact Person
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Email
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Phone
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                             Status
@@ -67,7 +73,17 @@ export default function SuppliersTable({ suppliers,
                             </td>
                             <td className="px-4 py-4">
                                 <div className="text-sm text-foreground">
-                                    {supplier.description || "N/A"}
+                                    {supplier.contactPerson || "N/A"}
+                                </div>
+                            </td>
+                            <td className="px-4 py-4">
+                                <div className="text-sm text-foreground">
+                                    {supplier.email || "N/A"}
+                                </div>
+                            </td>
+                            <td className="px-4 py-4">
+                                <div className="text-sm text-foreground">
+                                    {supplier.phone || "N/A"}
                                 </div>
                             </td>
                             <td className="px-4 py-4">

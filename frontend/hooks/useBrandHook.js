@@ -1,8 +1,7 @@
 // frontend/hooks/useBrandHook.js
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter, useParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { useAuth } from './useAuth';
+import { useAuth } from './useAuth'; // Get current user for permissions
 import {
   useCreateBrand,
   useUpdateBrand,
@@ -10,18 +9,15 @@ import {
   useDeleteBrand,
 } from '@/features/brand.api';
 
-export const useBrandHook = (brandId = null) => {
-  const router = useRouter();
-  const params = useParams();
-  const { user: currentUser } = useAuth();
-
-  const isEditMode = !!brandId;
-
-  const { data: brandData, isLoading: isBrandLoading } = useGetBrandById(brandId, { enabled: isEditMode });
+// This hook will now be used by the modal/form directly
+// It handles its own internal state and mutations
+export const useBrandHook = (initialBrandData = null) => {
+  const { user: currentUser } = useAuth(); // Get current user for permissions
+  const isEditMode = !!initialBrandData?._id;
 
   const createBrandMutation = useCreateBrand();
   const updateBrandMutation = useUpdateBrand();
-  const deleteBrandMutation = useDeleteBrand();
+  const deleteBrandMutation = useDeleteBrand(); // Keep for potential direct use if needed
 
   const [formData, setFormData] = useState({
     name: '',
@@ -29,78 +25,65 @@ export const useBrandHook = (brandId = null) => {
     isActive: true,
   });
 
+  // Populate form data when initialBrandData changes (e.g., when opening edit modal)
   useEffect(() => {
-    if (isEditMode && brandData) {
+    if (initialBrandData) {
       setFormData({
-        name: brandData.name,
-        description: brandData.description || '',
-        isActive: brandData.isActive,
+        name: initialBrandData.name,
+        description: initialBrandData.description || '',
+        isActive: initialBrandData.isActive,
+      });
+    } else {
+      setFormData({
+        name: '',
+        description: '',
+        isActive: true,
       });
     }
-  }, [isEditMode, brandData]);
-
-  // Permission checks - assuming current user needs appropriate permission
-  useEffect(() => {
-    const requiredPermission = isEditMode ? 'brands:update' : 'brands:create';
-    if (currentUser && !currentUser.permissions.includes(requiredPermission)) {
-      router.push(`/${params.role}/forbidden`);
-    }
-  }, [currentUser, isEditMode, router, params.role]);
+  }, [initialBrandData]);
 
   const updateFormField = useCallback((field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
 
-  const handleSubmit = useCallback(async (e) => {
-    e.preventDefault();
+  const handleSave = useCallback(async (onSuccessCallback) => {
+    const requiredPermission = isEditMode ? 'brands:update' : 'brands:create';
+    
+    // Frontend permission check
+    if (currentUser && !currentUser.permissions.includes(requiredPermission)) {
+      toast.error('Permission Denied', {
+        description: `You do not have permission to ${isEditMode ? 'update' : 'create'} brands.`,
+      });
+      return; // Prevent saving
+    }
+
     const toastId = toast.loading(isEditMode ? 'Saving brand...' : 'Creating brand...');
 
     try {
       if (isEditMode) {
-        await updateBrandMutation.mutateAsync({ id: brandId, brandData: formData });
+        await updateBrandMutation.mutateAsync({ id: initialBrandData._id, brandData: formData });
         toast.success('Brand updated successfully.', { id: toastId });
       } else {
         await createBrandMutation.mutateAsync(formData);
         toast.success('Brand created successfully.', { id: toastId });
       }
-      router.push(`/${params.role}/brands`);
+      onSuccessCallback(); // Call success callback from parent (e.g., close modal)
     } catch (err) {
       toast.error('Operation Failed', {
         id: toastId,
         description: err.message || 'An unexpected error occurred.',
       });
+      throw err; // Re-throw to allow parent to handle if needed
     }
-  }, [isEditMode, formData, brandId, router, params.role, createBrandMutation, updateBrandMutation]);
-
-  const handleDelete = useCallback(async (idToDelete) => {
-    if (!idToDelete) return;
-    const toastId = toast.loading('Deleting brand...');
-    try {
-      await deleteBrandMutation.mutateAsync(idToDelete);
-      toast.success('Brand deleted successfully.', { id: toastId });
-      router.push(`/${params.role}/brands`);
-    } catch (err) {
-      toast.error('Operation Failed', {
-        id: toastId,
-        description: err.message || 'An unexpected error occurred.',
-      });
-    }
-  }, [router, params.role, deleteBrandMutation]);
-
-  const resetForm = useCallback(() => {
-    router.back();
-  }, [router]);
-
+  }, [isEditMode, formData, initialBrandData, createBrandMutation, updateBrandMutation, currentUser]);
 
   return {
     formData,
-    isBrandLoading,
     updateFormField,
-    handleSubmit,
-    handleDelete,
-    resetForm,
+    handleSave,
     createBrandMutation,
     updateBrandMutation,
+    deleteBrandMutation, // Still expose delete mutation
     isEditMode,
   };
 };
