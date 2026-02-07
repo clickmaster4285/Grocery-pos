@@ -22,11 +22,11 @@ import { Input } from "@/components/ui/input"
 
 export function ComboBox({ items, value, onValueChange, placeholder, searchPlaceholder, emptyPlaceholder, custom }) {
   const [open, setOpen] = React.useState(false)
-  const [customValue, setCustomValue] = React.useState("")
+  const [inputValue, setInputValue] = React.useState("")
 
   const handleAddCustom = () => {
-    if (customValue) {
-      onValueChange(customValue)
+    if (inputValue) {
+      onValueChange(inputValue)
       setOpen(false)
     }
   }
@@ -38,7 +38,7 @@ export function ComboBox({ items, value, onValueChange, placeholder, searchPlace
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className="w-full justify-between bg-white"
         >
           {value
             ? items.find((item) => item.value === value)?.label || value
@@ -48,28 +48,23 @@ export function ComboBox({ items, value, onValueChange, placeholder, searchPlace
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
         <Command>
-          <CommandInput placeholder={searchPlaceholder} />
-          <CommandEmpty>
-            {custom ? (
-              <div className="p-2">
-                <p className="text-sm text-muted-foreground">{emptyPlaceholder}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <Input
-                    value={customValue}
-                    onChange={(e) => setCustomValue(e.target.value)}
-                    placeholder="Create new role..."
-                  />
-                  <Button onClick={handleAddCustom} size="sm">
-                    <PlusCircle className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              emptyPlaceholder
-            )}
-          </CommandEmpty>
+          <CommandInput
+            placeholder={searchPlaceholder}
+            value={inputValue}
+            onValueChange={setInputValue}
+          />
           <CommandList>
+            <CommandEmpty>{emptyPlaceholder}</CommandEmpty>
             <CommandGroup>
+              {custom && inputValue && !items.some(item => item.label.toLowerCase() === inputValue.toLowerCase()) && (
+                <CommandItem
+                  onSelect={handleAddCustom}
+                  className="cursor-pointer"
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Create "{inputValue}"
+                </CommandItem>
+              )}
               {items.map((item) => (
                 <CommandItem
                   key={item.value}
