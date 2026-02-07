@@ -1,5 +1,7 @@
 const Product = require('../models/product.model');
 const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
 
 // Helper function to generate a unique SKU
 const generateUniqueSku = (productName, variantName, variantValue) => {
@@ -64,7 +66,8 @@ const validateVariantData = async (variant, productName, existingProductId = nul
 // Helper function to process and move uploaded variant images
 const processAndMoveVariantImages = (files, variants, productName) => {
   const uploadDir = path.join(__dirname, '../uploads/products');
-  fs.mkdirSync(uploadDir, { recursive: true });
+  const sanitizeFilename = (str) => str ? str.replace(/\s/g, '-') : 'unknown-product';
+  const sanitizedProductName = sanitizeFilename(productName);
 
   const uploadedFileMap = new Map();
   files.forEach(file => {
@@ -74,7 +77,7 @@ const processAndMoveVariantImages = (files, variants, productName) => {
       const variantIndex = parseInt(match[1]);
       const imageIndex = parseInt(match[2]);
 
-      const newFilename = `${productName.replace(/\s/g, '-')}-variant-${variantIndex}-img-${Date.now()}${path.extname(file.originalname)}`;
+      const newFilename = `${sanitizedProductName}-variant-${variantIndex}-img-${Date.now()}${path.extname(file.originalname)}`;
       const newPath = path.join(uploadDir, newFilename);
       
       fs.renameSync(file.path, newPath); // Move file
