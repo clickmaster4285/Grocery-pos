@@ -2,7 +2,7 @@
 
 import React, { use } from 'react';
 import ProductForm from '@/components/shared-components/products/ProductForm';
-import { useCreateProduct } from '@/features/product/product.api';
+import { useCreateProduct } from '@/features/product.api';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 

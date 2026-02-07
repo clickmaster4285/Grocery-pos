@@ -5,7 +5,7 @@ import { StaffForm } from '@/components/shared-components/users/StaffForm';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useUsersHook } from '@/hooks/useUsersHook';
 import { ROLES } from '@/constants/roles';
-import { useGetAllBranches } from '@/features/branch/branch.api';
+import { useGetAllBranches } from '@/features/branch.api';
 
 const StaffFormPage = () => {
   const params = useParams();

@@ -6,6 +6,9 @@ const modules = [
   'Branches',
   'Users',
   'Products',
+  'Categories', // New Module
+  'Brands',     // New Module
+  'Suppliers',  // New Module
 ];
 const permissionTypes = [
   'create',

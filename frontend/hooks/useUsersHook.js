@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuth } from './useAuth';
-import { useGetPermissions, useCreateUser, useUpdateUser, useGetUserById } from '@/features/users/users.api';
+import { useGetPermissions, useCreateUser, useUpdateUser, useGetUserById } from '@/features/users.api';
 import { ROLES } from '@/constants/roles';
 
 export const useUsersHook = (userId = null) => {

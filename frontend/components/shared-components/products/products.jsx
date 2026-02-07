@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { useGetAllProducts } from '@/features/product/product.api';
+import { useGetAllProducts } from '@/features/product.api';
 import ProductTable from './ProductTable';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';

@@ -5,6 +5,9 @@ import {
   HelpCircle,
   Store,
   Package,
+  Tag,
+  Building2,
+  Truck,
 } from 'lucide-react';
 
 export const MODULE_ICONS = {
@@ -14,5 +17,8 @@ export const MODULE_ICONS = {
   Help: <HelpCircle size={18} />,
   Branches: <Store size={18} />,
   Products: <Package size={18} />,
+  Categories: <Tag size={18} />,
+  Brands: <Building2 size={18} />,
+  Suppliers: <Truck size={18} />,
   // Add other modules here
 };

@@ -21,7 +21,7 @@ import {
    useCreateBranch,
    useUpdateBranch,
    useToggleBranchStatus,
-} from "@/features/branch/branch.api.js";
+} from "@/features/branch.api.js";
 
 const Branches = () => {
    const { data, isLoading } = useGetAllBranches();

@@ -21,7 +21,7 @@ import { ComboBox } from '@/components/ui/combobox';
 import { toast } from 'sonner';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
-import { useGetAllBranches } from '@/features/branch/branch.api';
+import { useGetAllBranches } from '@/features/branch.api';
 
 const CATEGORIES = [
   { label: "Fruits", value: "fruits" },
@@ -337,7 +337,7 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
               <FormItem className="lg:col-span-3">
                 <FormLabel>Variant Images</FormLabel>
                 <FormControl>
-                  <div className="flex flex-wrap gap-3 p-3 border rounded-md min-h-[100px] items-center">
+                  <div className="flex flex-wrap gap-3 p-3 border rounded-md min-h-25 items-center">
                     {(form.watch(`variants.${index}.images`) || []).map((image, imgIdx) => {
                       const imageUrl = image instanceof File ? URL.createObjectURL(image) : image;
                       return (

@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"; 
-import { useGetPermissions, useGetUserById } from '@/features/users/users.api';
+import { useGetPermissions, useGetUserById } from '@/features/users.api';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';

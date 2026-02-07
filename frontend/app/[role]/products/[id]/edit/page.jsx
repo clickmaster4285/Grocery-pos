@@ -2,7 +2,7 @@
 
 import React, { use } from 'react';
 import ProductForm from '@/components/shared-components/products/ProductForm';
-import { useGetProductById, useUpdateProduct } from '@/features/product/product.api';
+import { useGetProductById, useUpdateProduct } from '@/features/product.api';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import ProductDetailSkeleton from '@/components/shared-components/products/ProductDetailSkeleton';

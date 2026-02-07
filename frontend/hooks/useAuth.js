@@ -1,6 +1,6 @@
 import { useRouter } from 'next/navigation';
 import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
-import { authAPI } from '../features/auth/auth.api';
+import { authAPI } from '../features/auth.api';
 import { setAuthErrorRedirector } from '../lib/api';
 import { useCallback, useMemo, useEffect } from 'react';
 

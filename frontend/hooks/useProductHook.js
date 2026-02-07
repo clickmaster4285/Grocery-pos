@@ -1,6 +1,6 @@
 // Placeholder for useProductHook
 import { useState, useEffect } from 'react';
-// import { useGetAllProducts, useCreateProduct, ... } from '@/features/product/product.api';
+// import { useGetAllProducts, useCreateProduct, ... } from '@/features/product.api';
 
 export const useProductHook = () => {
   // Example state and logic for product management

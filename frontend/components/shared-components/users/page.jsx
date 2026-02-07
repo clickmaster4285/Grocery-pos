@@ -15,7 +15,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StaffTable } from "./StaffTable";
 import { StatsCard } from "./StatsCard";
-import { useStaffList, useDeleteStaff } from "@/features/users/users.api";
+import { useStaffList, useDeleteStaff } from "@/features/users.api";
 import { useAuth } from "@/hooks/useAuth";
 import { ROLES } from "@/constants/roles";
 

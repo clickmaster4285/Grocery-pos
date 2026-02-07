@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useGetBranchById } from '@/features/branch/branch.api';
+import { useGetBranchById } from '@/features/branch.api';
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';

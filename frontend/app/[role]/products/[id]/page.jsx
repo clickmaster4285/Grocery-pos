@@ -1,7 +1,7 @@
 "use client";
 
 import React, { use } from 'react';
-import { useGetProductById } from '@/features/product/product.api';
+import { useGetProductById } from '@/features/product.api';
 import ProductDetail from '@/components/shared-components/products/ProductDetail';
 import ProductDetailSkeleton from '@/components/shared-components/products/ProductDetailSkeleton';
 import { toast } from 'sonner';

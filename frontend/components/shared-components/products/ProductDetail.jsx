@@ -9,7 +9,7 @@ import Image from 'next/image';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Edit, Trash2 } from 'lucide-react';
-import { useDeleteProduct } from '@/features/product/product.api';
+import { useDeleteProduct } from '@/features/product.api';
 import { toast } from 'sonner';
 import {
   AlertDialog,

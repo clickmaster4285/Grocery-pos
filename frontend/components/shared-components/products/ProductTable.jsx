@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { DotsHorizontalIcon } from '@radix-ui/react-icons';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useDeleteProduct } from '@/features/product/product.api';
+import { useDeleteProduct } from '@/features/product.api';
 import { toast } from 'sonner';
 import {
   AlertDialog,
