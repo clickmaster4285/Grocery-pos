@@ -133,6 +133,160 @@ A new feature for managing store branches has been implemented.
         *   **Simplified Approach:** Following user feedback, the detailed `roleSpecificOptions` were removed. Avatar generation now relies only on the `style` and `backgroundColor` derived from the user's role, providing a simplified yet functional and good-looking avatar.
         *   Cleaned up `console.log` statements.
 
+## 3.7. Project Structure & Core Patterns (Comprehensive Review Feb 2026)
+
+### 3.7.1. Folder Structure & Conventions
+#### Backend (`backend/`)
+-   **Core Modules:** `models/`, `controllers/`, `routes/`, `validation/`
+-   **Support Modules:** `config/`, `middleware/`, `utils/`
+-   **Entry Point:** `server.js`
+
+#### Frontend (`frontend/`)
+-   **Page/Routing:** `app/` (Next.js App Router, dynamic routes `[role]`)
+-   **Components:** `components/` (`layout/`, `shared-components/`, `ui/`)
+-   **Data/Logic:** `features/` (TanStack Query API services), `hooks/` (custom React hooks)
+-   **Utilities:** `lib/`, `utils/`, `constants/`
+
+### 3.7.2. Backend Modules & APIs
+
+#### General Patterns
+-   **Authentication & Authorization:** `auth.js` middleware for authentication, `checkPermission.js` for granular role-based access control. Permissions are defined in `config/permissions.js`.
+-   **Mongoose Schemas:** Standardized with `timestamps: true`. Soft deletion is common using `isDeleted: Boolean` or `isActive: Boolean` flags.
+-   **Controllers:** Implement standard CRUD operations, often including checks for existence, uniqueness, and `ObjectId` validity. Error handling uses `try-catch` with `next(error)` for global error handling. Pagination is implemented in `User` module.
+-   **Validation:** **Inconsistent Implementation.**
+    -   Modules like **Product, Supplier, Category, Brand** explicitly use **Joi validation** within their controllers for incoming request bodies, providing detailed error messages.
+    -   Modules like **User, Branch** primarily rely on **Mongoose schema validation** (`required`, `unique`, `match` regex) and manual checks within controllers.
+    -   This inconsistency could lead to varying API response formats for validation errors.
+
+#### Specific Modules
+
+**1. Authentication Module (`auth`)**
+-   **Controller:** `authController.js`
+-   **Routes:** `auth.routes.js` (`/api/auth`)
+-   **Features:** User login, JWT generation.
+-   **Validation:** Mongoose schema validation for User model.
+
+**2. User Management Module (`users`)**
+-   **Model:** `User.js`
+-   **Controller:** `userController.js`
+-   **Routes:** `user.routes.js` (`/api/users`)
+-   **Features:** Full CRUD for users, admin bootstrapping, role and permission management, soft deletion, user-branch association. Pagination on `getAllUsers`.
+-   **Validation:** Mongoose schema validation and manual checks.
+
+**3. Branch Management Module (`branches`)**
+-   **Model:** `branch.model.js`
+-   **Controller:** `branch.controller.js`
+-   **Routes:** `branch.routes.js` (`/api/branches`)
+-   **Features:** CRUD for branches, status toggling (soft deactivation).
+-   **Validation:** Mongoose schema validation and manual `ObjectId` validation.
+
+**4. Product Management Module (`products`)**
+-   **Model:** `product.model.js` (complex, nested variants, price/stock history)
+-   **Controller:** `product.controller.js`
+-   **Routes:** `product.routes.js` (`/api/products`)
+-   **Features:** Full CRUD for products and their variants, SKU generation, image uploads (`multer` middleware), price/stock history tracking. Advanced Mongoose aggregation for data retrieval.
+-   **Validation:** **Explicit Joi validation** in controller, plus Mongoose schema validation.
+
+**5. Category Management Module (`categories`)**
+-   **Model:** `category.model.js`
+-   **Controller:** `category.controller.js`
+-   **Routes:** `category.routes.js` (`/api/categories`)
+-   **Features:** CRUD for categories, soft deactivation.
+-   **Validation:** **Explicit Joi validation** in controller, plus Mongoose schema validation.
+
+**6. Brand Management Module (`brands`)**
+-   **Model:** `brand.model.js`
+-   **Controller:** `brand.controller.js`
+-   **Routes:** `brand.routes.js` (`/api/brands`)
+-   **Features:** CRUD for brands, soft deactivation.
+-   **Validation:** **Explicit Joi validation** in controller, plus Mongoose schema validation.
+
+**7. Supplier Management Module (`suppliers`)**
+-   **Model:** `supplier.model.js`
+-   **Controller:** `supplier.controller.js`
+-   **Routes:** `supplier.routes.js` (`/api/suppliers`)
+-   **Features:** CRUD for suppliers, soft deactivation.
+-   **Validation:** **Explicit Joi validation** in controller, plus Mongoose schema validation.
+
+### 3.7.3. Frontend Modules & UI Patterns
+
+#### General Patterns
+-   **Next.js App Router:** Utilizes Next.js App Router for page-based routing and server components (though many UI components are client-side).
+-   **State Management:** `@tanstack/react-query` is the primary tool for server-side data fetching, caching, and mutations across all modules.
+-   **UI Library:** Consistent use of `shadcn/ui` components and Tailwind CSS for a cohesive design system.
+-   **Modular Components:** `shared-components` directory holds module-specific UI (forms, tables, modals). `ui` directory holds reusable, generic UI elements.
+-   **Custom Hooks:** `frontend/hooks/` contains module-specific hooks (e.g., `useSupplierHook`) that integrate `react-query` mutations/queries, manage form state, and abstract logic.
+-   **API Services:** `frontend/features/*.api.js` files define API interactions using a centralized `api.js` (Axios instance).
+-   **Authorization:** Frontend permissions logic (`usePermissions.js`, `permissions.js`) and role-based dynamic sidebar/navbar (`DynamicSidebar.jsx`, `DynamicNavbar.jsx`).
+
+#### Specific Pages & Components
+
+**1. Authentication UI (`app/(auth)/Login`)**
+-   **Page:** `app/(auth)/Login/page.jsx`
+-   **Components:** Login form using `Input`, `Button`, etc.
+-   **API Service:** `auth.api.js`
+-   **Hooks:** `useAuth.js`
+
+**2. User Management UI (`app/[role]/users`)**
+-   **Pages:** `create/page.jsx`, `[id]/edit/page.jsx`, `page.jsx` (list), `[id]/page.jsx` (details)
+-   **Components:** `StaffForm.jsx`, `StaffTable.jsx` (in `shared-components/users`), `ComboBox.jsx`
+-   **API Service:** `users.api.js`
+-   **Hooks:** `useUsersHook.js`, `useAuth.js`, `usePermissions.js`
+
+**3. Branch Management UI (`app/[role]/branches`)**
+-   **Page:** `page.jsx`
+-   **Components:** `branches-table.jsx`, `branch-modal.jsx` (in `shared-components/branches`)
+-   **API Service:** `branch.api.js`
+-   **Hooks:** `useBranchHook.js` (implied, needs to be verified if present)
+
+**4. Product Management UI (`app/[role]/products`)**
+-   **Pages:** `create/page.jsx`, `[id]/edit/page.jsx` (implied), `page.jsx` (list)
+-   **Components:** Product forms, tables (in `shared-components/products`)
+-   **API Service:** `product.api.js`
+-   **Hooks:** `useProductHook.js`
+
+**5. Category Management UI (`app/[role]/categories`)**
+-   **Pages:** `create/page.jsx`, `[id]/edit/page.jsx` (implied), `page.jsx` (list)
+-   **Components:** Category forms, tables (in `shared-components/categories`)
+-   **API Service:** `category.api.js`
+-   **Hooks:** `useCategoryHook.js`
+
+**6. Brand Management UI (`app/[role]/brands`)**
+-   **Pages:** `create/page.jsx`, `[id]/edit/page.jsx` (implied), `page.jsx` (list)
+-   **Components:** Brand forms, tables (in `shared-components/brands`)
+-   **API Service:** `brand.api.js`
+-   **Hooks:** `useBrandHook.js`
+
+**7. Supplier Management UI (`app/[role]/suppliers`)**
+-   **Pages:** `page.jsx` (list)
+-   **Components:** `suppliers-table.jsx`, `supplier-modal.jsx` (in `shared-components/suppliers`)
+-   **API Service:** `supplier.api.js`
+-   **Hooks:** `useSupplierHook.js`
+
+**8. General UI & Utilities**
+-   **Error Pages:** `forbidden`, `loading`, `not-found`, `unauthorized`
+-   **Global Layout:** `DynamicNavbar.jsx`, `DynamicSidebar.jsx`
+-   **Shared UI:** `frontend/components/ui/` (shadcn/ui, custom elements like `PhoneInput`, `UserAvatar`)
+-   **Utilities:** `errorHandler.js`, `formatters.js`, `avatarUtils.js`, `permissions.js`, `roles.js`
+
+### 3.7.4. Missing Modules & Future Enhancements
+
+-   **Backend StockTransaction Module:** Crucial for detailed stock movement logging, reporting, and audit trails. Currently only suggested in `product.controller.js`.
+-   **POS/Sales/Order Modules (Backend & Frontend):** Core e-commerce functionalities are absent.
+-   **Reporting/Analytics Modules (Backend & Frontend):** Lacks dedicated components/APIs for business intelligence.
+-   **Centralized Backend Validation Middleware:** To improve consistency, consider implementing a global middleware for Joi validation or ensuring all controllers explicitly use Joi. This would standardize error responses and reduce boilerplate.
+-   **Frontend Form Validation:** While backend validation is robust, client-side validation using libraries like Zod/React Hook Form could enhance UX by providing immediate feedback.
+-   **Unit/Integration Tests:** Comprehensive tests are still a stated open problem.
+
+### 3.7.5. Code Consistency & Best Practices Summary
+
+-   **Consistent Folder Structure:** Adhered to across both frontend and backend.
+-   **Auth/Authz Implementation:** Strong and consistent across API routes and frontend UI.
+-   **Modular Design:** Both frontend and backend are broken into logical, manageable modules.
+-   **Technology Stack Adherence:** Next.js, React, Node.js, Express, Mongoose, TanStack Query, shadcn/ui, Tailwind CSS are used effectively.
+-   **Soft Deletion Pattern:** Consistently applied for most entities.
+-   **Inconsistent Backend Validation:** A key area for improvement to standardize API behavior and maintainability.
+
 ## 4. Open Problems & Next Steps
 
 -   **Frontend-Backend Integration:** Continue to ensure seamless communication and data flow between frontend and backend.
