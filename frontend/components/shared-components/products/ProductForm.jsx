@@ -20,6 +20,8 @@ import { PlusCircle, XCircle, UploadCloud, Image as ImageIcon } from 'lucide-rea
 import { ComboBox } from '@/components/ui/combobox';
 import { toast } from 'sonner';
 import Image from 'next/image';
+import { useAuth } from '@/hooks/useAuth';
+import { useGetAllBranches } from '@/features/branch/branch.api';
 
 const CATEGORIES = [
   { label: "Fruits", value: "fruits" },
@@ -50,23 +52,47 @@ const variantSchema = z.object({
 
 // Define the main product schema
 const productFormSchema = z.object({
-  name: z.string().min(2, { message: 'Product name must be at least 2 characters.' }),
+  productName: z.string().min(2, { message: 'Product name must be at least 2 characters.' }),
   description: z.string().optional(),
-  brand: z.string().min(1, { message: 'Brand is required.' }),
-  category: z.string().min(1, { message: 'Category is required.' }),
+  brand: z.string().optional(),
+  category: z.string().optional(),
   variants: z.array(variantSchema).min(1, { message: 'At least one variant is required.' }),
+  branch_id: z.string().optional(), // Added branch_id to schema
 });
 
-
-
 const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
+  const { user } = useAuth(); // Fetch current user
+  const { data: branchesData, isLoading: isLoadingBranches } = useGetAllBranches(); // Fetch all branches
+  const isAdmin = user?.role === 'admin';
+
+  const branchOptions = useMemo(() => {
+    if (branchesData?.data) {
+      return branchesData.data.map(branch => ({
+        label: branch.branch_name,
+        value: branch._id,
+      }));
+    }
+    return [];
+  }, [branchesData]);
+
+  // Adjust schema dynamically if admin
+  const finalProductFormSchema = useMemo(() => {
+    if (isAdmin) {
+      return productFormSchema.extend({
+        branch_id: z.string().min(1, { message: 'Branch is required for admin users.' }),
+      });
+    }
+    return productFormSchema;
+  }, [isAdmin]);
+
   const form = useForm({
-    resolver: zodResolver(productFormSchema),
+    resolver: zodResolver(finalProductFormSchema),
     defaultValues: initialData || {
-      name: '',
+      productName: '',
       description: '',
       brand: '',
       category: '',
+      branch_id: '', // Initialize branch_id
       variants: [{ sku: '', price: 0.01, stock: 0, images: [] }],
     },
     mode: 'onChange',
@@ -125,7 +151,7 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <FormField
             control={form.control}
-            name="name"
+            name="productName"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Product Name</FormLabel>
@@ -173,6 +199,28 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
               </FormItem>
             )}
           />
+
+          {isAdmin && (
+            <FormField
+              control={form.control}
+              name="branch_id"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Assign Branch</FormLabel>
+                  <ComboBox
+                    items={branchOptions}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    placeholder={isLoadingBranches ? "Loading branches..." : "Select a branch"}
+                    searchPlaceholder="Search branches..."
+                    emptyPlaceholder="No branches found."
+                  />
+                  <FormDescription>Assign this product to a specific branch.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
         </div>
 
         <FormField

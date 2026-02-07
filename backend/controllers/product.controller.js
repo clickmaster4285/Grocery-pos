@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 
-// Helper function to generate a unique SKU
 const generateUniqueSku = (productName, variantName, variantValue) => {
   const sanitize = (str) => str ? str.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 5) : ''; // Take first 5 alphanumeric chars
   const productPart = sanitize(productName);
@@ -12,23 +11,19 @@ const generateUniqueSku = (productName, variantName, variantValue) => {
   const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase(); // 4 random chars
 
   let sku = `${productPart}-${variantNamePart}-${variantValuePart}-${randomSuffix}`;
-  // Ensure SKU isn't too long (max 50 chars)
   if (sku.length > 50) {
     sku = sku.substring(0, 45) + randomSuffix; // Truncate and add suffix
   }
   return sku;
 };
 
-// Function to validate individual variant data and handle SKU generation
 const validateVariantData = async (variant, productName, existingProductId = null, existingVariantSkusInRequest) => {
   let { name, value, sku, buyingPrice, sellingPrice, stock } = variant;
 
-  // Ensure prices are numbers for validation
   buyingPrice = Number(buyingPrice);
   sellingPrice = Number(sellingPrice);
   stock = Number(stock);
 
-  // Auto-generate SKU if not provided
   if (!sku) {
     sku = generateUniqueSku(productName, name, value);
     variant.sku = sku; // Update the variant object with the generated SKU
@@ -44,13 +39,11 @@ const validateVariantData = async (variant, productName, existingProductId = nul
     return `Variant stock cannot be negative. SKU: ${sku}`;
   }
 
-  // Check for unique SKU within the current request's variants
   if (existingVariantSkusInRequest.has(sku.toUpperCase())) {
     return `Duplicate SKU found in current request's variants: ${sku}`;
   }
   existingVariantSkusInRequest.add(sku.toUpperCase());
 
-  // Check for global unique SKU across all products and variants
   const query = { 'variants.sku': sku.toUpperCase(), isDeleted: false };
   if (existingProductId) {
     query._id = { $ne: existingProductId };
@@ -60,10 +53,9 @@ const validateVariantData = async (variant, productName, existingProductId = nul
     return `Variant with SKU '${sku}' already exists in another product.`;
   }
 
-  return null; // No validation errors
+  return null;
 };
 
-// Helper function to process and move uploaded variant images
 const processAndMoveVariantImages = (files, variants, productName) => {
   const uploadDir = path.join(__dirname, '../uploads/products');
   const sanitizeFilename = (str) => str ? str.replace(/\s/g, '-') : 'unknown-product';
@@ -71,7 +63,6 @@ const processAndMoveVariantImages = (files, variants, productName) => {
 
   const uploadedFileMap = new Map();
   files.forEach(file => {
-    // Extract variantIndex and imageIndex from filename (e.g., "variant_0_image_0")
     const match = file.fieldname.match(/variant_(\d+)_image_(\d+)/);
     if (match) {
       const variantIndex = parseInt(match[1]);
@@ -79,18 +70,16 @@ const processAndMoveVariantImages = (files, variants, productName) => {
 
       const newFilename = `${sanitizedProductName}-variant-${variantIndex}-img-${Date.now()}${path.extname(file.originalname)}`;
       const newPath = path.join(uploadDir, newFilename);
-      
-      fs.renameSync(file.path, newPath); // Move file
+
+      fs.renameSync(file.path, newPath);
 
       const fileUrl = `/uploads/products/${newFilename}`;
       uploadedFileMap.set(`${variantIndex}_${imageIndex}`, fileUrl);
     } else {
-      // Clean up unhandled files from temp if any
       fs.unlinkSync(file.path);
     }
   });
 
-  // Update variants with new image URLs
   return variants.map((variant, variantIdx) => {
     const updatedImages = variant.images.map((imgUrl, imageIdx) => {
       const mapKey = `${variantIdx}_${imageIdx}`;
@@ -109,15 +98,24 @@ const createProduct = async (req, res, next) => {
       category,
       brand,
       supplier,
-      branch_id,
+      branch_id: branchIdFromRequest, // Rename 'branch_id' from request to distinguish from 'final_branch_id'
       variants,
     } = parsedProductData;
 
-    // Process and move uploaded images, updating variant image URLs
+
+    let final_branch_id = branchIdFromRequest;
+    // If the user is not an admin, use their branch_id from the token
+    if (req.user && req.user.role !== 'admin') {
+      final_branch_id = req.user.branch_id;
+    }
+
+    if (!final_branch_id) {
+      return res.status(400).json({ message: 'Branch ID is required.' });
+    }
+
     if (req.files && req.files.length > 0) {
       variants = processAndMoveVariantImages(req.files, variants, productName);
     }
-    // Basic validation for required fields
     if (!productName) {
       return res.status(400).json({ message: 'Product name is required.' });
     }
@@ -125,16 +123,14 @@ const createProduct = async (req, res, next) => {
       return res.status(400).json({ message: 'At least one variant is required for a product.' });
     }
 
-    // Check for unique product name among non-deleted products
     const existingProductByName = await Product.findOne({ productName, isDeleted: false });
     if (existingProductByName) {
       return res.status(409).json({ message: 'Product with this name already exists.' });
     }
 
-    // Prepare variants with their initial price history
     const processedVariants = [];
     let calculatedTotalStock = 0;
-    const existingVariantSkusInRequest = new Set(); // To check for unique SKUs within this request
+    const existingVariantSkusInRequest = new Set();
 
     for (const variant of variants) {
       let mutableVariant = { ...variant };
@@ -147,7 +143,6 @@ const createProduct = async (req, res, next) => {
 
       const { name, value, sku, buyingPrice, sellingPrice, stock, images } = mutableVariant;
 
-      // Create initial price history for the variant
       const priceHistory = [{
         buyingPrice,
         sellingPrice,
@@ -161,7 +156,7 @@ const createProduct = async (req, res, next) => {
         sku: sku.toUpperCase(),
         priceHistory,
         stock: stock !== undefined ? stock : 0,
-        images: images || [], // Ensure images array is stored
+        images: images || [],
       });
 
       calculatedTotalStock += (stock || 0);
@@ -173,7 +168,7 @@ const createProduct = async (req, res, next) => {
       category,
       brand,
       supplier,
-      branch_id,
+      branch_id: final_branch_id,
       totalStock: calculatedTotalStock,
       variants: processedVariants,
       isDeleted: false,
@@ -196,12 +191,12 @@ const getAllProducts = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const [products, total] = await Promise.all([
-                Product.find({ isDeleted: false })
-                  .populate('variants.priceHistory.changedBy', 'firstName lastName')
-                  .populate('branch_id', 'branch_name') // Populate branch_id to get branch_name
-                  .skip(skip)
-                  .limit(limit)
-                  .sort({ createdAt: -1 }),      Product.countDocuments({ isDeleted: false })
+      Product.find({ isDeleted: false })
+        .populate('variants.priceHistory.changedBy', 'firstName lastName')
+        .populate('branch_id', 'branch_name') // Populate branch_id to get branch_name
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 }), Product.countDocuments({ isDeleted: false })
     ]);
 
     res.status(200).json({
@@ -223,10 +218,10 @@ const getProductById = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid product ID format' });
     }
 
-            const product = await Product.findOne({ _id: req.params.id, isDeleted: false })
-              .populate('variants.priceHistory.changedBy', 'firstName lastName') // Populate who changed the price for variants
-              .populate('branch_id', 'branch_name') // Populate branch_id to get branch_name
-              .lean(); // Use .lean() for faster query execution if no Mongoose methods are needed on the result
+    const product = await Product.findOne({ _id: req.params.id, isDeleted: false })
+      .populate('variants.priceHistory.changedBy', 'firstName lastName') // Populate who changed the price for variants
+      .populate('branch_id', 'branch_name') // Populate branch_id to get branch_name
+      .lean(); // Use .lean() for faster query execution if no Mongoose methods are needed on the result
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
@@ -250,7 +245,6 @@ const updateProduct = async (req, res, next) => {
       variants,
     } = parsedProductData;
 
-    // Process and move uploaded images, updating variant image URLs
     if (req.files && req.files.length > 0) {
       variants = processAndMoveVariantImages(req.files, variants, productName);
     }
@@ -264,14 +258,12 @@ const updateProduct = async (req, res, next) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Prevent setting isDeleted to true via updateFields
     if (parsedProductData.isDeleted === true) {
       return res.status(400).json({ message: 'Use the DELETE endpoint to soft-delete a product.' });
     }
 
-    // --- Handle Variants Update ---
     if (variants) {
-      const incomingVariants = variants; // Use the processed variants
+      const incomingVariants = variants;
       let newTotalStock = 0;
       const processedVariantSkus = new Set(); // To check for unique SKUs within this update request
 
@@ -357,7 +349,7 @@ const updateProduct = async (req, res, next) => {
         product[key] = parsedProductData[key];
       }
     });
-    
+
     await product.save();
 
     res.status(200).json(product);

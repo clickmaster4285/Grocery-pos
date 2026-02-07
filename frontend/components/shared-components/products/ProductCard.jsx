@@ -1,6 +1,4 @@
 // frontend/components/shared-components/products/ProductCard.jsx
-// This is a placeholder component for displaying a single product in a card format.
-
 "use client";
 
 import React from 'react';

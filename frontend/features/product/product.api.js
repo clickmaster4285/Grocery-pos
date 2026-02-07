@@ -78,6 +78,7 @@ const createProduct = async (productData) => {
       'Content-Type': 'multipart/form-data',
     },
   });
+  console.log("the data i am send from api to backend", data)
   return data;
 };
 

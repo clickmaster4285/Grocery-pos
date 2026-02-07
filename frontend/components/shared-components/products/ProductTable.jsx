@@ -47,21 +47,6 @@ import {
 } from '@/components/ui/alert-dialog';
 
 
-// This is a placeholder for a more robust type definition
-/**
- * @typedef {Object} ProductVariant
- * @property {string[]} images
- */
-/**
- * @typedef {Object} Product
- * @property {string} _id
- * @property {string} name
- * @property {string} brand
- * @property {number} totalStock
- * @property {ProductVariant[]} variants
- */
-
-/** @type {ColumnDef<Product>[]} */
 export const columns = [
   {
     accessorKey: 'primaryImage', // New accessor key for the primary image
