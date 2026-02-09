@@ -61,6 +61,7 @@ const validateVariantData = async (variant, productName, existingProductId, uniq
 const processAndMoveVariantImages = (files, variants, productName) => {
     // This function can remain largely the same, as it's based on form field names.
     const uploadDir = path.join(__dirname, '../uploads/products');
+    fs.mkdirSync(uploadDir, { recursive: true }); // Ensure the destination directory exists
     const sanitizeFilename = (str) => str ? str.replace(/\s/g, '-') : 'unknown-product';
     const sanitizedProductName = sanitizeFilename(productName);
 

@@ -26,19 +26,20 @@ const stockHistorySchema = Joi.object({
 
 // Schema for a single product variant
 const variantSchema = Joi.object({
-  _id: Joi.objectId(), // For existing variants during update
-  sku: Joi.string().trim().uppercase().max(50).optional(),
+  _id: Joi.objectId(), 
+  sku: Joi.string().trim().uppercase().max(50).allow('').optional(), 
   attributes: Joi.array().items(attributeSchema).default([]),
+  buyingPrice: Joi.number().min(0).required(),
+  sellingPrice: Joi.number().min(0).required(),
   stock: Joi.number().min(0).default(0),
   priceHistory: Joi.array().items(priceHistorySchema).default([]),
   stockHistory: Joi.array().items(stockHistorySchema).default([]),
-  images: Joi.array().items(Joi.string().trim().allow('').uri()).default([]), // Allow empty string or URI for URLs
-  supplier: Joi.objectId().optional().allow(null, ''), // Reference to Supplier model, now optional and allows empty string
+  images: Joi.array().items(Joi.string().trim().allow('').uri()).default([]), 
+  supplier: Joi.objectId().optional().allow(null, ''),
   barcode: Joi.string().trim().max(100).allow(null, ''),
   qrCode: Joi.string().trim().max(200).allow(null, ''),
   isDeleted: Joi.boolean().default(false),
   deletedAt: Joi.date().iso().allow(null),
-  // Additional fields for update operations that don't directly map to schema
   stockChangeType: Joi.string().valid('RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT').optional(),
   stockChangeReason: Joi.string().trim().max(200).optional(),
 });
@@ -47,8 +48,8 @@ const variantSchema = Joi.object({
 const createProductSchema = Joi.object({
   productName: Joi.string().trim().max(100).required(),
   description: Joi.string().trim().max(1000).allow(null, ''),
-  category: Joi.objectId().optional().allow(null, ''), // Reference to Category model, now optional and allows empty string
-  brand: Joi.objectId().optional().allow(null, ''), // Reference to Brand model, optional and allows empty string
+  category: Joi.objectId().optional().allow(null, ''),
+  brand: Joi.objectId().optional().allow(null, ''),
   variants: Joi.array().items(variantSchema).min(1).required(),
   isActive: Joi.boolean().default(true),
 });
@@ -57,11 +58,11 @@ const createProductSchema = Joi.object({
 const updateProductSchema = Joi.object({
   productName: Joi.string().trim().max(100).optional(),
   description: Joi.string().trim().max(1000).allow(null, '').optional(),
-  category: Joi.objectId().optional().allow(null, ''), // Reference to Category model, now optional and allows empty string
-  brand: Joi.objectId().optional().allow(null, ''), // Reference to Brand model, optional and allows empty string
-  variants: Joi.array().items(variantSchema).min(0).optional(), // Can have 0 variants during update to delete all
+  category: Joi.objectId().optional().allow(null, ''),
+  brand: Joi.objectId().optional().allow(null, ''),
+  variants: Joi.array().items(variantSchema).min(0).optional(),
   isActive: Joi.boolean().optional(),
-  isDeleted: Joi.boolean().optional(), // Allow soft-delete via update
+  isDeleted: Joi.boolean().optional(), 
 });
 
 module.exports = {
