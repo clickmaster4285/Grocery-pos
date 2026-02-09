@@ -49,7 +49,7 @@ const variantSchema = z.object({
     (val) => Number(val),
     z.number().int().min(0, { message: 'Stock must be a non-negative integer' })
   ),
-  supplier: z.string().min(1, { message: "Supplier is required for each variant." }), // ObjectId string
+  supplier: z.string().optional().nullable(), // ObjectId string, now optional
   barcode: z.string().max(100, { message: "Barcode cannot be more than 100 characters." }).optional().nullable(),
   qrCode: z.string().max(200, { message: "QR Code cannot be more than 200 characters." }).optional().nullable(),
   // images can be string (URL) or File object
@@ -61,7 +61,7 @@ const productFormSchema = z.object({
   productName: z.string().min(2, { message: 'Product name must be at least 2 characters.' }).max(100, { message: 'Product name cannot be more than 100 characters.' }),
   description: z.string().max(1000, { message: 'Product description cannot be more than 1000 characters.' }).optional().nullable(),
   brand: z.string().optional().nullable(), // ObjectId string, optional
-  category: z.string().min(1, { message: "Category is required." }), // ObjectId string
+  category: z.string().optional().nullable(), // ObjectId string, now optional
   variants: z.array(variantSchema).min(1, { message: 'At least one variant is required.' }),
 });
 
@@ -135,9 +135,10 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
 
   // Fetch categories
   const { data: categoriesData, isLoading: isLoadingCategories } = useGetAllCategories();
+
   const categoryOptions = useMemo(() => {
-    if (categoriesData?.data) {
-      return categoriesData.data.map(category => ({
+    if (categoriesData) {
+      return categoriesData?.map(category => ({
         label: category.name,
         value: category._id,
       }));
@@ -148,8 +149,8 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
   // Fetch brands
   const { data: brandsData, isLoading: isLoadingBrands } = useGetAllBrands();
   const brandOptions = useMemo(() => {
-    if (brandsData?.data) {
-      return brandsData.data.map(brand => ({
+    if (brandsData) {
+      return brandsData?.map(brand => ({
         label: brand.name,
         value: brand._id,
       }));
@@ -159,9 +160,10 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
 
   // Fetch suppliers
   const { data: suppliersData, isLoading: isLoadingSuppliers } = useGetAllSuppliers();
+
   const supplierOptions = useMemo(() => {
-    if (suppliersData?.data) {
-      return suppliersData.data.map(supplier => ({
+    if (suppliersData) {
+      return suppliersData?.map(supplier => ({
         label: supplier.name, // Assuming supplier has a 'name' field
         value: supplier._id,
       }));
@@ -214,9 +216,6 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
     return form.watch('variants').reduce((sum, variant) => sum + (Number(variant.stock) || 0), 0);
   }, [form.watch('variants')]);
 
-
-
-
   const handleAddVariant = () => {
     append({
       sku: '',
@@ -251,6 +250,7 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
   };
 
   const onSubmitHandler = (data) => {
+    console.log("the data is ", data)
     onSubmit(data);
   };
 
@@ -487,7 +487,7 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
                       const imageUrl = image instanceof File ? URL.createObjectURL(image) : image;
                       return (
                         <div key={imgIdx} className="relative w-24 h-24 rounded-md overflow-hidden group">
-                          <Image src={imageUrl} alt={`Variant image ${imgIdx + 1}`} layout="fill" objectFit="cover" />
+                          <Image src={imageUrl} alt={`Variant image ${imgIdx + 1}`} fill style={{ objectFit: 'cover' }} />
                           <Button
                             type="button"
                             variant="destructive"

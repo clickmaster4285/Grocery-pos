@@ -1,35 +1,33 @@
 "use client";
 
-import React, { use } from 'react';
+import React from 'react';
 import ProductForm from '@/components/shared-components/products/ProductForm';
 import { useCreateProduct } from '@/features/product.api';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
-const CreateProductPage = props => {
-  const params = use(props.params);
+const CreateProductPage = () => {
   const router = useRouter();
-  const { role } = params;
   const createProductMutation = useCreateProduct();
 
-  const handleSubmit = async (formData) => {
+  const handleSubmit = async (data) => {
     try {
-      await createProductMutation.mutateAsync(formData);
+      await createProductMutation.mutateAsync(data);
       toast.success('Product created successfully!');
-      router.push(`/${role}/products`);
+      router.push('../products'); // Navigate back to the product list
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to create product.');
+      toast.error(error?.message || 'Failed to create product.');
     }
   };
 
   return (
-    <>
+    <div className="container mx-auto py-8">
       <ProductForm
         onSubmit={handleSubmit}
         isLoading={createProductMutation.isPending}
         isEditing={false}
       />
-    </>
+    </div>
   );
 };
 

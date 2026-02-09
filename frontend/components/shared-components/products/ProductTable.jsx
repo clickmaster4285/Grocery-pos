@@ -84,8 +84,8 @@ export const columns = [
           <Image
             src={imageUrl}
             alt={row.original.productName}
-            layout="fill"
-            objectFit="cover"
+            fill
+            style={{ objectFit: 'cover' }}
             className="rounded-full"
           />
         </div>
@@ -245,14 +245,14 @@ const VariantDetails = ({ variant }) => {
 
   return (
     <div className="flex flex-col md:flex-row gap-4 p-3 bg-white dark:bg-gray-800 rounded-md shadow-sm border border-gray-100 dark:border-gray-700">
-      <div className="flex-shrink-0">
+      <div className="shrink-0">
         {variant.images && variant.images.length > 0 ? (
           <Image
             src={variant.images[0]}
             alt={`Variant ${variant.sku} image`}
             width={80}
             height={80}
-            objectFit="cover"
+            style={{ objectFit: 'cover' }}
             className="rounded-md"
           />
         ) : (
@@ -261,7 +261,7 @@ const VariantDetails = ({ variant }) => {
           </div>
         )}
       </div>
-      <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-sm">
+      <div className="grow grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-sm">
         <p><strong>SKU:</strong> {variant.sku}</p>
         <p><strong>Supplier:</strong> {variant.supplier?.name || 'N/A'}</p>
         <p><strong>Stock:</strong> {variant.stock}</p>

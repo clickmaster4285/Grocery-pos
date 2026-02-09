@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useGetAllProducts } from '@/features/product.api';
 import ProductTable from './ProductTable';
-import ProductModal from './ProductModal'; // Import ProductModal
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Search } from 'lucide-react';
@@ -12,8 +11,6 @@ import { useDebounce } from '@/hooks/useDebounce';
 
 const ProductsPage = ({ role }) => {
   const router = useRouter();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProductId, setEditingProductId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({});
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
@@ -30,22 +27,11 @@ const ProductsPage = ({ role }) => {
   const { data, isLoading, isError, error } = useGetAllProducts(queryFilters);
 
   const handleCreateProduct = () => {
-    setEditingProductId(null);
-    setIsModalOpen(true);
+    router.push(`/${role}/products/create`);
   };
 
   const handleEditProduct = (productId) => {
-    setEditingProductId(productId);
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingProductId(null);
-  };
-
-  const handleSuccess = () => {
-    handleCloseModal();
+    router.push(`/${role}/products/${productId}/edit`);
   };
 
   return (
@@ -84,14 +70,6 @@ const ProductsPage = ({ role }) => {
         onEditProduct={handleEditProduct} // Pass the edit handler to the table
       />
 
-      {isModalOpen && (
-        <ProductModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          productId={editingProductId}
-          onSuccess={handleSuccess}
-        />
-      )}
     </div>
   );
 }

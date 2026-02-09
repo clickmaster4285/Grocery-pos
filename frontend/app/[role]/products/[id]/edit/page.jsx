@@ -1,52 +1,62 @@
 "use client";
 
-import React, { use } from 'react';
+import React from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import ProductForm from '@/components/shared-components/products/ProductForm';
 import { useGetProductById, useUpdateProduct } from '@/features/product.api';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import ProductDetailSkeleton from '@/components/shared-components/products/ProductDetailSkeleton';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorCard } from '@/components/ui/error-card';
 
-const EditProductPage = props => {
-  const params = use(props.params);
-  const { id, role } = params; // Product ID and role from the URL
+const EditProductPage = () => {
   const router = useRouter();
+  const params = useParams();
+  const productId = params.id;
 
-  const { data: product, isLoading, isError, error } = useGetProductById(id);
+  const { data: productData, isLoading, isError, error } = useGetProductById(productId);
   const updateProductMutation = useUpdateProduct();
 
-  const handleSubmit = async (formData) => {
+  const handleSubmit = async (data) => {
     try {
-      await updateProductMutation.mutateAsync({ id, ...formData });
+      await updateProductMutation.mutateAsync({ productId, formData: data });
       toast.success('Product updated successfully!');
-      router.push(`/${role}/products/${id}`);
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update product.');
+      router.push('../../products'); // Navigate back to the product list
+    } catch (err) {
+      toast.error(err?.message || 'Failed to update product.');
     }
   };
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-4">
-        <ProductDetailSkeleton />
+      <div className="container mx-auto py-8">
+        <Skeleton className="h-10 w-1/2 mb-6" />
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
       </div>
     );
   }
 
   if (isError) {
-    toast.error(error?.message || 'Failed to load product for editing.');
-    return <div className="container mx-auto p-4 text-red-500">Error: {error?.message || 'Failed to load product.'}</div>;
+    return (
+      <div className="container mx-auto py-8">
+        <ErrorCard title="Error" description={error?.message || 'Failed to load product for editing.'} />
+      </div>
+    );
   }
 
   return (
-    <>
+    <div className="container mx-auto py-8">
       <ProductForm
-        initialData={product}
+        initialData={productData}
         onSubmit={handleSubmit}
         isLoading={updateProductMutation.isPending}
         isEditing={true}
       />
-    </>
+    </div>
   );
 };
 

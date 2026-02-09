@@ -53,20 +53,23 @@ const createProduct = async (productData) => {
 
   processedProductData.variants = productData.variants.map((variant, variantIndex) => {
     const newVariant = { ...variant };
-    newVariant.images = []; // This will store only URLs
+    const imageFilesToAppend = []; // To hold File objects
+    const existingImageUrls = []; // To hold existing URLs
 
     variant.images.forEach((image, imageIndex) => {
       if (image instanceof File) {
-        // This is a new file, append to FormData and add a placeholder to newVariant.images
-        const fileName = `variant_${variantIndex}_image_${imageIndex}`;
-        formData.append(fileName, image, image.name);
-        newVariant.images.push(fileName); // Use file name as a temporary placeholder URL
-        filesToUpload.push(fileName); // Keep track of files to be handled by backend
-      } else {
+        // This is a new file, prepare to append to FormData
+        // Use a consistent naming convention for form fields to match backend multer processing
+        const formFieldName = `variant_${variantIndex}_image_${imageFilesToAppend.length}`;
+        formData.append(formFieldName, image, image.name);
+        imageFilesToAppend.push(image);
+      } else if (typeof image === 'string') {
         // This is an existing URL, keep it
-        newVariant.images.push(image);
+        existingImageUrls.push(image);
       }
     });
+    newVariant.images = existingImageUrls; // Only send existing URLs in the JSON data
+
     return newVariant;
   });
 
@@ -104,20 +107,23 @@ const updateProduct = async ({ id, ...productData }) => {
 
   processedProductData.variants = productData.variants.map((variant, variantIndex) => {
     const newVariant = { ...variant };
-    newVariant.images = []; // This will store only URLs
+    const imageFilesToAppend = []; // To hold File objects
+    const existingImageUrls = []; // To hold existing URLs
 
     variant.images.forEach((image, imageIndex) => {
       if (image instanceof File) {
-        // This is a new file, append to FormData and add a placeholder to newVariant.images
-        const fileName = `variant_${variantIndex}_image_${imageIndex}`;
-        formData.append(fileName, image, image.name);
-        newVariant.images.push(fileName); // Use file name as a temporary placeholder URL
-        filesToUpload.push(fileName); // Keep track of files to be handled by backend
-      } else {
+        // This is a new file, prepare to append to FormData
+        // Use a consistent naming convention for form fields to match backend multer processing
+        const formFieldName = `variant_${variantIndex}_image_${imageFilesToAppend.length}`;
+        formData.append(formFieldName, image, image.name);
+        imageFilesToAppend.push(image);
+      } else if (typeof image === 'string') {
         // This is an existing URL, keep it
-        newVariant.images.push(image);
+        existingImageUrls.push(image);
       }
     });
+    newVariant.images = existingImageUrls; // Only send existing URLs in the JSON data
+
     return newVariant;
   });
 

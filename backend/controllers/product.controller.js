@@ -102,7 +102,7 @@ const createProduct = async (req, res, next) => {
         } catch (parseError) {
             return res.status(400).json({ message: 'Invalid productData JSON format.' });
         }
-
+console.log("the parsend data is ", parsedProductData)
         // Use Joi to validate the incoming data
         const { error, value } = createProductSchema.validate(parsedProductData, { abortEarly: false });
         if (error) {

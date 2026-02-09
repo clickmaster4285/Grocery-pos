@@ -27,13 +27,13 @@ const stockHistorySchema = Joi.object({
 // Schema for a single product variant
 const variantSchema = Joi.object({
   _id: Joi.objectId(), // For existing variants during update
-  sku: Joi.string().trim().uppercase().max(50).required(),
+  sku: Joi.string().trim().uppercase().max(50).optional(),
   attributes: Joi.array().items(attributeSchema).default([]),
   stock: Joi.number().min(0).default(0),
   priceHistory: Joi.array().items(priceHistorySchema).default([]),
   stockHistory: Joi.array().items(stockHistorySchema).default([]),
-  images: Joi.array().items(Joi.string().trim().uri()).default([]), // uri() for URLs
-  supplier: Joi.objectId().required(), // Reference to Supplier model
+  images: Joi.array().items(Joi.string().trim().allow('').uri()).default([]), // Allow empty string or URI for URLs
+  supplier: Joi.objectId().optional().allow(null), // Reference to Supplier model, now optional
   barcode: Joi.string().trim().max(100).allow(null, ''),
   qrCode: Joi.string().trim().max(200).allow(null, ''),
   isDeleted: Joi.boolean().default(false),
@@ -47,7 +47,7 @@ const variantSchema = Joi.object({
 const createProductSchema = Joi.object({
   productName: Joi.string().trim().max(100).required(),
   description: Joi.string().trim().max(1000).allow(null, ''),
-  category: Joi.objectId().required(), // Reference to Category model
+  category: Joi.objectId().optional().allow(null), // Reference to Category model, now optional
   brand: Joi.objectId().allow(null), // Reference to Brand model, optional
   variants: Joi.array().items(variantSchema).min(1).required(),
   isActive: Joi.boolean().default(true),
@@ -57,7 +57,7 @@ const createProductSchema = Joi.object({
 const updateProductSchema = Joi.object({
   productName: Joi.string().trim().max(100).optional(),
   description: Joi.string().trim().max(1000).allow(null, '').optional(),
-  category: Joi.objectId().optional(),
+  category: Joi.objectId().optional().allow(null), // Reference to Category model, now optional
   brand: Joi.objectId().allow(null).optional(),
   variants: Joi.array().items(variantSchema).min(0).optional(), // Can have 0 variants during update to delete all
   isActive: Joi.boolean().optional(),
