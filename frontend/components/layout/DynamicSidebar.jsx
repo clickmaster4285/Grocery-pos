@@ -121,7 +121,7 @@ export default function DynamicSidebar() {
       {/* Actual fixed sidebar */}
       <nav
         className={cn(
-          'h-screen border border-gray-300 rounded-tr-2xl bg-foreground/1 border-r flex flex-col fixed top-0 left-0 z-50 transition-all duration-300',
+          'h-screen border border-gray-300 rounded-tr-2xl  border-r flex flex-col fixed top-0 left-0 z-50 transition-all duration-300',
           isCollapsed ? 'w-16' : 'w-64'
         )}
       >

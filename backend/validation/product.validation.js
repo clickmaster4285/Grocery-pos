@@ -47,8 +47,8 @@ const variantSchema = Joi.object({
 const createProductSchema = Joi.object({
   productName: Joi.string().trim().max(100).required(),
   description: Joi.string().trim().max(1000).allow(null, ''),
-  category: Joi.objectId().optional().allow(null), // Reference to Category model, now optional
-  brand: Joi.objectId().allow(null), // Reference to Brand model, optional
+  category: Joi.objectId().optional().allow(null, ''), // Reference to Category model, now optional and allows empty string
+  brand: Joi.objectId().optional().allow(null, ''), // Reference to Brand model, optional and allows empty string
   variants: Joi.array().items(variantSchema).min(1).required(),
   isActive: Joi.boolean().default(true),
 });
@@ -57,8 +57,8 @@ const createProductSchema = Joi.object({
 const updateProductSchema = Joi.object({
   productName: Joi.string().trim().max(100).optional(),
   description: Joi.string().trim().max(1000).allow(null, '').optional(),
-  category: Joi.objectId().optional().allow(null), // Reference to Category model, now optional
-  brand: Joi.objectId().allow(null).optional(),
+  category: Joi.objectId().optional().allow(null, ''), // Reference to Category model, now optional and allows empty string
+  brand: Joi.objectId().optional().allow(null, ''), // Reference to Brand model, optional and allows empty string
   variants: Joi.array().items(variantSchema).min(0).optional(), // Can have 0 variants during update to delete all
   isActive: Joi.boolean().optional(),
   isDeleted: Joi.boolean().optional(), // Allow soft-delete via update

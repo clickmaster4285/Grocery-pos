@@ -102,7 +102,14 @@ const createProduct = async (req, res, next) => {
         } catch (parseError) {
             return res.status(400).json({ message: 'Invalid productData JSON format.' });
         }
-console.log("the parsend data is ", parsedProductData)
+        // Transform empty strings to null for category and brand before validation
+        if (parsedProductData.category === '') {
+            parsedProductData.category = null;
+        }
+        if (parsedProductData.brand === '') {
+            parsedProductData.brand = null;
+        }
+        console.log("the parsend data is ", parsedProductData)
         // Use Joi to validate the incoming data
         const { error, value } = createProductSchema.validate(parsedProductData, { abortEarly: false });
         if (error) {
@@ -443,6 +450,13 @@ const updateProduct = async (req, res, next) => {
             parsedProductData = JSON.parse(req.body.productData);
         } catch (parseError) {
             return res.status(400).json({ message: 'Invalid productData JSON format.' });
+        }
+        // Transform empty strings to null for category and brand before validation
+        if (parsedProductData.category === '') {
+            parsedProductData.category = null;
+        }
+        if (parsedProductData.brand === '') {
+            parsedProductData.brand = null;
         }
 
         // Use Joi to validate the incoming data for update

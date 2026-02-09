@@ -45,37 +45,48 @@ export const useGetProductById = (id) => {
   });
 };
 
-// Create a new product
-const createProduct = async (productData) => {
+const processProductData = (productData) => {
   const formData = new FormData();
   const processedProductData = { ...productData };
-  const filesToUpload = [];
 
   processedProductData.variants = productData.variants.map((variant, variantIndex) => {
     const newVariant = { ...variant };
-    const imageFilesToAppend = []; // To hold File objects
-    const existingImageUrls = []; // To hold existing URLs
 
-    variant.images.forEach((image, imageIndex) => {
+    if (newVariant.supplier === '') {
+      newVariant.supplier = null;
+    }
+
+    const imageFilesToAppend = [];
+    const existingImageUrls = [];
+
+    variant.images.forEach((image) => {
       if (image instanceof File) {
-        // This is a new file, prepare to append to FormData
-        // Use a consistent naming convention for form fields to match backend multer processing
         const formFieldName = `variant_${variantIndex}_image_${imageFilesToAppend.length}`;
         formData.append(formFieldName, image, image.name);
         imageFilesToAppend.push(image);
       } else if (typeof image === 'string') {
-        // This is an existing URL, keep it
         existingImageUrls.push(image);
       }
     });
-    newVariant.images = existingImageUrls; // Only send existing URLs in the JSON data
+    newVariant.images = existingImageUrls;
 
     return newVariant;
   });
 
-  // Append product data (excluding files) as a JSON string
-  formData.append('productData', JSON.stringify(processedProductData));
+  if (processedProductData.category === '') {
+    processedProductData.category = null;
+  }
+  if (processedProductData.brand === '') {
+    processedProductData.brand = null;
+  }
 
+  formData.append('productData', JSON.stringify(processedProductData));
+  return formData;
+};
+
+// Create a new product
+const createProduct = async (productData) => {
+  const formData = processProductData(productData);
   const { data } = await api.post('/products', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
@@ -101,35 +112,7 @@ export const useCreateProduct = () => {
 
 // Update an existing product
 const updateProduct = async ({ id, ...productData }) => {
-  const formData = new FormData();
-  const processedProductData = { ...productData };
-  const filesToUpload = [];
-
-  processedProductData.variants = productData.variants.map((variant, variantIndex) => {
-    const newVariant = { ...variant };
-    const imageFilesToAppend = []; // To hold File objects
-    const existingImageUrls = []; // To hold existing URLs
-
-    variant.images.forEach((image, imageIndex) => {
-      if (image instanceof File) {
-        // This is a new file, prepare to append to FormData
-        // Use a consistent naming convention for form fields to match backend multer processing
-        const formFieldName = `variant_${variantIndex}_image_${imageFilesToAppend.length}`;
-        formData.append(formFieldName, image, image.name);
-        imageFilesToAppend.push(image);
-      } else if (typeof image === 'string') {
-        // This is an existing URL, keep it
-        existingImageUrls.push(image);
-      }
-    });
-    newVariant.images = existingImageUrls; // Only send existing URLs in the JSON data
-
-    return newVariant;
-  });
-
-  // Append product data (excluding files) as a JSON string
-  formData.append('productData', JSON.stringify(processedProductData));
-
+  const formData = processProductData(productData);
   const { data } = await api.put(`/products/${id}`, formData, {
     headers: {
       'Content-Type': 'multipart/form-data',

@@ -56,7 +56,6 @@ const stockHistorySchema = new mongoose.Schema({
 const variantSchema = new mongoose.Schema({
     sku: {
         type: String,
-        required: [true, 'SKU is required for each variant.'],
         unique: true,
         trim: true,
         uppercase: true,
@@ -90,7 +89,6 @@ const variantSchema = new mongoose.Schema({
     supplier: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Supplier',
-        required: [true, 'Supplier is required for each variant.'],
     },
     barcode: {
         type: String,
@@ -132,7 +130,6 @@ const productSchema = new mongoose.Schema({
     category: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Category',
-        required: [true, 'Category is required.'],
     },
     brand: {
         type: mongoose.Schema.Types.ObjectId,
