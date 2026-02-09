@@ -134,8 +134,6 @@ const productSchema = new mongoose.Schema({
     brand: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Brand',
-        trim: true,
-        maxlength: [100, 'Brand name cannot be more than 100 characters.'],
     },
     totalStock: {
         type: Number,

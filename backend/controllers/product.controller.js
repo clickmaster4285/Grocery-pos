@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 const { createProductSchema, updateProductSchema } = require('../validation/product.validation');
+const { transformEmptyStringsToNull, cleanupUploadedFiles, createInitialVariantHistory } = require('../utils/product.utils');
 
 const generateUniqueSku = (productName, attributes) => {
     const sanitize = (str) => str ? str.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4) : '';
@@ -102,17 +103,14 @@ const createProduct = async (req, res, next) => {
         } catch (parseError) {
             return res.status(400).json({ message: 'Invalid productData JSON format.' });
         }
-        // Transform empty strings to null for category and brand before validation
-        if (parsedProductData.category === '') {
-            parsedProductData.category = null;
-        }
-        if (parsedProductData.brand === '') {
-            parsedProductData.brand = null;
-        }
+        // Transform empty strings to null for category, brand, and variant.supplier before validation
+        parsedProductData = transformEmptyStringsToNull(parsedProductData);
+
         console.log("the parsend data is ", parsedProductData)
         // Use Joi to validate the incoming data
         const { error, value } = createProductSchema.validate(parsedProductData, { abortEarly: false });
         if (error) {
+            console.error('Joi Validation Error:', error.details); // Add this line
             return res.status(400).json({
                 message: 'Validation failed',
                 details: error.details.map(detail => detail.message)
@@ -158,34 +156,12 @@ const createProduct = async (req, res, next) => {
             const validationError = await validateVariantData(mutableVariant, productName, null, uniquenessCheckSets);
             if (validationError) {
                 // Clean up any uploaded files if validation fails
-                if (req.files && req.files.length > 0) {
-                    req.files.forEach(file => {
-                        try { fs.unlinkSync(file.path) } catch (e) { console.error("Error cleaning up file:", e) }
-                    });
-                }
+                cleanupUploadedFiles(req.files);
                 return res.status(400).json({ message: validationError });
             }
 
-            const { sku, attributes, buyingPrice, sellingPrice, stock, images, supplier, barcode, qrCode } = mutableVariant;
-
-            // Create initial price history
-            const priceHistory = [{
-                buyingPrice: Number(buyingPrice),
-                sellingPrice: Number(sellingPrice),
-                changedBy: req.user._id,
-            }];
-
-            // Create initial stock history if stock is added
-            const stockHistory = [];
-            const initialStock = Number(stock) || 0;
-            if (initialStock > 0) {
-                stockHistory.push({
-                    change: initialStock,
-                    type: 'RESTOCK',
-                    reason: 'Initial stock',
-                    performedBy: req.user._id,
-                });
-            }
+            const { sku, attributes, supplier, barcode, qrCode } = mutableVariant;
+            const { priceHistory, stockHistory, initialStock } = createInitialVariantHistory(mutableVariant, req.user._id);
 
             processedVariants.push({
                 sku,
@@ -194,7 +170,7 @@ const createProduct = async (req, res, next) => {
                 priceHistory,
                 stock: initialStock,
                 stockHistory,
-                images: images || [],
+                images: mutableVariant.images || [], // Use images from mutableVariant after processAndMoveVariantImages
                 barcode,
                 qrCode,
                 isDeleted: false,
@@ -215,15 +191,7 @@ const createProduct = async (req, res, next) => {
 
         res.status(201).json(product);
     } catch (error) {
-        if (req.files && req.files.length > 0) {
-            req.files.forEach(file => {
-                try {
-                    fs.unlinkSync(file.path)
-                } catch (e) {
-                    console.error("Error cleaning up file:", e)
-                }
-            });
-        }
+        cleanupUploadedFiles(req.files);
         next(error);
     }
 };
@@ -451,13 +419,8 @@ const updateProduct = async (req, res, next) => {
         } catch (parseError) {
             return res.status(400).json({ message: 'Invalid productData JSON format.' });
         }
-        // Transform empty strings to null for category and brand before validation
-        if (parsedProductData.category === '') {
-            parsedProductData.category = null;
-        }
-        if (parsedProductData.brand === '') {
-            parsedProductData.brand = null;
-        }
+        // Transform empty strings to null for category, brand, and variant.supplier before validation
+        parsedProductData = transformEmptyStringsToNull(parsedProductData);
 
         // Use Joi to validate the incoming data for update
         const { error, value } = updateProductSchema.validate(parsedProductData, { abortEarly: false });
@@ -559,32 +522,19 @@ const updateProduct = async (req, res, next) => {
                     const validationError = await validateVariantData(mutableVariant, product.productName, product._id, uniquenessCheckSets);
                     if (validationError) {
                         // Clean up any uploaded files if validation fails
-                        if (req.files && req.files.length > 0) {
-                            req.files.forEach(file => {
-                                try { fs.unlinkSync(file.path) } catch (e) { console.error("Error cleaning up file:", e) }
-                            });
-                        }
+                        cleanupUploadedFiles(req.files);
                         return res.status(400).json({ message: validationError });
                     }
 
+                    const { priceHistory, stockHistory, initialStock } = createInitialVariantHistory(mutableVariant, req.user._id);
+
                     const newVariant = {
                         ...mutableVariant,
-                        priceHistory: [{
-                            buyingPrice: Number(mutableVariant.buyingPrice),
-                            sellingPrice: Number(mutableVariant.sellingPrice),
-                            changedBy: req.user._id,
-                        }],
-                        stockHistory: [],
+                        priceHistory,
+                        stock: initialStock,
+                        stockHistory,
                     };
-
-                    const initialStock = Number(mutableVariant.stock) || 0;
                     if (initialStock > 0) {
-                        newVariant.stockHistory.push({
-                            change: initialStock,
-                            type: 'RESTOCK',
-                            reason: 'Initial stock for new variant',
-                            performedBy: req.user._id,
-                        });
                         product.lastRestocked = new Date();
                     }
                     product.variants.push(newVariant);
@@ -606,11 +556,7 @@ const updateProduct = async (req, res, next) => {
         res.status(200).json(product);
 
     } catch (error) {
-        if (req.files && req.files.length > 0) {
-            req.files.forEach(file => {
-                try { fs.unlinkSync(file.path) } catch (e) { console.error("Error cleaning up file:", e) }
-            });
-        }
+        cleanupUploadedFiles(req.files);
         next(error);
     }
 };
@@ -646,7 +592,6 @@ const deleteProduct = async (req, res, next) => {
         next(error);
     }
 };
-
 
 module.exports = {
     createProduct,

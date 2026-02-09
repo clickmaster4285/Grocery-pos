@@ -33,7 +33,7 @@ const variantSchema = Joi.object({
   priceHistory: Joi.array().items(priceHistorySchema).default([]),
   stockHistory: Joi.array().items(stockHistorySchema).default([]),
   images: Joi.array().items(Joi.string().trim().allow('').uri()).default([]), // Allow empty string or URI for URLs
-  supplier: Joi.objectId().optional().allow(null), // Reference to Supplier model, now optional
+  supplier: Joi.objectId().optional().allow(null, ''), // Reference to Supplier model, now optional and allows empty string
   barcode: Joi.string().trim().max(100).allow(null, ''),
   qrCode: Joi.string().trim().max(200).allow(null, ''),
   isDeleted: Joi.boolean().default(false),
