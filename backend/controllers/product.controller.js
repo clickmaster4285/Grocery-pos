@@ -15,48 +15,7 @@ const generateUniqueSku = (productName, attributes) => {
     return sku.substring(0, 50); // Ensure it doesn't exceed max length
 };
 
-const validateVariantData = async (variant, productName, existingProductId, uniquenessCheckSets) => {
-    let { sku, barcode, qrCode } = variant;
 
-    // SKU should already be uppercased and validated by Joi, or generated and uppercased before this
-    sku = sku.toUpperCase();
-
-    // Check for duplicates within the same request
-    if (uniquenessCheckSets.skus.has(sku)) return `Duplicate SKU found in request: ${sku}`;
-    uniquenessCheckSets.skus.add(sku);
-
-    if (barcode && uniquenessCheckSets.barcodes.has(barcode)) return `Duplicate barcode found in request: ${barcode}`;
-    if (barcode) uniquenessCheckSets.barcodes.add(barcode);
-
-    if (qrCode && uniquenessCheckSets.qrCodes.has(qrCode)) return `Duplicate QR code found in request: ${qrCode}`;
-    if (qrCode) uniquenessCheckSets.qrCodes.add(qrCode);
-
-    // Check for duplicates in the database
-    const orQuery = [{ 'variants.sku': sku }];
-    if (barcode) orQuery.push({ 'variants.barcode': barcode });
-    if (qrCode) orQuery.push({ 'variants.qrCode': qrCode });
-
-    const query = { $or: orQuery, isDeleted: false, 'variants.isDeleted': false };
-    if (existingProductId) {
-        query._id = { $ne: existingProductId };
-    }
-
-    const existingProduct = await Product.findOne(query);
-    if (existingProduct) {
-        const conflictingVariant = existingProduct.variants.find(v =>
-            (v.sku === sku && !v.isDeleted) ||
-            (barcode && v.barcode === barcode && !v.isDeleted) ||
-            (qrCode && v.qrCode === qrCode && !v.isDeleted)
-        );
-        if (conflictingVariant) {
-            if (conflictingVariant.sku === sku) return `SKU '${sku}' already exists.`;
-            if (barcode && conflictingVariant.barcode === barcode) return `Barcode '${barcode}' already exists.`;
-            if (qrCode && conflictingVariant.qrCode === qrCode) return `QR Code '${qrCode}' already exists.`
-        }
-    }
-
-    return null;
-};
 
 const processAndMoveVariantImages = (files, variants, productName) => {
     // This function can remain largely the same, as it's based on form field names.
@@ -111,7 +70,6 @@ const createProduct = async (req, res, next) => {
         // Use Joi to validate the incoming data
         const { error, value } = createProductSchema.validate(parsedProductData, { abortEarly: false });
         if (error) {
-            console.error('Joi Validation Error:', error.details); // Add this line
             return res.status(400).json({
                 message: 'Validation failed',
                 details: error.details.map(detail => detail.message)
@@ -132,17 +90,10 @@ const createProduct = async (req, res, next) => {
             variants = processAndMoveVariantImages(req.files, variants, productName);
         }
 
-        // Check for product with the same name
-        const existingProductByName = await Product.findOne({
-            productName,
-            isDeleted: false
-        });
-        if (existingProductByName) {
-            return res.status(409).json({ message: `Product with name '${productName}' already exists.` });
-        }
+
+
 
         const processedVariants = [];
-        const uniquenessCheckSets = { skus: new Set(), barcodes: new Set(), qrCodes: new Set() };
 
         for (const variantData of variants) {
             const mutableVariant = { ...variantData };
@@ -153,15 +104,8 @@ const createProduct = async (req, res, next) => {
             }
             mutableVariant.sku = mutableVariant.sku.toUpperCase();
 
-            // Validate uniqueness against other products and this request (database check)
-            const validationError = await validateVariantData(mutableVariant, productName, null, uniquenessCheckSets);
-            if (validationError) {
-                // Clean up any uploaded files if validation fails
-                cleanupUploadedFiles(req.files);
-                return res.status(400).json({ message: validationError });
-            }
 
-            const { sku, attributes, supplier, barcode, qrCode } = mutableVariant;
+            const { sku, attributes, supplier, barcode, qrCode, images } = mutableVariant; // Destructure images here
             const { priceHistory, stockHistory, initialStock } = createInitialVariantHistory(mutableVariant, req.user._id);
 
             processedVariants.push({
@@ -171,7 +115,7 @@ const createProduct = async (req, res, next) => {
                 priceHistory,
                 stock: initialStock,
                 stockHistory,
-                images: mutableVariant.images || [], // Use images from mutableVariant after processAndMoveVariantImages
+                images: images || [], // Use the images destructured from mutableVariant
                 barcode,
                 qrCode,
                 isDeleted: false,
@@ -516,7 +460,7 @@ const updateProduct = async (req, res, next) => {
                         supplier: mutableVariant.supplier,
                         barcode: mutableVariant.barcode,
                         qrCode: mutableVariant.qrCode,
-                        images: mutableVariant.images || variantToUpdate.images,
+                        images: mutableVariant.images || [], // Use the images from mutableVariant
                     });
 
                 } else { // New variant
@@ -534,6 +478,7 @@ const updateProduct = async (req, res, next) => {
                         priceHistory,
                         stock: initialStock,
                         stockHistory,
+                        images: mutableVariant.images || [], // Use images from mutableVariant
                     };
                     if (initialStock > 0) {
                         product.lastRestocked = new Date();

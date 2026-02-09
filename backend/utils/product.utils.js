@@ -1,5 +1,7 @@
 
 const fs = require('fs');
+const mongoose = require('mongoose');
+const Product = require('../models/product.model'); // Import Product model
 
 const transformEmptyStringsToNull = (productData) => {
     const data = { ...productData };
@@ -59,8 +61,42 @@ const createInitialVariantHistory = (mutableVariant, userId) => {
     return { priceHistory, stockHistory, initialStock };
 };
 
+
+const checkVariantUniqueness = async (field, value, currentProductId = null, currentVariantId = null) => {
+    if (!value) return true; // Empty values are considered unique (handled by Joi .allow('') or .allow(null))
+
+    const query = {
+        isDeleted: false,
+        'variants.isDeleted': false,
+    };
+
+    // Construct the specific query for the field
+    query[`variants.${field}`] = value;
+
+    // If updating a product, exclude the current product from the uniqueness check
+    if (currentProductId) {
+        query._id = { $ne: currentProductId };
+    }
+
+    const existingProduct = await Product.findOne(query);
+
+    if (existingProduct) {
+        // If a product is found, check if the conflicting variant is the one being updated
+        const conflictingVariant = existingProduct.variants.find(v =>
+            v[field] === value &&
+            (currentVariantId ? !v._id.equals(currentVariantId) : true) && // Exclude if it's the same variant being updated
+            !v.isDeleted
+        );
+        return !conflictingVariant; // If a conflicting variant is found (and it's not the current one), it's not unique
+    }
+
+    return true; // No existing product found with the value, so it's unique
+};
+
+
 module.exports = {
     transformEmptyStringsToNull,
     cleanupUploadedFiles,
     createInitialVariantHistory,
+    checkVariantUniqueness
 };

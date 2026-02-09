@@ -1,5 +1,6 @@
 const Joi = require('joi');
 Joi.objectId = require('joi-objectid')(Joi);
+const { checkVariantUniqueness } = require('../utils/product.utils'); // Import the utility
 
 // Schema for variant attributes (key-value pairs)
 const attributeSchema = Joi.object({
@@ -24,20 +25,43 @@ const stockHistorySchema = Joi.object({
   performedBy: Joi.objectId().required(),
 });
 
+// Reusable custom validator function for SKU, Barcode, QR Code
+const customVariantFieldValidator = (field) => {
+    return Joi.any().custom(async (value, helpers) => {
+        // If value is null, empty string, or undefined, it's allowed by .allow() so no uniqueness check needed
+        if (!value) {
+            return value;
+        }
+
+        const rootProduct = helpers.state.ancestors[helpers.state.ancestors.length - 1]; // This is the entire product object being validated
+        const currentVariant = helpers.state.ancestors[helpers.state.ancestors.length - 2]; // This is the current variant object
+
+        const currentProductId = rootProduct._id; // Will be undefined for new product creation, which is fine
+        const currentVariantId = currentVariant._id; // Will be undefined for new variants within a product, which is fine
+
+        const isUnique = await checkVariantUniqueness(field, value, currentProductId, currentVariantId);
+        if (!isUnique) {
+            throw new Error(`${field.toUpperCase()} '${value}' already exists.`);
+        }
+        return value;
+    }, `${field.toUpperCase()} uniqueness check`);
+};
+
+
 // Schema for a single product variant
 const variantSchema = Joi.object({
-  _id: Joi.objectId(), 
-  sku: Joi.string().trim().uppercase().max(50).allow('').optional(), 
+  _id: Joi.objectId().optional(), // _id is optional for new variants, required for existing ones
+  sku: Joi.string().trim().uppercase().max(50).allow('').optional().concat(customVariantFieldValidator('sku')),
   attributes: Joi.array().items(attributeSchema).default([]),
   buyingPrice: Joi.number().min(0).required(),
   sellingPrice: Joi.number().min(0).required(),
   stock: Joi.number().min(0).default(0),
   priceHistory: Joi.array().items(priceHistorySchema).default([]),
   stockHistory: Joi.array().items(stockHistorySchema).default([]),
-  images: Joi.array().items(Joi.string().trim().allow('').uri()).default([]), 
+  images: Joi.array().items(Joi.string().trim().allow('').uri()).default([]),
   supplier: Joi.objectId().optional().allow(null, ''),
-  barcode: Joi.string().trim().max(100).allow(null, ''),
-  qrCode: Joi.string().trim().max(200).allow(null, ''),
+  barcode: Joi.string().trim().max(100).allow(null, '').concat(customVariantFieldValidator('barcode')),
+  qrCode: Joi.string().trim().max(200).allow(null, '').concat(customVariantFieldValidator('qrCode')),
   isDeleted: Joi.boolean().default(false),
   deletedAt: Joi.date().iso().allow(null),
   stockChangeType: Joi.string().valid('RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT').optional(),
@@ -56,13 +80,14 @@ const createProductSchema = Joi.object({
 
 // Schema for updating an existing product
 const updateProductSchema = Joi.object({
+  _id: Joi.objectId().required(), // Product ID is required for update
   productName: Joi.string().trim().max(100).optional(),
   description: Joi.string().trim().max(1000).allow(null, '').optional(),
   category: Joi.objectId().optional().allow(null, ''),
   brand: Joi.objectId().optional().allow(null, ''),
   variants: Joi.array().items(variantSchema).min(0).optional(),
   isActive: Joi.boolean().optional(),
-  isDeleted: Joi.boolean().optional(), 
+  isDeleted: Joi.boolean().optional(),
 });
 
 module.exports = {
