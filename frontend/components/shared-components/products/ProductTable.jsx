@@ -7,6 +7,7 @@ import {
   getCoreRowModel,
   getPaginationRowModel,
   getSortedRowModel,
+  getExpandedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
 import {
@@ -49,6 +50,30 @@ import {
 
 export const columns = [
   {
+    id: 'expander',
+    header: ({ table }) => (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={table.getToggleAllRowsExpandedHandler()}
+      >
+        {table.getIsAllRowsExpanded() ? 'Collapse All' : 'Expand All'}
+      </Button>
+    ),
+    cell: ({ row }) => (
+      <Button
+        variant="ghost"
+        size="sm"
+        {...{
+          onClick: row.getToggleExpandedHandler(),
+          style: { cursor: row.getCanExpand() ? 'pointer' : 'default' },
+        }}
+      >
+        {row.getIsExpanded() ? '👇' : '👉'}
+      </Button>
+    ),
+  },
+  {
     accessorKey: 'primaryImage', // New accessor key for the primary image
     header: 'Image',
     cell: ({ row }) => {
@@ -58,7 +83,7 @@ export const columns = [
         <div className="w-10 h-10 relative">
           <Image
             src={imageUrl}
-            alt={row.original.name}
+            alt={row.original.productName}
             layout="fill"
             objectFit="cover"
             className="rounded-full"
@@ -68,7 +93,7 @@ export const columns = [
     },
   },
   {
-    accessorKey: 'name',
+    accessorKey: 'productName',
     header: ({ column }) => {
       return (
         <Button
@@ -80,7 +105,22 @@ export const columns = [
         </Button>
       );
     },
-    cell: ({ row }) => <div className="font-medium">{row.getValue('name')}</div>,
+    cell: ({ row }) => <div className="font-medium">{row.getValue('productName')}</div>,
+  },
+  {
+    accessorKey: 'category',
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+        >
+          Category
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
+    cell: ({ row }) => <div>{row.original.category?.name || 'N/A'}</div>,
   },
   {
     accessorKey: 'brand',
@@ -95,7 +135,7 @@ export const columns = [
         </Button>
       );
     },
-    cell: ({ row }) => <div>{row.getValue('brand')}</div>,
+    cell: ({ row }) => <div>{row.original.brand?.name || 'N/A'}</div>,
   },
   {
     accessorKey: 'totalStock',
@@ -113,6 +153,24 @@ export const columns = [
       );
     },
     cell: ({ row }) => <div className="text-right font-bold">{row.getValue('totalStock')}</div>,
+  },
+  {
+    accessorKey: 'lastRestocked',
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+        >
+          Last Restocked
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
+    cell: ({ row }) => {
+      const date = row.original.lastRestocked;
+      return date ? new Intl.DateTimeFormat('en-US').format(new Date(date)) : 'N/A';
+    },
   },
   {
     id: 'actions',
@@ -146,7 +204,7 @@ export const columns = [
               <DropdownMenuItem onClick={() => router.push(`/${role}/products/${product._id}`)}>
                 <Eye className="mr-2 h-4 w-4" /> View
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push(`/${role}/products/${product._id}/edit`)}>
+              <DropdownMenuItem onClick={() => table.options.meta.onEditProduct(product._id)}>
                 <Edit className="mr-2 h-4 w-4" /> Edit
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -180,13 +238,61 @@ export const columns = [
   },
 ];
 
-const ProductTable = ({ products, isLoading, isError, error, pagination, setPagination, pageCount, role }) => {
+const VariantDetails = ({ variant }) => {
+  const latestPrice = variant.priceHistory && variant.priceHistory.length > 0
+    ? variant.priceHistory[variant.priceHistory.length - 1]
+    : null;
+
+  return (
+    <div className="flex flex-col md:flex-row gap-4 p-3 bg-white dark:bg-gray-800 rounded-md shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="flex-shrink-0">
+        {variant.images && variant.images.length > 0 ? (
+          <Image
+            src={variant.images[0]}
+            alt={`Variant ${variant.sku} image`}
+            width={80}
+            height={80}
+            objectFit="cover"
+            className="rounded-md"
+          />
+        ) : (
+          <div className="w-20 h-20 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center text-gray-500 text-xs">
+            No Image
+          </div>
+        )}
+      </div>
+      <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-sm">
+        <p><strong>SKU:</strong> {variant.sku}</p>
+        <p><strong>Supplier:</strong> {variant.supplier?.name || 'N/A'}</p>
+        <p><strong>Stock:</strong> {variant.stock}</p>
+        <p><strong>Buying Price:</strong> {latestPrice ? `$${latestPrice.buyingPrice.toFixed(2)}` : 'N/A'}</p>
+        <p><strong>Selling Price:</strong> {latestPrice ? `$${latestPrice.sellingPrice.toFixed(2)}` : 'N/A'}</p>
+        <p><strong>Barcode:</strong> {variant.barcode || 'N/A'}</p>
+        <p><strong>QR Code:</strong> {variant.qrCode || 'N/A'}</p>
+        {variant.attributes && variant.attributes.length > 0 && (
+          <div className="col-span-full">
+            <strong>Attributes:</strong>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {variant.attributes.map((attr, idx) => (
+                <Badge key={idx} variant="secondary">{attr.key}: {attr.value}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ProductTable = ({ products, isLoading, isError, error, pagination, setPagination, pageCount, role, onEditProduct }) => {
   const table = useReactTable({
     data: products || [],
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getExpandedRowModel: getExpandedRowModel(), // Add this
+    getSubRows: row => row.variants,           // Add this
     onPaginationChange: setPagination,
     state: {
       pagination,
@@ -194,6 +300,7 @@ const ProductTable = ({ products, isLoading, isError, error, pagination, setPagi
     manualPagination: true,
     meta: {
       role, // Pass role to columns for action routing
+      onEditProduct, // Pass onEditProduct to meta
     },
   });
 
@@ -237,16 +344,33 @@ const ProductTable = ({ products, isLoading, isError, error, pagination, setPagi
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && 'selected'}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
+                <React.Fragment key={row.id}>
+                  <TableRow data-state={row.getIsSelected() && 'selected'}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                  {row.getIsExpanded() && (
+                    <TableRow>
+                      <TableCell colSpan={columns.length} className="py-0 pl-14 pr-4">
+                        <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-md border border-gray-200 dark:border-gray-700">
+                          <h4 className="font-semibold text-sm mb-2">Variants:</h4>
+                          {row.original.variants && row.original.variants.length > 0 ? (
+                            <div className="space-y-3">
+                              {row.original.variants.map((variant, index) => (
+                                <VariantDetails key={variant._id || index} variant={variant} />
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-gray-500 text-sm">No variants available.</p>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
               ))
             ) : (
               <TableRow>

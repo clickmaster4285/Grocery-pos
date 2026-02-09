@@ -3,14 +3,17 @@
 import React, { useState, useMemo } from 'react';
 import { useGetAllProducts } from '@/features/product.api';
 import ProductTable from './ProductTable';
+import ProductModal from './ProductModal'; // Import ProductModal
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useDebounce } from '@/hooks/useDebounce'; // Assuming you have a debounce hook
+import { useDebounce } from '@/hooks/useDebounce'; 
 
 const ProductsPage = ({ role }) => {
   const router = useRouter();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProductId, setEditingProductId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({});
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
@@ -27,7 +30,22 @@ const ProductsPage = ({ role }) => {
   const { data, isLoading, isError, error } = useGetAllProducts(queryFilters);
 
   const handleCreateProduct = () => {
-    router.push(`/${role}/products/create`);
+    setEditingProductId(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditProduct = (productId) => {
+    setEditingProductId(productId);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingProductId(null);
+  };
+
+  const handleSuccess = () => {
+    handleCloseModal();
   };
 
   return (
@@ -63,9 +81,19 @@ const ProductsPage = ({ role }) => {
         setPagination={setPagination}
         pageCount={data?.totalPages ?? -1}
         role={role}
+        onEditProduct={handleEditProduct} // Pass the edit handler to the table
       />
+
+      {isModalOpen && (
+        <ProductModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          productId={editingProductId}
+          onSuccess={handleSuccess}
+        />
+      )}
     </div>
   );
-};
+}
 
 export default ProductsPage;

@@ -49,7 +49,6 @@ const createProductSchema = Joi.object({
   description: Joi.string().trim().max(1000).allow(null, ''),
   category: Joi.objectId().required(), // Reference to Category model
   brand: Joi.objectId().allow(null), // Reference to Brand model, optional
-  branch_id: Joi.objectId().required(), // Reference to Branch model
   variants: Joi.array().items(variantSchema).min(1).required(),
   isActive: Joi.boolean().default(true),
 });
@@ -60,7 +59,6 @@ const updateProductSchema = Joi.object({
   description: Joi.string().trim().max(1000).allow(null, '').optional(),
   category: Joi.objectId().optional(),
   brand: Joi.objectId().allow(null).optional(),
-  branch_id: Joi.objectId().optional(),
   variants: Joi.array().items(variantSchema).min(0).optional(), // Can have 0 variants during update to delete all
   isActive: Joi.boolean().optional(),
   isDeleted: Joi.boolean().optional(), // Allow soft-delete via update

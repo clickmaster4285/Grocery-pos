@@ -133,9 +133,58 @@ A new feature for managing store branches has been implemented.
         *   **Simplified Approach:** Following user feedback, the detailed `roleSpecificOptions` were removed. Avatar generation now relies only on the `style` and `backgroundColor` derived from the user's role, providing a simplified yet functional and good-looking avatar.
         *   Cleaned up `console.log` statements.
 
-## 3.7. Project Structure & Core Patterns (Comprehensive Review Feb 2026)
+### 3.7. Product Management Module Enhancements
 
-### 3.7.1. Folder Structure & Conventions
+The Product module has undergone a comprehensive refactor to support complex product configurations, including multiple variants, detailed stock and pricing history, and robust data management.
+
+#### 3.7.1. Backend Updates
+-   **`Product` Model (`backend/models/product.model.js`):**
+    -   Enhanced to include nested `variants` schema.
+    -   Each `variant` now includes `sku`, `attributes` (key-value pairs), `stock`, `stockHistory`, `priceHistory`, `images`, `supplier`, `barcode`, and `qrCode`.
+    -   `totalStock` is automatically calculated based on active variants.
+    -   Soft deletion implemented for both products and individual variants.
+-   **Validation (`backend/validation/product.validation.js`):**
+    -   Comprehensive Joi schemas updated for `createProduct` and `updateProduct` requests.
+    -   Nested validation for variants, attributes, and price/stock history entries.
+    -   Ensures uniqueness for SKU, barcode, and QR code across all active products and variants.
+-   **Controller (`backend/controllers/product.controller.js`):**
+    -   `createProduct`: Handles complex incoming product data with multiple variants, generates SKUs if missing, validates uniqueness, initializes price and stock history. Processes image uploads using `multer`.
+    -   `getAllProducts`: Utilizes Mongoose aggregation for efficient retrieval, pagination, filtering, and deep population of `category`, `brand`, `branch`, and `supplier` details for each variant.
+    -   `getProductById`: Similar aggregation for single product retrieval, populating nested references and user details for history entries.
+    -   `updateProduct`: Manages updates for top-level product fields and dynamically handles existing, new, and soft-deleted variants. Tracks changes in `buyingPrice` and `sellingPrice` to update `priceHistory`, and records `stock` adjustments in `stockHistory`.
+    -   `deleteProduct`: Implements soft deletion for the entire product.
+-   **Routes (`backend/routes/product.routes.js`):**
+    -   API endpoints (`/api/products`, `/api/products/:id`) updated to support these operations, including `auth`, `checkPermission`, and `upload` (for images) middleware.
+
+#### 3.7.2. Frontend Updates
+-   **API Hooks (`frontend/features/product.api.js`):**
+    -   `useGetAllProducts`, `useGetProductById`, `useCreateProduct`, `useUpdateProduct`, `useDeleteProduct` hooks are aligned with the new backend data structures.
+    -   `createProduct` and `updateProduct` mutations correctly handle `FormData` for product data (JSON string) and image files.
+-   **Custom Hooks (`frontend/hooks/useProductHook.js`):**
+    -   Refactored to integrate all product-related `@tanstack/react-query` hooks, providing a centralized interface for product data management.
+-   **Product Table (`frontend/components/shared-components/products/ProductTable.jsx`):**
+    -   Enhanced to display product name, category, brand, branch, total stock, and last restocked date.
+    -   Implemented **expandable rows** to reveal detailed variant information (SKU, supplier, stock, buying/selling price, barcode, QR code, attributes, images).
+    -   Integrated `onEditProduct` to trigger the new modal-based editing flow.
+-   **Product Form (`frontend/components/shared-components/products/ProductForm.jsx`):**
+    -   Significantly refactored to support dynamic creation, editing, and removal of multiple product variants.
+    -   Each variant form includes fields for `sku`, `buyingPrice`, `sellingPrice`, `stock`, `supplier` (via `ComboBox`), `barcode`, `qrCode`, and dynamic `attributes` (key-value pairs).
+    -   `VariantAttributes` sub-component introduced for managing variant attributes.
+    -   Integrates `ComboBox` for selecting `category` and `brand` (fetching options dynamically from backend).
+    -   Handles image uploads/previews for each variant.
+-   **Product Modal (`frontend/components/shared-components/products/ProductModal.jsx`):**
+    -   New component created to encapsulate `ProductForm` within a `shadcn/ui Dialog`.
+    -   Handles both product creation (no `productId`) and editing (`productId` provided).
+    -   Fetches product data for editing and manages loading/submission states.
+-   **Product Listing Page (`frontend/components/shared-components/products/products.jsx`):**
+    -   Updated to manage modal visibility (`isModalOpen`, `editingProductId`).
+    -   Replaced direct navigation to `/create` page with modal-based product creation.
+    -   Passes `onEditProduct` callback to `ProductTable` to open the modal for editing.
+-   **Removed Obsolete Page:** `frontend/app/[role]/products/create/page.jsx` was removed as its functionality is now handled by `ProductModal`.
+
+### 3.8. Project Structure & Core Patterns (Comprehensive Review Feb 2026)
+
+### 3.8.1. Folder Structure & Conventions
 #### Backend (`backend/`)
 -   **Core Modules:** `models/`, `controllers/`, `routes/`, `validation/`
 -   **Support Modules:** `config/`, `middleware/`, `utils/`
@@ -147,7 +196,7 @@ A new feature for managing store branches has been implemented.
 -   **Data/Logic:** `features/` (TanStack Query API services), `hooks/` (custom React hooks)
 -   **Utilities:** `lib/`, `utils/`, `constants/`
 
-### 3.7.2. Backend Modules & APIs
+### 3.8.2. Backend Modules & APIs
 
 #### General Patterns
 -   **Authentication & Authorization:** `auth.js` middleware for authentication, `checkPermission.js` for granular role-based access control. Permissions are defined in `config/permissions.js`.
@@ -181,8 +230,8 @@ A new feature for managing store branches has been implemented.
 -   **Validation:** Mongoose schema validation and manual `ObjectId` validation.
 
 **4. Product Management Module (`products`)**
--   **Model:** `product.model.js` (complex, nested variants, price/stock history)
--   **Controller:** `product.controller.js`
+-   **Model:** `product.model.js` (comprehensive, nested variants, price/stock history, soft deletion)
+-   **Controller:** `product.controller.js` (handles complex variant logic, image uploads, uniqueness checks)
 -   **Routes:** `product.routes.js` (`/api/products`)
 -   **Features:** Full CRUD for products and their variants, SKU generation, image uploads (`multer` middleware), price/stock history tracking. Advanced Mongoose aggregation for data retrieval.
 -   **Validation:** **Explicit Joi validation** in controller, plus Mongoose schema validation.
@@ -208,7 +257,7 @@ A new feature for managing store branches has been implemented.
 -   **Features:** CRUD for suppliers, soft deactivation.
 -   **Validation:** **Explicit Joi validation** in controller, plus Mongoose schema validation.
 
-### 3.7.3. Frontend Modules & UI Patterns
+### 3.8.3. Frontend Modules & UI Patterns
 
 #### General Patterns
 -   **Next.js App Router:** Utilizes Next.js App Router for page-based routing and server components (though many UI components are client-side).
@@ -240,8 +289,8 @@ A new feature for managing store branches has been implemented.
 -   **Hooks:** `useBranchHook.js` (implied, needs to be verified if present)
 
 **4. Product Management UI (`app/[role]/products`)**
--   **Pages:** `create/page.jsx`, `[id]/edit/page.jsx` (implied), `page.jsx` (list)
--   **Components:** Product forms, tables (in `shared-components/products`)
+-   **Pages:** `page.jsx` (list, now handling create/edit via modal)
+-   **Components:** `ProductTable.jsx` (enhanced with expandable variants), `ProductForm.jsx` (refactored for dynamic variants), `ProductModal.jsx` (new, for create/edit operations).
 -   **API Service:** `product.api.js`
 -   **Hooks:** `useProductHook.js`
 
@@ -268,6 +317,8 @@ A new feature for managing store branches has been implemented.
 -   **Global Layout:** `DynamicNavbar.jsx`, `DynamicSidebar.jsx`
 -   **Shared UI:** `frontend/components/ui/` (shadcn/ui, custom elements like `PhoneInput`, `UserAvatar`)
 -   **Utilities:** `errorHandler.js`, `formatters.js`, `avatarUtils.js`, `permissions.js`, `roles.js`
+
+
 
 ### 3.7.4. Missing Modules & Future Enhancements
 

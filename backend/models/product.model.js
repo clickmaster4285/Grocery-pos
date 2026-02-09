@@ -140,11 +140,6 @@ const productSchema = new mongoose.Schema({
         trim: true,
         maxlength: [100, 'Brand name cannot be more than 100 characters.'],
     },
-    branch_id: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Branch',
-        required: [true, 'Branch ID is required.'],
-    },
     totalStock: {
         type: Number,
         min: [0, 'Total stock cannot be negative.'],
@@ -185,9 +180,5 @@ productSchema.pre('save', function(next) {
     }, 0);
     next();
 });
-
-// Create a compound index for product name and branch to ensure uniqueness per branch
-productSchema.index({ productName: 1, branch_id: 1, isDeleted: 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
-
 
 module.exports = mongoose.model('Product', productSchema);

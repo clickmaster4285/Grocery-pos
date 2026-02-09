@@ -117,33 +117,22 @@ const createProduct = async (req, res, next) => {
             description,
             category,
             brand,
-            branch_id,
             variants,
             isActive,
         } = value; // Use the validated value
-
-        // Use user's branch if not admin
-        const final_branch_id = req.user && req.user.role !== 'admin' ? req.user.branch_id : branch_id;
-        if (!final_branch_id) {
-            // This case should ideally be caught by Joi if branch_id is required for admins
-            return res.status(400).json({ message: 'Branch ID is required.' });
-        }
-        // Ensure the final_branch_id is set for validation in case it came from req.user
-        value.branch_id = final_branch_id;
 
         // Handle file uploads
         if (req.files && req.files.length > 0) {
             variants = processAndMoveVariantImages(req.files, variants, productName);
         }
 
-        // Check for product with the same name in the same branch
+        // Check for product with the same name
         const existingProductByName = await Product.findOne({
             productName,
-            branch_id: final_branch_id,
             isDeleted: false
         });
         if (existingProductByName) {
-            return res.status(409).json({ message: `Product with name '${productName}' already exists in this branch.` });
+            return res.status(409).json({ message: `Product with name '${productName}' already exists.` });
         }
 
         const processedVariants = [];
@@ -211,7 +200,6 @@ const createProduct = async (req, res, next) => {
             description,
             category,
             brand,
-            branch_id: final_branch_id,
             variants: processedVariants,
             isActive,
             lastRestocked: processedVariants.some(v => v.stock > 0) ? new Date() : null,
@@ -246,8 +234,6 @@ const getAllProducts = async (req, res, next) => {
         // Base pipeline for matching products
         const matchStage = {
             isDeleted: false,
-            // Non-admin users should only see products in their own branch
-            ...(req.user.role !== 'admin' && { branch_id: new mongoose.Types.ObjectId(req.user.branch_id) })
         };
 
         // Add text search capabilities
@@ -273,7 +259,6 @@ const getAllProducts = async (req, res, next) => {
                     description: { $first: '$description' },
                     category: { $first: '$category' },
                     brand: { $first: '$brand' },
-                    branch_id: { $first: '$branch_id' },
                     totalStock: { $first: '$totalStock' }, // This is the pre-calculated total, consider recalculating if needed
                     isActive: { $first: '$isActive' },
                     createdAt: { $first: '$createdAt' },
@@ -283,16 +268,7 @@ const getAllProducts = async (req, res, next) => {
             { $sort: { createdAt: -1 } },
             { $skip: skip },
             { $limit: limit },
-            // Populate branch, category, brand, and supplier
-            {
-                $lookup: {
-                    from: 'branches',
-                    localField: 'branch_id',
-                    foreignField: '_id',
-                    as: 'branch_id'
-                }
-            },
-            { $unwind: { path: '$branch_id', preserveNullAndEmptyArrays: true } },
+            // Populate category, brand, and supplier
             {
                 $lookup: {
                     from: 'categories',
@@ -380,7 +356,6 @@ const getProductById = async (req, res, next) => {
                     description: { $first: '$description' },
                     category: { $first: '$category' },
                     brand: { $first: '$brand' },
-                    branch_id: { $first: '$branch_id' },
                     totalStock: { $first: '$totalStock' },
                     isActive: { $first: '$isActive' },
                     createdAt: { $first: '$createdAt' },
@@ -389,13 +364,11 @@ const getProductById = async (req, res, next) => {
                 }
             },
             // Populate lookups
-            { $lookup: { from: 'branches', localField: 'branch_id', foreignField: '_id', as: 'branch_id' } },
             { $lookup: { from: 'categories', localField: 'category', foreignField: '_id', as: 'category' } },
             { $lookup: { from: 'brands', localField: 'brand', foreignField: '_id', as: 'brand' } },
             { $lookup: { from: 'users', localField: 'variants.priceHistory.changedBy', foreignField: '_id', as: 'priceChangers' } },
             { $lookup: { from: 'users', localField: 'variants.stockHistory.performedBy', foreignField: '_id', as: 'stockPerformers' } },
             { $lookup: { from: 'suppliers', localField: 'variants.supplier', foreignField: '_id', as: 'suppliers' } },
-            { $unwind: { path: '$branch_id', preserveNullAndEmptyArrays: true } },
             { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
             { $unwind: { path: '$brand', preserveNullAndEmptyArrays: true } },
             {
@@ -551,7 +524,6 @@ const updateProduct = async (req, res, next) => {
                          *   productId: product._id,
                          *   variantId: variantToUpdate._id,
                          *   sku: variantToUpdate.sku,
-                         *   branchId: product.branch_id,
                          *   type: stockChangeType,
                          *   change: stockChange,
                          *   reason: stockChangeReason,
