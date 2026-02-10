@@ -18,40 +18,39 @@ const generateUniqueSku = (productName, attributes) => {
 
 
 const processAndMoveVariantImages = (files, variants, productName) => {
-    // This function can remain largely the same, as it's based on form field names.
     const uploadDir = path.join(__dirname, '../uploads/products');
     fs.mkdirSync(uploadDir, { recursive: true }); // Ensure the destination directory exists
     const sanitizeFilename = (str) => str ? str.replace(/\s/g, '-') : 'unknown-product';
     const sanitizedProductName = sanitizeFilename(productName);
 
-    const uploadedFileMap = new Map();
+    const uploadedFilePaths = {}; // { 'variantIndex': ['/path/to/img1', '/path/to/img2'] }
+
     if (files) {
         files.forEach(file => {
             const match = file.fieldname.match(/variant_(\d+)_image_(\d+)/);
             if (match) {
                 const variantIndex = parseInt(match[1]);
-                const imageIndex = parseInt(match[2]);
-
                 const newFilename = `${sanitizedProductName}-variant-${variantIndex}-img-${Date.now()}${path.extname(file.originalname)}`;
                 const newPath = path.join(uploadDir, newFilename);
 
                 fs.renameSync(file.path, newPath);
 
                 const fileUrl = `/uploads/products/${newFilename}`;
-                uploadedFileMap.set(`${variantIndex}_${imageIndex}`, fileUrl);
+                if (!uploadedFilePaths[variantIndex]) {
+                    uploadedFilePaths[variantIndex] = [];
+                }
+                uploadedFilePaths[variantIndex].push(fileUrl);
             } else {
-                fs.unlinkSync(file.path);
+                fs.unlinkSync(file.path); // Unlink files that don't match the pattern
             }
         });
     }
 
-
     return variants.map((variant, variantIdx) => {
-        const updatedImages = (variant.images || []).map((imgUrl, imageIdx) => {
-            const mapKey = `${variantIdx}_${imageIdx}`;
-            return uploadedFileMap.has(mapKey) ? uploadedFileMap.get(mapKey) : imgUrl;
-        });
-        return { ...variant, images: updatedImages };
+        const existingImages = variant.images || []; // Existing images passed from frontend (e.g. during update)
+        const newImagesForVariant = uploadedFilePaths[variantIdx] || []; // Newly uploaded images
+
+        return { ...variant, images: [...existingImages, ...newImagesForVariant] };
     });
 };
 

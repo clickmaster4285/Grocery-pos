@@ -18,6 +18,12 @@ const transformEmptyStringsToNull = (productData) => {
             if (variant.supplier === '') {
                 variant.supplier = null;
             }
+            if (variant.barcode === '') {
+                variant.barcode = null;
+            }
+            if (variant.qrCode === '') {
+                variant.qrCode = null;
+            }
             return variant;
         });
     }

@@ -46,7 +46,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export const columns = [
   {
@@ -78,11 +78,14 @@ export const columns = [
     header: 'Image',
     cell: ({ row }) => {
       const firstVariantImages = row.original.variants?.[0]?.images;
+
       const imageUrl = firstVariantImages && firstVariantImages.length > 0 ? firstVariantImages[0] : '/placeholder.png';
+      console.log("the imageUrl is ", imageUrl)
+
       return (
         <div className="w-10 h-10 relative">
           <Image
-            src={imageUrl}
+            src={`${API_URL}/imageUrl`}
             alt={row.original.productName}
             fill
             style={{ objectFit: 'cover' }}
@@ -283,7 +286,6 @@ const VariantDetails = ({ variant }) => {
     </div>
   );
 };
-
 const ProductTable = ({ products, isLoading, isError, error, pagination, setPagination, pageCount, role, onEditProduct }) => {
   const table = useReactTable({
     data: products || [],
