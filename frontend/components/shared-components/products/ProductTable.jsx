@@ -46,7 +46,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export const columns = [
   {
@@ -74,22 +74,25 @@ export const columns = [
     ),
   },
   {
-    accessorKey: 'primaryImage', // New accessor key for the primary image
+    accessorKey: 'primaryImage',
     header: 'Image',
     cell: ({ row }) => {
       const firstVariantImages = row.original.variants?.[0]?.images;
+      const imageUrl = firstVariantImages && firstVariantImages.length > 0
+        ? firstVariantImages[0]
+        : '/placeholder.png';
 
-      const imageUrl = firstVariantImages && firstVariantImages.length > 0 ? firstVariantImages[0] : '/placeholder.png';
-      console.log("the imageUrl is ", imageUrl)
+      console.log("the fullimageUrl is ", `${API_URL}${imageUrl}`);
 
       return (
         <div className="w-10 h-10 relative">
           <Image
-            src={`${API_URL}/imageUrl`}
-            alt={row.original.productName}
-            fill
+            src={`${API_URL}${imageUrl}`}
+            alt={`Variant  image`}
+            width={80}
+            height={80}
             style={{ objectFit: 'cover' }}
-            className="rounded-full"
+            className="rounded-md"
           />
         </div>
       );
@@ -251,7 +254,7 @@ const VariantDetails = ({ variant }) => {
       <div className="shrink-0">
         {variant.images && variant.images.length > 0 ? (
           <Image
-            src={variant.images[0]}
+            src={`${API_URL}${variant.images[0]}`}
             alt={`Variant ${variant.sku} image`}
             width={80}
             height={80}
