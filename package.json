@@ -1,6 +1,6 @@
 {
    "//": "To install package: npm install pakage-name -w folder-name",
-"name": "project-monorepo",
+"name": "supermarket-monorepo",
 "private": true,
 "workspaces": [
    "backend",

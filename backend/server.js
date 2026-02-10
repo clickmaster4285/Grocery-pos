@@ -21,7 +21,10 @@ const limiter = rateLimit({
 });
 
 // Middleware
-app.use(helmet());
+// app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(cors({
   origin: process.env.FRONTEND_URL,
   credentials: true,
@@ -37,6 +40,11 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve static files (uploads folder)
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+// app.use('/api/uploads', express.static(path.join(__dirname, 'uploads'), {
+//   setHeaders: (res) => {
+//     res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+//   }
+// }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

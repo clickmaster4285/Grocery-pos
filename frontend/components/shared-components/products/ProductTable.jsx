@@ -19,7 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ArrowUpDown, Eye, Edit, Trash2 } from 'lucide-react';
+import { ArrowUpDown, Eye, Edit, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
@@ -69,7 +69,11 @@ export const columns = [
           style: { cursor: row.getCanExpand() ? 'pointer' : 'default' },
         }}
       >
-        {row.getIsExpanded() ? '👇' : '👉'}
+        {row.getIsExpanded() ? (
+          <ChevronDown className="h-4 w-4" />
+        ) : (
+          <ChevronRight className="h-4 w-4" />
+        )}
       </Button>
     ),
   },
@@ -88,11 +92,13 @@ export const columns = [
         <div className="w-10 h-10 relative">
           <Image
             src={`${API_URL}${imageUrl}`}
-            alt={`Variant  image`}
+            alt={`Variant image`}
             width={80}
             height={80}
-            style={{ objectFit: 'cover' }}
             className="rounded-md"
+            preload={true}
+            style={{ objectFit: 'cover' }}
+            unoptimized={true}  // <--- ADD THIS
           />
         </div>
       );
