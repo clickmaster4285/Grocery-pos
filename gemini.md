@@ -343,3 +343,4 @@ The Product module has undergone a comprehensive refactor to support complex pro
 -   **Frontend-Backend Integration:** Continue to ensure seamless communication and data flow between frontend and backend.
 -   **Comprehensive Testing:** Implement unit and integration tests for new features across both frontend and backend.
 -   **Specific Grocery Features:** Begin implementation of core SuperMaret functionalities (e.g., product catalog, shopping cart, order processing).
+-   **Strengthening array null-checks during async product updates:** Implement robust null and undefined checks for arrays, especially for product variants during asynchronous operations, to prevent UI crashes.

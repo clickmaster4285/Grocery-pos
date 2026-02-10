@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -21,7 +21,6 @@ import { ComboBox } from '@/components/ui/combobox';
 import { toast } from 'sonner';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
-import { useGetAllBranches } from '@/features/branch.api';
 import { useGetAllCategories } from '@/features/category.api';
 import { useGetAllBrands } from '@/features/brand.api';
 import { useGetAllSuppliers } from '@/features/supplier.api';
@@ -54,7 +53,7 @@ const variantSchema = z.object({
   barcode: z.string().max(100, { message: "Barcode cannot be more than 100 characters." }).optional().nullable(),
   qrCode: z.string().max(200, { message: "QR Code cannot be more than 200 characters." }).optional().nullable(),
   // images can be string (URL) or File object
-  images: z.array(z.union([z.string().url(), z.instanceof(File)])).optional(),
+  images: z.array(z.union([z.string(), z.instanceof(File)])).optional(),
 });
 
 // Define the main product schema
@@ -178,7 +177,7 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
       ...initialData,
       category: initialData.category?._id || '',
       brand: initialData.brand?._id || '',
-      variants: initialData.variants.map(variant => ({
+      variants: initialData.variants?.map(variant => ({
         ...variant,
         buyingPrice: variant.priceHistory?.length ? variant.priceHistory[variant.priceHistory.length - 1].buyingPrice : 0.01,
         sellingPrice: variant.priceHistory?.length ? variant.priceHistory[variant.priceHistory.length - 1].sellingPrice : 0.01,
@@ -186,7 +185,7 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
         attributes: variant.attributes || [],
         barcode: variant.barcode || '',
         qrCode: variant.qrCode || '',
-      })),
+      })) || [],
     } : {
       productName: '',
       description: '',
@@ -206,6 +205,18 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
     },
     mode: 'onChange',
   });
+
+  // Log all form data for debugging
+  useEffect(() => {
+    const subscription = form.watch((value, { name, type }) => {
+      console.log('Form Field Changed:', { name, type });
+      console.log('Current Form Data:', value);
+      console.log('Current Form Errors:', form.formState.errors);
+      console.log('Is Form Valid:', form.formState.isValid);
+    });
+    return () => subscription.unsubscribe();
+  }, [form]); // Re-run effect if 'form' instance changes, though it typically won't
+
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -506,15 +517,17 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
                               </div>
                             );
                           })}
-                          <label className="flex flex-col items-center justify-center w-40 h-40 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
-                            <UploadCloud className="h-6 w-6 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground mt-1">Add Images</span>
-                            <Input type="file" multiple className="sr-only" onChange={(e) => handleImageUpload(variantIndex, e)} accept="image/*" />
-                          </label>
+                          {(form.watch(`variants.${variantIndex}.images`)?.length || 0) < 5 && (
+                            <label className="flex flex-col items-center justify-center w-40 h-40 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
+                              <UploadCloud className="h-6 w-6 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground mt-1">Add Images</span>
+                              <Input type="file" multiple className="sr-only" onChange={(e) => handleImageUpload(variantIndex, e)} accept="image/*" />
+                            </label>
+                          )}
                         </div>
                       </FormControl>
                       <FormDescription>
-                        You can upload up to 5 images for each variant. Accepted formats: JPG, PNG, GIF, WebP.
+                        You can upload up to 5 images for each variant, with each image up to 5MB (total 25MB per variant). Accepted formats: JPG, PNG, GIF, WebP.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

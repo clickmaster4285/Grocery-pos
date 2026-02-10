@@ -58,7 +58,7 @@ const variantSchema = Joi.object({
   stock: Joi.number().min(0).default(0),
   priceHistory: Joi.array().items(priceHistorySchema).default([]),
   stockHistory: Joi.array().items(stockHistorySchema).default([]),
-  images: Joi.array().items(Joi.string().trim().allow('').uri()).default([]),
+  images: Joi.array().items(Joi.string().trim().allow('').uri()).max(5).default([]),
   supplier: Joi.objectId().optional().allow(null, ''),
   barcode: Joi.string().trim().max(100).allow(null, '').concat(customVariantFieldValidator('barcode')),
   qrCode: Joi.string().trim().max(200).allow(null, '').concat(customVariantFieldValidator('qrCode')),

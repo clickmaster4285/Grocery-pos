@@ -49,7 +49,7 @@ const processProductData = (productData) => {
   const formData = new FormData();
   const processedProductData = { ...productData };
 
-  processedProductData.variants = productData.variants.map((variant, variantIndex) => {
+  processedProductData.variants = productData.variants?.map((variant, variantIndex) => {
     const newVariant = { ...variant };
 
     if (newVariant.supplier === '') {
@@ -59,7 +59,8 @@ const processProductData = (productData) => {
     const imageFilesToAppend = [];
     const existingImageUrls = [];
 
-    variant.images.forEach((image) => {
+    // Safely iterate over variant.images
+    variant.images?.forEach((image) => {
       if (image instanceof File) {
         const formFieldName = `variant_${variantIndex}_image_${imageFilesToAppend.length}`;
         formData.append(formFieldName, image, image.name);
@@ -71,7 +72,7 @@ const processProductData = (productData) => {
     newVariant.images = existingImageUrls;
 
     return newVariant;
-  });
+  }) || []; // Default to empty array if productData.variants is null/undefined
 
   if (processedProductData.category === '') {
     processedProductData.category = null;

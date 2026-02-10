@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const Product = require('../models/product.model'); // Import Product model
 
 const transformEmptyStringsToNull = (productData) => {
+    console.log('--- transformEmptyStringsToNull Start ---');
+    console.log('Incoming productData to transformEmptyStringsToNull:', productData);
     const data = { ...productData };
 
     if (data.category === '') {
@@ -14,6 +16,7 @@ const transformEmptyStringsToNull = (productData) => {
     }
 
     if (data.variants && Array.isArray(data.variants)) {
+        console.log('data.variants before map:', data.variants);
         data.variants = data.variants.map(variant => {
             if (variant.supplier === '') {
                 variant.supplier = null;
@@ -26,8 +29,12 @@ const transformEmptyStringsToNull = (productData) => {
             }
             return variant;
         });
+        console.log('data.variants after map:', data.variants);
+    } else {
+        console.log('data.variants is not an array or is undefined/null:', data.variants);
     }
-
+    console.log('Transformed productData:', data);
+    console.log('--- transformEmptyStringsToNull End ---');
     return data;
 };
 
