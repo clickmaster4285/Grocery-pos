@@ -23,37 +23,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-// Placeholder type definition for a robust Product structure
-/**
- * @typedef {Object} PriceHistory
- * @property {number} buyingPrice
- * @property {number} sellingPrice
- * @property {string} date // ISO date string
- */
-
-/**
- * @typedef {Object} ProductVariant
- * @property {string} _id
- * @property {string} sku
- * @property {number} price
- * @property {number} stock
- * @property {string[]} images
- * @property {PriceHistory[]} priceHistory
- */
-
-/**
- * @typedef {Object} Product
- * @property {string} _id
- * @property {string} name
- * @property {string} description
- * @property {string} brand
- * @property {string} category
- * @property {number} totalStock
- * @property {ProductVariant[]} variants
- * @property {string} createdAt
- * @property {string} updatedAt
- */
-
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 const ProductDetail = ({ product, role }) => {
   const router = useRouter();
@@ -186,7 +156,7 @@ const ProductDetail = ({ product, role }) => {
                             <div className="flex flex-wrap gap-2">
                               {variant.images.map((url, index) => (
                                 <div key={index} className="relative w-24 h-24 rounded-md overflow-hidden border">
-                                  <Image src={url} alt={`Variant image ${index + 1}`} layout="fill" objectFit="cover" />
+                                  <Image src={`${API_URL}${url}`} alt={`Variant image ${index + 1}`} fill style={{ objectFit: 'cover' }} unoptimized={true} />
                                 </div>
                               ))}
                             </div>

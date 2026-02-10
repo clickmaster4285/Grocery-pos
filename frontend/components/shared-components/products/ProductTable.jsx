@@ -266,6 +266,7 @@ const VariantDetails = ({ variant }) => {
             height={80}
             style={{ objectFit: 'cover' }}
             className="rounded-md"
+            unoptimized={true}
           />
         ) : (
           <div className="w-20 h-20 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center text-gray-500 text-xs">

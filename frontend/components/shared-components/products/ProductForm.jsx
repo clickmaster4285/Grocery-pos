@@ -25,6 +25,7 @@ import { useGetAllBranches } from '@/features/branch.api';
 import { useGetAllCategories } from '@/features/category.api';
 import { useGetAllBrands } from '@/features/brand.api';
 import { useGetAllSuppliers } from '@/features/supplier.api';
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 // Define the schema for variant attributes (key-value pairs)
 const attributeSchema = z.object({
@@ -479,38 +480,47 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
               {/* Attributes Field Array */}
               <VariantAttributes form={form} variantIndex={variantIndex} />
 
-              <FormItem className="lg:col-span-3">
-                <FormLabel>Variant Images</FormLabel>
-                <FormControl>
-                  <div className="flex flex-wrap gap-3 p-3 border rounded-md min-h-25 items-center">
-                    {(form.watch(`variants.${variantIndex}.images`) || []).map((image, imgIdx) => {
-                      const imageUrl = image instanceof File ? URL.createObjectURL(image) : image;
-                      return (
-                        <div key={imgIdx} className="relative w-24 h-24 rounded-md overflow-hidden group">
-                          <Image src={imageUrl} alt={`Variant image ${imgIdx + 1}`} fill style={{ objectFit: 'cover' }} />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => handleRemoveImage(variantIndex, imgIdx)}
-                          >
-                            <XCircle className="h-3 w-3" />
-                            <span className="sr-only">Remove image</span>
-                          </Button>
+          <FormField
+                  control={form.control}
+                  name={`variants.${variantIndex}.images`}
+                  render={() => (
+                    <FormItem className="lg:col-span-3">
+                      <FormLabel>Variant Images</FormLabel>
+                      <FormControl>
+                        <div className="flex flex-wrap gap-3 p-3 border rounded-md min-h-25 items-center">
+                          {(form.watch(`variants.${variantIndex}.images`) || []).map((image, imgIdx) => {
+                            const imageUrl = image instanceof File ? URL.createObjectURL(image) : `${API_URL}${image}`;
+                            return (
+                              <div key={imgIdx} className="relative w-40 h-40 rounded-md overflow-hidden group">
+                                <Image src={imageUrl} alt={`Variant image ${imgIdx + 1}`} fill style={{ objectFit: 'cover' }} unoptimized={true} />
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="icon"
+                                  className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => handleRemoveImage(variantIndex, imgIdx)}
+                                >
+                                  <XCircle className="h-3 w-3" />
+                                  <span className="sr-only">Remove image</span>
+                                </Button>
+                              </div>
+                            );
+                          })}
+                          <label className="flex flex-col items-center justify-center w-40 h-40 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
+                            <UploadCloud className="h-6 w-6 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground mt-1">Add Images</span>
+                            <Input type="file" multiple className="sr-only" onChange={(e) => handleImageUpload(variantIndex, e)} accept="image/*" />
+                          </label>
                         </div>
-                      );
-                    })}
-                    <label className="flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
-                      <UploadCloud className="h-6 w-6 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground mt-1">Add Images</span>
-                      <Input type="file" multiple className="sr-only" onChange={(e) => handleImageUpload(variantIndex, e)} accept="image/*" />
-                    </label>
-                  </div>
-                </FormControl>
-                <FormDescription>Upload multiple images specific to this variant.</FormDescription>
-                <FormMessage />
-              </FormItem>
+                      </FormControl>
+                      <FormDescription>
+                        You can upload up to 5 images for each variant. Accepted formats: JPG, PNG, GIF, WebP.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
             </div>
           ))}
         </div>
