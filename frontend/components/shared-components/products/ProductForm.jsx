@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, XCircle, UploadCloud, Image as ImageIcon } from 'lucide-react';
+import { PlusCircle, XCircle, UploadCloud, Badge, Image as ImageIcon } from 'lucide-react';
 import { ComboBox } from '@/components/ui/combobox';
 import { toast } from 'sonner';
 import Image from 'next/image';
@@ -24,6 +24,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useGetAllCategories } from '@/features/category.api';
 import { useGetAllBrands } from '@/features/brand.api';
 import { useGetAllSuppliers } from '@/features/supplier.api';
+
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 const attributeSchema = z.object({
@@ -51,6 +52,7 @@ const variantSchema = z.object({
   barcode: z.string().max(100, { message: "Barcode cannot be more than 100 characters." }).optional().nullable(),
   qrCode: z.string().max(200, { message: "QR Code cannot be more than 200 characters." }).optional().nullable(),
   images: z.array(z.union([z.string(), z.instanceof(File)])).optional(),
+  isDeleted: z.boolean().optional(),
 });
 
 const productFormSchema = z.object({
@@ -177,6 +179,7 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
         attributes: variant.attributes || [],
         barcode: variant.barcode || '',
         qrCode: variant.qrCode || '',
+        isDeleted: variant.isDeleted || false,
       })) || [],
     } : {
       productName: '',
@@ -344,19 +347,34 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
           {fields.map((variantField, variantIndex) => (
             <div key={variantField.id} className="space-y-4 border-t pt-4 relative">
               <h4 className="text-lg font-semibold flex items-center justify-between">
-                Variant #{variantIndex + 1}
-                {fields.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => remove(variantIndex)}
-                    className="h-7 w-7 rounded-full"
-                  >
-                    <XCircle className="h-4 w-4" />
-                    <span className="sr-only">Remove variant</span>
-                  </Button>
-                )}
+                <span>Variant #{variantIndex + 1}</span>
+                <div className="flex items-center space-x-2">
+                  {form.watch(`variants.${variantIndex}.isDeleted`) && (
+                    <Badge variant="destructive" className="mr-2">Soft Deleted</Badge>
+                  )}
+                  {form.watch(`variants.${variantIndex}.isDeleted`) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => form.setValue(`variants.${variantIndex}.isDeleted`, false)}
+                    >
+                      Restore
+                    </Button>
+                  )}
+                  {fields.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => remove(variantIndex)}
+                      className="h-7 w-7 rounded-full"
+                    >
+                      <XCircle className="h-4 w-4" />
+                      <span className="sr-only">Remove variant</span>
+                    </Button>
+                  )}
+                </div>
               </h4>
 
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

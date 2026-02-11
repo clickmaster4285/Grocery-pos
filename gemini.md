@@ -150,7 +150,8 @@ The Product module has undergone a comprehensive refactor to support complex pro
 -   **Controller (`backend/controllers/product.controller.js`):**
     -   `createProduct`: Handles complex incoming product data with multiple variants, generates SKUs if missing, validates uniqueness, initializes price and stock history. Processes image uploads using `multer`.
     -   `getAllProducts`: Utilizes Mongoose aggregation for efficient retrieval, pagination, filtering, and deep population of `category`, `brand`, `branch`, and `supplier` details for each variant.
-    -   `getProductById`: Similar aggregation for single product retrieval, populating nested references and user details for history entries.
+    -   `getProductById`: Uses `Product.findById(id)` with `.populate()` calls for deep population of `category`, `brand`, `variants.supplier` (selecting `supplier_name`), `variants.stockHistory.performedBy` (selecting `firstName` and `lastName`), and `variants.priceHistory.changedBy` (selecting `firstName` and `lastName`).
+    -   `getAllProducts`: Utilizes Mongoose aggregation for efficient retrieval, pagination, filtering, and deep population of `category`, `brand`, and `supplier` details for each variant. It *does not* populate nested `performedBy` or `changedBy` fields within `stockHistory` and `priceHistory` in order to maintain performance and avoid excessive query complexity for list views.
     -   `updateProduct`: Manages updates for top-level product fields and dynamically handles existing, new, and soft-deleted variants. Tracks changes in `buyingPrice` and `sellingPrice` to update `priceHistory`, and records `stock` adjustments in `stockHistory`.
     -   `deleteProduct`: Implements soft deletion for the entire product.
 -   **Routes (`backend/routes/product.routes.js`):**
@@ -163,24 +164,35 @@ The Product module has undergone a comprehensive refactor to support complex pro
 -   **Custom Hooks (`frontend/hooks/useProductHook.js`):**
     -   Refactored to integrate all product-related `@tanstack/react-query` hooks, providing a centralized interface for product data management.
 -   **Product Table (`frontend/components/shared-components/products/ProductTable.jsx`):**
-    -   Enhanced to display product name, category, brand, branch, total stock, and last restocked date.
+    -   Enhanced to display product name, category, brand, total stock, and last restocked date.
     -   Implemented **expandable rows** to reveal detailed variant information (SKU, supplier, stock, buying/selling price, barcode, QR code, attributes, images).
-    -   Integrated `onEditProduct` to trigger the new modal-based editing flow.
+    -   Now correctly displays `variant.supplier.supplier_name` in the expanded variant details.
+    -   `onEditProduct` callback navigates to the dedicated edit page.
 -   **Product Form (`frontend/components/shared-components/products/ProductForm.jsx`):**
     -   Significantly refactored to support dynamic creation, editing, and removal of multiple product variants.
     -   Each variant form includes fields for `sku`, `buyingPrice`, `sellingPrice`, `stock`, `supplier` (via `ComboBox`), `barcode`, `qrCode`, and dynamic `attributes` (key-value pairs).
     -   `VariantAttributes` sub-component introduced for managing variant attributes.
     -   Integrates `ComboBox` for selecting `category` and `brand` (fetching options dynamically from backend).
     -   Handles image uploads/previews for each variant.
--   **Product Modal (`frontend/components/shared-components/products/ProductModal.jsx`):**
-    -   New component created to encapsulate `ProductForm` within a `shadcn/ui Dialog`.
-    -   Handles both product creation (no `productId`) and editing (`productId` provided).
-    -   Fetches product data for editing and manages loading/submission states.
+    -   Used within dedicated `CreateProductPage` and `EditProductPage`.
+-   **Product Detail Page (`frontend/app/[role]/products/[id]/page.jsx`):**
+    -   A dedicated page for viewing detailed product information, using `ProductDetail.jsx` component.
+    -   Now displays `variant.supplier.supplier_name`.
+    -   Displays `stockHistory` with `performedBy` user's `firstName` and `lastName`.
+    -   Displays `priceHistory` with `changedBy` user's `firstName` and `lastName`.
+-   **Product Listing Page (`frontend/app/[role]/products/page.jsx`):**
+    -   Serves as the entry point for the product list, rendering `ProductsPage` (a client component at `frontend/components/shared-components/products/products.jsx`).
+    -   The "Add Product" button navigates to `frontend/app/[role]/products/create/page.jsx`.
+    -   Editing a product navigates to `frontend/app/[role]/products/[id]/edit/page.jsx`.
+-   **Product Create Page (`frontend/app/[role]/products/create/page.jsx`):**
+    -   Dedicated page for creating new products, utilizing `ProductForm.jsx`.
+-   **Product Edit Page (`frontend/app/[role]/products/[id]/edit/page.jsx`):**
+    -   Dedicated page for editing existing products, fetching data via `useGetProductById` and utilizing `ProductForm.jsx`.
+
 -   **Product Listing Page (`frontend/components/shared-components/products/products.jsx`):**
-    -   Updated to manage modal visibility (`isModalOpen`, `editingProductId`).
-    -   Replaced direct navigation to `/create` page with modal-based product creation.
-    -   Passes `onEditProduct` callback to `ProductTable` to open the modal for editing.
--   **Removed Obsolete Page:** `frontend/app/[role]/products/create/page.jsx` was removed as its functionality is now handled by `ProductModal`.
+    -   Serves as the main entry point for product listing, rendering the `ProductTable`.
+    -   `onEditProduct` callback in `ProductTable` now navigates to the dedicated edit page (`/${role}/products/:id/edit`).
+    -   The "Add Product" button navigates to the dedicated create page (`/${role}/products/create`).
 
 ### 3.8. Project Structure & Core Patterns (Comprehensive Review Feb 2026)
 
@@ -290,7 +302,7 @@ The Product module has undergone a comprehensive refactor to support complex pro
 
 **4. Product Management UI (`app/[role]/products`)**
 -   **Pages:** `page.jsx` (list, now handling create/edit via modal)
--   **Components:** `ProductTable.jsx` (enhanced with expandable variants), `ProductForm.jsx` (refactored for dynamic variants), `ProductModal.jsx` (new, for create/edit operations).
+-   **Components:** `ProductTable.jsx` (enhanced with expandable variants), `ProductForm.jsx` (refactored for dynamic variants), `ProductForm.jsx` (new, for create/edit operations).
 -   **API Service:** `product.api.js`
 -   **Hooks:** `useProductHook.js`
 

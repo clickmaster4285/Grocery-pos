@@ -246,7 +246,11 @@ const ProductDetail = ({ product, role }) => {
                                       <TableCell>{new Date(history.effectiveDate).toLocaleDateString()}</TableCell>
                                       <TableCell>${history.buyingPrice?.toFixed(2)}</TableCell>
                                       <TableCell>${history.sellingPrice?.toFixed(2)}</TableCell>
-                                      <TableCell>{history.changedBy || 'System'}</TableCell>
+                                      <TableCell>
+                                        {history.changedBy
+                                          ? `${history.changedBy.firstName || ''} ${history.changedBy.lastName || ''}`.trim() || 'N/A'
+                                          : 'System'}
+                                      </TableCell>
                                     </TableRow>
                                   ))}
                                 </TableBody>
@@ -280,7 +284,11 @@ const ProductDetail = ({ product, role }) => {
                                       <TableCell>{history.change}</TableCell>
                                       <TableCell>{history.type}</TableCell>
                                       <TableCell>{history.reason || 'N/A'}</TableCell>
-                                      <TableCell>{history.performedBy || 'System'}</TableCell>
+                                      <TableCell>
+                                        {history.performedBy
+                                          ? `${history.performedBy.firstName || ''} ${history.performedBy.lastName || ''}`.trim() || 'N/A'
+                                          : 'System'}
+                                      </TableCell>
                                     </TableRow>
                                   ))}
                                 </TableBody>

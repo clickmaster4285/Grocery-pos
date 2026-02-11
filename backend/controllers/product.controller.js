@@ -283,7 +283,21 @@ const getProductById = async (req, res, next) => {
         }
 
         // Fetch the raw product document without any aggregation
-        const product = await Product.findById(id);
+        const product = await Product.findById(id)
+            .populate('category')
+            .populate('brand')
+            .populate({
+                path: 'variants.supplier',
+                select: 'name'
+            })
+            .populate({
+                path: 'variants.stockHistory.performedBy',
+                select: 'firstName lastName'
+            })
+            .populate({
+                path: 'variants.priceHistory.changedBy',
+                select: 'firstName lastName'
+            });
 
         if (!product) {
             return res.status(404).json({ message: 'Product not found' });
@@ -385,6 +399,8 @@ const updateProduct = async (req, res, next) => {
                     barcode: processedVariant.barcode,
                     qrCode: processedVariant.qrCode,
                     images: processedVariant.images || [],
+                    isDeleted: processedVariant.isDeleted, 
+                    deletedAt: processedVariant.isDeleted ? variantToUpdate.deletedAt : null,
                 });
 
             } else { // New variant
