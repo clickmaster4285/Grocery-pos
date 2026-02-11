@@ -329,6 +329,27 @@ const updateProduct = async (req, res, next) => {
         }
         parsedProductData = transformEmptyStringsToNull(parsedProductData);
 
+        // Recursively remove null properties from variants and other top-level optional fields
+        if (parsedProductData.variants && Array.isArray(parsedProductData.variants)) {
+            parsedProductData.variants = parsedProductData.variants.map(variant => {
+                const newVariant = { ...variant };
+                for (const key in newVariant) {
+                    if (newVariant[key] === null) {
+                        delete newVariant[key];
+                    }
+                }
+                return newVariant;
+            });
+        }
+        // Also remove nulls from top-level fields that are optional
+        for (const key in parsedProductData) {
+            if (parsedProductData[key] === null) {
+                delete parsedProductData[key];
+            }
+        }
+
+        console.log('Parsed Product Data BEFORE Joi validation:', JSON.stringify(parsedProductData, null, 2));
+
         const { error, value } = updateProductSchema.validate(parsedProductData, { abortEarly: false });
         if (error) {
             return res.status(400).json({

@@ -37,8 +37,8 @@ const variantSchema = Joi.object({
   isDeleted: Joi.boolean().default(false),
   deletedAt: Joi.date().iso().allow(null),
   stockChangeAmount: Joi.number().optional(),
-  stockChangeType: Joi.string().valid('RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT').optional(),
-  stockChangeReason: Joi.string().trim().max(200).optional(),
+  stockChangeType: Joi.valid('RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT', null, '').optional(), // Allow null/empty in base schema
+  stockChangeReason: Joi.string().trim().max(200).allow(null, '').optional(), // Allow null/empty in base schema
 });
 
 // A variant schema specifically for updates, including stock adjustment validation
@@ -59,6 +59,18 @@ const variantSchemaForUpdate = variantSchema.keys({
           }
           return value;
         }, 'resulting stock cannot be negative'),
+    }),
+  stockChangeType: Joi.string().valid('RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT')
+    .when('stockChangeAmount', {
+      is: Joi.number().not(0).exist().not(null), // Only required if stockChangeAmount is a non-zero number
+      then: Joi.required(),
+      // No 'otherwise' needed, as base schema already allows null/empty
+    }),
+  stockChangeReason: Joi.string().trim().max(200)
+    .when('stockChangeAmount', { // Also make stockChangeReason conditionally required if amount is present
+      is: Joi.number().not(0).exist().not(null), // Only required if stockChangeAmount is a non-zero number
+      then: Joi.required(),
+      // No 'otherwise' needed, as base schema already allows null/empty
     }),
 });
 
