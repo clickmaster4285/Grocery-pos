@@ -18,7 +18,8 @@ const EditProductPage = () => {
 
   const handleSubmit = async (data) => {
     try {
-      await updateProductMutation.mutateAsync({ productId, formData: data });
+      await updateProductMutation.mutateAsync({ id: productId, ...data });
+      console.log("the product id is ", productId)
       toast.success('Product updated successfully!');
       router.push('../../products'); // Navigate back to the product list
     } catch (err) {

@@ -119,6 +119,7 @@ const updateProduct = async ({ id, ...productData }) => {
       'Content-Type': 'multipart/form-data',
     },
   });
+  console.log("the product id is", id)
   return data;
 };
 
