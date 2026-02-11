@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 const { createProductSchema, updateProductSchema } = require('../validation/product.validation');
-const { transformEmptyStringsToNull, cleanupUploadedFiles, createInitialVariantHistory } = require('../utils/product.utils');
+const { transformEmptyStringsToNull, cleanupUploadedFiles, createInitialVariantHistory, checkVariantUniqueness } = require('../utils/product.utils');
 
 const MAX_VARIANT_IMAGE_TOTAL_SIZE = 25 * 1024 * 1024; // 25MB file size limit per variant
 
@@ -16,8 +16,6 @@ const generateUniqueSku = (productName, attributes) => {
     let sku = `${productPart}-${attrsPart}-${randomSuffix}`;
     return sku.substring(0, 50); // Ensure it doesn't exceed max length
 };
-
-
 
 const processAndMoveVariantImages = (files, variants, productName) => {
     console.log('--- processAndMoveVariantImages Start ---');
@@ -133,12 +131,44 @@ const createProduct = async (req, res, next) => {
         for (const variantData of variants) {
             const mutableVariant = { ...variantData };
 
-            // Before passing to validateVariantData, ensure SKU is generated if missing
+            // Explicitly resolve sku, barcode, qrCode if they are promises from Joi validation
+            if (mutableVariant.sku instanceof Promise) {
+                mutableVariant.sku = await mutableVariant.sku;
+            }
+            if (mutableVariant.barcode instanceof Promise) {
+                mutableVariant.barcode = await mutableVariant.barcode;
+            }
+            if (mutableVariant.qrCode instanceof Promise) {
+                mutableVariant.qrCode = await mutableVariant.qrCode;
+            }
+
+            // Ensure SKU is generated if missing
             if (!mutableVariant.sku) {
                 mutableVariant.sku = generateUniqueSku(productName, mutableVariant.attributes || []);
             }
-            mutableVariant.sku = mutableVariant.sku.toUpperCase();
+            mutableVariant.sku = (mutableVariant.sku || '').toUpperCase();
 
+            // Perform uniqueness checks for SKU, Barcode, QR Code
+            // For new product creation, both currentProductId and currentVariantId are null
+            const isSkuUnique = await checkVariantUniqueness('sku', mutableVariant.sku, null, null);
+            if (!isSkuUnique) {
+                cleanupUploadedFiles(req.files);
+                return res.status(400).json({ message: `SKU '${mutableVariant.sku}' already exists.` });
+            }
+            if (mutableVariant.barcode) { // Only check if barcode is provided
+                const isBarcodeUnique = await checkVariantUniqueness('barcode', mutableVariant.barcode, null, null);
+                if (!isBarcodeUnique) {
+                    cleanupUploadedFiles(req.files);
+                    return res.status(400).json({ message: `Barcode '${mutableVariant.barcode}' already exists.` });
+                }
+            }
+            if (mutableVariant.qrCode) { // Only check if qrCode is provided
+                const isQrCodeUnique = await checkVariantUniqueness('qrCode', mutableVariant.qrCode, null, null);
+                if (!isQrCodeUnique) {
+                    cleanupUploadedFiles(req.files);
+                    return res.status(400).json({ message: `QR Code '${mutableVariant.qrCode}' already exists.` });
+                }
+            }
 
             const { sku, attributes, supplier, barcode, qrCode, images } = mutableVariant; // Destructure images here
             const { priceHistory, stockHistory, initialStock } = createInitialVariantHistory(mutableVariant, req.user._id);
@@ -446,12 +476,23 @@ const updateProduct = async (req, res, next) => {
             incomingVariantIds.add(mutableVariant._id?.toString());
             console.log('mutableVariant after spread and _id added:', mutableVariant);
 
+            // Explicitly resolve sku, barcode, qrCode if they are promises from Joi validation
+            if (mutableVariant.sku instanceof Promise) {
+                mutableVariant.sku = await mutableVariant.sku;
+            }
+            if (mutableVariant.barcode instanceof Promise) {
+                mutableVariant.barcode = await mutableVariant.barcode;
+            }
+            if (mutableVariant.qrCode instanceof Promise) {
+                mutableVariant.qrCode = await mutableVariant.qrCode;
+            }
+
             // Ensure SKU is generated if missing for new variants
             if (!mutableVariant.sku) {
                 mutableVariant.sku = generateUniqueSku(product.productName, mutableVariant.attributes || []);
                 console.log('SKU generated for new variant:', mutableVariant.sku);
             }
-            mutableVariant.sku = mutableVariant.sku.toUpperCase();
+            mutableVariant.sku = (mutableVariant.sku || '').toUpperCase();
             console.log('mutableVariant after SKU processing:', mutableVariant);
 
             if (mutableVariant._id) { // Existing variant
@@ -462,10 +503,26 @@ const updateProduct = async (req, res, next) => {
                     continue; // Skip if variant not found or already deleted
                 }
 
-                // Validate uniqueness against other products and this request (database check)
-                // Assuming validateVariantData is defined elsewhere (e.g., product.utils.js)
-                // const validationError = await validateVariantData(mutableVariant, product.productName, product._id, uniquenessCheckSets);
-                // if (validationError) return res.status(400).json({ message: validationError });
+                // Perform uniqueness checks for SKU, Barcode, QR Code
+                const isSkuUnique = await checkVariantUniqueness('sku', mutableVariant.sku, product._id, mutableVariant._id);
+                if (!isSkuUnique) {
+                    cleanupUploadedFiles(req.files);
+                    return res.status(400).json({ message: `SKU '${mutableVariant.sku}' already exists.` });
+                }
+                if (mutableVariant.barcode) { // Only check if barcode is provided
+                    const isBarcodeUnique = await checkVariantUniqueness('barcode', mutableVariant.barcode, product._id, mutableVariant._id);
+                    if (!isBarcodeUnique) {
+                        cleanupUploadedFiles(req.files);
+                        return res.status(400).json({ message: `Barcode '${mutableVariant.barcode}' already exists.` });
+                    }
+                }
+                if (mutableVariant.qrCode) { // Only check if qrCode is provided
+                    const isQrCodeUnique = await checkVariantUniqueness('qrCode', mutableVariant.qrCode, product._id, mutableVariant._id);
+                    if (!isQrCodeUnique) {
+                        cleanupUploadedFiles(req.files);
+                        return res.status(400).json({ message: `QR Code '${mutableVariant.qrCode}' already exists.` });
+                    }
+                }
 
                 // Price History
                 // Ensure priceHistory is an array before accessing length
@@ -516,12 +573,26 @@ const updateProduct = async (req, res, next) => {
 
             } else { // New variant
                 console.log('--- Creating new variant ---');
-                // Assuming validateVariantData is defined elsewhere
-                // const validationError = await validateVariantData(mutableVariant, product.productName, product._id, uniquenessCheckSets);
-                // if (validationError) {
-                //     cleanupUploadedFiles(req.files);
-                //     return res.status(400).json({ message: validationError });
-                // }
+                // Perform uniqueness checks for SKU, Barcode, QR Code (for new variant, currentVariantId is null)
+                const isSkuUnique = await checkVariantUniqueness('sku', mutableVariant.sku, product._id, null);
+                if (!isSkuUnique) {
+                    cleanupUploadedFiles(req.files);
+                    return res.status(400).json({ message: `SKU '${mutableVariant.sku}' already exists.` });
+                }
+                if (mutableVariant.barcode) { // Only check if barcode is provided
+                    const isBarcodeUnique = await checkVariantUniqueness('barcode', mutableVariant.barcode, product._id, null);
+                    if (!isBarcodeUnique) {
+                        cleanupUploadedFiles(req.files);
+                        return res.status(400).json({ message: `Barcode '${mutableVariant.barcode}' already exists.` });
+                    }
+                }
+                if (mutableVariant.qrCode) { // Only check if qrCode is provided
+                    const isQrCodeUnique = await checkVariantUniqueness('qrCode', mutableVariant.qrCode, product._id, null);
+                    if (!isQrCodeUnique) {
+                        cleanupUploadedFiles(req.files);
+                        return res.status(400).json({ message: `QR Code '${mutableVariant.qrCode}' already exists.` });
+                    }
+                }
 
                 const { priceHistory, stockHistory, initialStock } = createInitialVariantHistory(mutableVariant, req.user._id);
 

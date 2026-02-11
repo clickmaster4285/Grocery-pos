@@ -78,32 +78,36 @@ const createInitialVariantHistory = (mutableVariant, userId) => {
 const checkVariantUniqueness = async (field, value, currentProductId = null, currentVariantId = null) => {
     if (!value) return true; // Empty values are considered unique (handled by Joi .allow('') or .allow(null))
 
-    const query = {
+    // 1. Check for conflict in OTHER products
+    const otherProductQuery = {
         isDeleted: false,
         'variants.isDeleted': false,
+        [`variants.${field}`]: value,
     };
-
-    // Construct the specific query for the field
-    query[`variants.${field}`] = value;
-
-    // If updating a product, exclude the current product from the uniqueness check
     if (currentProductId) {
-        query._id = { $ne: currentProductId };
+        otherProductQuery._id = { $ne: currentProductId };
+    }
+    const conflictingOtherProduct = await Product.findOne(otherProductQuery);
+    if (conflictingOtherProduct) {
+        return false; // Found a conflict in another product
     }
 
-    const existingProduct = await Product.findOne(query);
-
-    if (existingProduct) {
-        // If a product is found, check if the conflicting variant is the one being updated
-        const conflictingVariant = existingProduct.variants.find(v =>
-            v[field] === value &&
-            (currentVariantId ? !v._id.equals(currentVariantId) : true) && // Exclude if it's the same variant being updated
-            !v.isDeleted
-        );
-        return !conflictingVariant; // If a conflicting variant is found (and it's not the current one), it's not unique
+    // 2. If currentProductId is provided, check for conflict within the SAME product (but different variants)
+    if (currentProductId) {
+        const currentProduct = await Product.findById(currentProductId);
+        if (currentProduct) {
+            const conflictingVariantInSameProduct = currentProduct.variants.some(v =>
+                v[field] === value &&
+                !v.isDeleted &&
+                (currentVariantId ? !v._id.equals(currentVariantId) : true) // Exclude the current variant being updated
+            );
+            if (conflictingVariantInSameProduct) {
+                return false; // Found a conflict within the same product
+            }
+        }
     }
 
-    return true; // No existing product found with the value, so it's unique
+    return true; // No conflict found
 };
 
 
