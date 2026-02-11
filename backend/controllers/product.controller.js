@@ -357,7 +357,24 @@ const updateProduct = async (req, res, next) => {
                     continue;
                 }
 
-                const processedVariant = await _processVariantData(variantData, product.productName, product._id, currentVariantId, req.files, req.user._id);
+                // For existing variants, 'processedVariant' is essentially the validated 'variantData' from the request.
+                // _processVariantData is not needed here as it's for initial variant setup (SKU generation, initial history).
+                const processedVariant = { ...variantData }; // Clone to avoid direct modification of 'value' from Joi
+
+                // Ensure SKU is generated if empty and then validate uniqueness
+                if (!processedVariant.sku) {
+                    processedVariant.sku = generateUniqueSku(product.productName, processedVariant.attributes || []);
+                }
+                processedVariant.sku = (processedVariant.sku || '').toUpperCase();
+                await _validateVariantUniqueness('sku', processedVariant.sku, product._id, currentVariantId, req.files);
+
+                // Validate barcode and qrCode uniqueness
+                if (processedVariant.barcode) {
+                    await _validateVariantUniqueness('barcode', processedVariant.barcode, product._id, currentVariantId, req.files);
+                }
+                if (processedVariant.qrCode) {
+                    await _validateVariantUniqueness('qrCode', processedVariant.qrCode, product._id, currentVariantId, req.files);
+                }
 
                 // Price History
                 const latestPrice = variantToUpdate.priceHistory && variantToUpdate.priceHistory.length > 0
@@ -374,21 +391,25 @@ const updateProduct = async (req, res, next) => {
                     });
                 }
 
-                // Stock History
-                const stockChange = Number(processedVariant.stock) - variantToUpdate.stock;
-                if (stockChange !== 0) {
-                    const stockChangeType = processedVariant.stockChangeType || 'ADJUSTMENT';
-                    const stockChangeReason = processedVariant.stockChangeReason || 'Manual update';
+                // Stock History - Handle explicit adjustments from frontend
+                const { stockChangeAmount, stockChangeType, stockChangeReason } = variantData; // Use variantData, not processedVariant as _processVariantData is not called here
+
+                if (typeof stockChangeAmount === 'number' && stockChangeType) {
+                    const explicitChange = stockChangeAmount;
+                    const explicitType = stockChangeType;
+                    const explicitReason = stockChangeReason || 'Manual adjustment via form';
+
+                    const newCalculatedStock = variantToUpdate.stock + explicitChange;
 
                     if (!Array.isArray(variantToUpdate.stockHistory)) variantToUpdate.stockHistory = [];
                     variantToUpdate.stockHistory.push({
-                        change: stockChange,
-                        type: stockChangeType,
-                        reason: stockChangeReason,
+                        change: explicitChange,
+                        type: explicitType,
+                        reason: explicitReason,
                         performedBy: req.user._id,
                     });
-                    variantToUpdate.stock = processedVariant.stock;
-                    if (stockChange > 0) product.lastRestocked = new Date();
+                    variantToUpdate.stock = newCalculatedStock; // Update stock with the calculated new value
+                    if (explicitChange > 0) product.lastRestocked = new Date();
                 }
 
                 // Update other fields
@@ -399,7 +420,7 @@ const updateProduct = async (req, res, next) => {
                     barcode: processedVariant.barcode,
                     qrCode: processedVariant.qrCode,
                     images: processedVariant.images || [],
-                    isDeleted: processedVariant.isDeleted, 
+                    isDeleted: processedVariant.isDeleted,
                     deletedAt: processedVariant.isDeleted ? variantToUpdate.deletedAt : null,
                 });
 

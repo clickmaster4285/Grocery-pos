@@ -31,8 +31,6 @@ const ProductDetail = ({ product, role }) => {
   const deleteProductMutation = useDeleteProduct();
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
 
-  console.log("the productis ", product)
-
   if (!product) {
     return (
       <Card className="w-full max-w-4xl mx-auto">

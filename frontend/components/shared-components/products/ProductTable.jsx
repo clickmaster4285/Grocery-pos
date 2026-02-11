@@ -229,7 +229,7 @@ export const columns = [
                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                     <AlertDialogDescription>
                       This action cannot be undone. This will soft delete the product{' '}
-                      <span className="font-bold">{product.name}</span>.
+                      <span className="font-bold">{product.productName}</span>.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>

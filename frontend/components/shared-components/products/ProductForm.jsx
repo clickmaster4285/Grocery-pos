@@ -53,6 +53,13 @@ const variantSchema = z.object({
   qrCode: z.string().max(200, { message: "QR Code cannot be more than 200 characters." }).optional().nullable(),
   images: z.array(z.union([z.string(), z.instanceof(File)])).optional(),
   isDeleted: z.boolean().optional(),
+  // Fields for explicit stock adjustments during editing
+  stockChangeAmount: z.preprocess(
+    (val) => (val === '' ? undefined : Number(val)), // Allow empty string but preprocess to undefined
+    z.number().int().optional()
+  ),
+  stockChangeType: z.enum(['RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT']).optional(),
+  stockChangeReason: z.string().max(200).optional(),
 });
 
 const productFormSchema = z.object({
@@ -207,8 +214,12 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
   });
 
   const totalStock = useMemo(() => {
-    return form.watch('variants').reduce((sum, variant) => sum + (Number(variant.stock) || 0), 0);
-  }, [form.watch('variants')]);
+    return form.watch('variants').reduce((sum, variant) => {
+      const currentStock = Number(variant.stock) || 0;
+      const changeAmount = isEditing ? (Number(variant.stockChangeAmount) || 0) : 0;
+      return sum + currentStock + changeAmount;
+    }, 0);
+  }, [form.watch('variants'), isEditing]);
 
   const handleAddVariant = () => {
     append({
@@ -242,10 +253,29 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
   };
 
   const onSubmitHandler = (data) => {
+    // Process variants to include stock adjustment fields for backend
+    const processedVariants = data.variants.map(variant => {
+      if (isEditing && variant.stockChangeAmount !== undefined && variant.stockChangeAmount !== null) {
+        // Send stock adjustment fields to backend for processing
+        return {
+          ...variant,
+          stockChangeAmount: Number(variant.stockChangeAmount), // Ensure it's a number
+          stockChangeType: variant.stockChangeType,
+          stockChangeReason: variant.stockChangeReason,
+        };
+      }
+      return variant;
+    });
+
+    const dataToSend = {
+      ...data,
+      variants: processedVariants,
+    };
+
     if (isEditing && initialData?._id) {
-      onSubmit({ id: initialData._id, ...data });
+      onSubmit({ id: initialData._id, ...dataToSend });
     } else {
-      onSubmit(data);
+      onSubmit(dataToSend);
     }
   };
 
@@ -418,9 +448,9 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
                   name={`variants.${variantIndex}.stock`}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Stock Quantity</FormLabel>
+                      <FormLabel>Current Stock Quantity</FormLabel>
                       <FormControl>
-                        <Input type="number" {...field} />
+                        <Input type="number" {...field} readOnly={isEditing} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -485,6 +515,65 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
                   )}
                 />
               </div>
+
+              {isEditing && (
+                <div className="space-y-3 p-3 border rounded-md bg-yellow-50/20 dark:bg-yellow-950/20">
+                  <h5 className="font-semibold text-sm">Stock Adjustment</h5>
+                  <p className="text-muted-foreground text-xs">Adjust stock quantity and provide a reason for the change. Use negative values for deductions (e.g., sales, damages).</p>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <FormField
+                      control={form.control}
+                      name={`variants.${variantIndex}.stockChangeType`}
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Change Type</FormLabel>
+                          <ComboBox
+                            items={[
+                              { label: 'Restock', value: 'RESTOCK' },
+                              { label: 'Sale', value: 'SALE' },
+                              { label: 'Return', value: 'RETURN' },
+                              { label: 'Adjustment', value: 'ADJUSTMENT' },
+                            ]}
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            placeholder="Select change type"
+                            searchPlaceholder="Search types..."
+                            emptyPlaceholder="No types found."
+                          />
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`variants.${variantIndex}.stockChangeAmount`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Change Amount</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="e.g., 10 (add) or -5 (deduct)" {...field} />
+                          </FormControl>
+                          <FormDescription>Positive for increase, negative for decrease.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`variants.${variantIndex}.stockChangeReason`}
+                      render={({ field }) => (
+                        <FormItem className="md:col-span-2 lg:col-span-1">
+                          <FormLabel>Reason (Optional)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., Weekly delivery, Damaged goods" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              )}
 
               <VariantAttributes form={form} variantIndex={variantIndex} />
 
