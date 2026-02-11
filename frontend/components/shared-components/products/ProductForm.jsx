@@ -206,18 +206,6 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
     mode: 'onChange',
   });
 
-  // Log all form data for debugging
-  // useEffect(() => {
-  //   const subscription = form.watch((value, { name, type }) => {
-  //     console.log('Form Field Changed:', { name, type });
-  //     console.log('Current Form Data:', value);
-  //     console.log('Current Form Errors:', form.formState.errors);
-  //     console.log('Is Form Valid:', form.formState.isValid);
-  //   });
-  //   return () => subscription.unsubscribe();
-  // }, [form]); // Re-run effect if 'form' instance changes, though it typically won't
-
-
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: 'variants',
@@ -265,7 +253,6 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
     // If we are editing, attach the product ID from initialData
     if (isEditing && initialData?._id) {
       onSubmit({ id: initialData._id, ...data });
-      console.log("the id is ", initialData._id)
     } else {
       onSubmit(data);
     }

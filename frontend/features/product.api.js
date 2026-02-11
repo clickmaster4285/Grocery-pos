@@ -93,7 +93,6 @@ const createProduct = async (productData) => {
       'Content-Type': 'multipart/form-data',
     },
   });
-  console.log("the data i am send from api to backend", data)
   return data;
 };
 
@@ -119,7 +118,6 @@ const updateProduct = async ({ id, ...productData }) => {
       'Content-Type': 'multipart/form-data',
     },
   });
-  console.log("the product id is", id)
   return data;
 };
 

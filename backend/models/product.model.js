@@ -3,7 +3,6 @@ const Category = require('./category.model');
 const Brand = require('./brand.model');
 const Supplier = require('./supplier.model');
 
-// Defines the structure for price change history for each variant
 const priceHistorySchema = new mongoose.Schema({
     buyingPrice: {
         type: Number,
@@ -25,7 +24,6 @@ const priceHistorySchema = new mongoose.Schema({
     },
 }, { _id: false });
 
-// Defines the structure for stock change history for each variant
 const stockHistorySchema = new mongoose.Schema({
     change: {
         type: Number,
@@ -52,7 +50,6 @@ const stockHistorySchema = new mongoose.Schema({
     },
 }, { _id: false });
 
-// Defines the structure for product variants
 const variantSchema = new mongoose.Schema({
     sku: {
         type: String,
@@ -112,9 +109,8 @@ const variantSchema = new mongoose.Schema({
         type: Date,
         default: null,
     },
-}, { timestamps: true }); // Adds createdAt and updatedAt to variants
+}, { timestamps: true });
 
-// Main product schema
 const productSchema = new mongoose.Schema({
     productName: {
         type: String,
@@ -167,10 +163,8 @@ const productSchema = new mongoose.Schema({
     timestamps: true,
 });
 
-// Middleware to calculate totalStock before saving
 productSchema.pre('save', function(next) {
     this.totalStock = this.variants.reduce((acc, variant) => {
-        // Only include stock from non-deleted variants in the total
         return variant.isDeleted ? acc : acc + variant.stock;
     }, 0);
     next();

@@ -85,9 +85,7 @@ export const columns = [
       const imageUrl = firstVariantImages && firstVariantImages.length > 0
         ? firstVariantImages[0]
         : '/placeholder.png';
-
-      console.log("the fullimageUrl is ", `${API_URL}${imageUrl}`);
-
+        
       return (
         <div className="w-10 h-10 relative">
           <Image

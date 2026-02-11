@@ -17,18 +17,56 @@ const generateUniqueSku = (productName, attributes) => {
     return sku.substring(0, 50); // Ensure it doesn't exceed max length
 };
 
-const processAndMoveVariantImages = (files, variants, productName) => {
-    console.log('--- processAndMoveVariantImages Start ---');
-    console.log('Incoming files:', files);
-    console.log('Incoming variants parameter:', variants);
-    console.log('Incoming productName:', productName);
 
+const _validateVariantUniqueness = async (field, value, productId, variantId, reqFiles) => {
+    if (!value) return; // No need to check uniqueness for empty values
+
+    const isUnique = await checkVariantUniqueness(field, value, productId, variantId);
+    if (!isUnique) {
+        cleanupUploadedFiles(reqFiles);
+        throw new Error(`${field.toUpperCase()} '${value}' already exists.`);
+    }
+};
+
+const _processVariantData = async (variantData, productName, productId, variantId, reqFiles, userId) => {
+    const mutableVariant = { ...variantData };
+
+    if (mutableVariant.sku instanceof Promise) mutableVariant.sku = await mutableVariant.sku;
+    if (mutableVariant.barcode instanceof Promise) mutableVariant.barcode = await mutableVariant.barcode;
+    if (mutableVariant.qrCode instanceof Promise) mutableVariant.qrCode = await mutableVariant.qrCode;
+
+    if (!mutableVariant.sku) {
+        mutableVariant.sku = generateUniqueSku(productName, mutableVariant.attributes || []);
+    }
+    mutableVariant.sku = (mutableVariant.sku || '').toUpperCase();
+
+    await _validateVariantUniqueness('sku', mutableVariant.sku, productId, variantId, reqFiles);
+    if (mutableVariant.barcode) {
+        await _validateVariantUniqueness('barcode', mutableVariant.barcode, productId, variantId, reqFiles);
+    }
+    if (mutableVariant.qrCode) {
+        await _validateVariantUniqueness('qrCode', mutableVariant.qrCode, productId, variantId, reqFiles);
+    }
+
+    const { priceHistory, stockHistory, initialStock } = createInitialVariantHistory(mutableVariant, userId);
+
+    return {
+        ...mutableVariant,
+        priceHistory,
+        stock: initialStock,
+        stockHistory,
+        images: mutableVariant.images || [],
+        attributes: mutableVariant.attributes || [],
+    };
+};
+
+const processAndMoveVariantImages = (files, variants, productName) => {
     const uploadDir = path.join(__dirname, '../uploads/products');
-    fs.mkdirSync(uploadDir, { recursive: true }); // Ensure the destination directory exists
+    fs.mkdirSync(uploadDir, { recursive: true });
     const sanitizeFilename = (str) => str ? str.replace(/\s/g, '-') : 'unknown-product';
     const sanitizedProductName = sanitizeFilename(productName);
 
-    const uploadedFilesByVariant = {}; // { 'variantIndex': [{fileObject}, {fileObject}] }
+    const uploadedFilesByVariant = {};
 
     if (files) {
         files.forEach(file => {
@@ -38,53 +76,37 @@ const processAndMoveVariantImages = (files, variants, productName) => {
                 if (!uploadedFilesByVariant[variantIndex]) {
                     uploadedFilesByVariant[variantIndex] = [];
                 }
-                uploadedFilesByVariant[variantIndex].push(file); // Store the full file object
-            } else {
-                // If a file doesn't match the variant pattern, it's not processed here.
-                // cleanupUploadedFiles in the controller's catch block will handle unlinking it.
-                console.warn(`File ${file.originalname} did not match variant pattern and will be unlinked by cleanupFiles.`);
+                uploadedFilesByVariant[variantIndex].push(file);
             }
         });
     }
-    console.log('Uploaded files grouped by variant:', uploadedFilesByVariant);
 
-
-    // --- CUMULATIVE SIZE VALIDATION (BEFORE MOVING FILES) ---
     for (const variantIndex in uploadedFilesByVariant) {
         let totalSizeForVariant = 0;
         uploadedFilesByVariant[variantIndex].forEach(file => {
             totalSizeForVariant += file.size;
         });
-        console.log(`Total size for new images of variant ${parseInt(variantIndex) + 1}: ${totalSizeForVariant} bytes`);
-
 
         if (totalSizeForVariant > MAX_VARIANT_IMAGE_TOTAL_SIZE) {
-            console.error(`Error: Total size of new images for variant ${parseInt(variantIndex) + 1} exceeds ${MAX_VARIANT_IMAGE_TOTAL_SIZE / (1024 * 1024)}MB.`);
             throw new Error(`Total size of new images for variant ${parseInt(variantIndex) + 1} exceeds ${MAX_VARIANT_IMAGE_TOTAL_SIZE / (1024 * 1024)}MB.`);
         }
     }
-    // --- END CUMULATIVE SIZE VALIDATION ---
 
-    // --- MOVE FILES AND UPDATE IMAGE PATHS (ONLY IF ALL VALIDATION PASSES) ---
     const processedVariants = variants.map((variant, variantIdx) => {
-        console.log(`Processing variant ${variantIdx} in map:`, variant);
-        const existingImages = variant.images || []; // Existing images passed from frontend (e.g. during update)
+        const existingImages = variant.images || [];
         const newImagesForVariant = [];
 
         if (uploadedFilesByVariant[variantIdx]) {
             uploadedFilesByVariant[variantIdx].forEach(file => {
                 const newFilename = `${sanitizedProductName}-variant-${variantIdx}-img-${Date.now()}${path.extname(file.originalname)}`;
                 const newPath = path.join(uploadDir, newFilename);
-                fs.renameSync(file.path, newPath); // Move the temporary file
+                fs.renameSync(file.path, newPath);
                 newImagesForVariant.push(`/uploads/products/${newFilename}`);
-                console.log(`Moved file ${file.originalname} to ${newPath}`);
             });
         }
         const updatedVariant = { ...variant, images: [...existingImages, ...newImagesForVariant] };
-        console.log(`Updated variant ${variantIdx} with images:`, updatedVariant);
         return updatedVariant;
     });
-    console.log('--- processAndMoveVariantImages End ---');
     return processedVariants;
 };
 
@@ -96,11 +118,8 @@ const createProduct = async (req, res, next) => {
         } catch (parseError) {
             return res.status(400).json({ message: 'Invalid productData JSON format.' });
         }
-        // Transform empty strings to null for category, brand, and variant.supplier before validation
         parsedProductData = transformEmptyStringsToNull(parsedProductData);
 
-        console.log("the parsend data is ", parsedProductData)
-        // Use Joi to validate the incoming data
         const { error, value } = createProductSchema.validate(parsedProductData, { abortEarly: false });
         if (error) {
             return res.status(400).json({
@@ -116,76 +135,16 @@ const createProduct = async (req, res, next) => {
             brand,
             variants,
             isActive,
-        } = value; // Use the validated value
+        } = value;
 
-        // Handle file uploads
         if (req.files && req.files.length > 0) {
             variants = processAndMoveVariantImages(req.files, variants, productName);
         }
 
-
-
-
         const processedVariants = [];
-
         for (const variantData of variants) {
-            const mutableVariant = { ...variantData };
-
-            // Explicitly resolve sku, barcode, qrCode if they are promises from Joi validation
-            if (mutableVariant.sku instanceof Promise) {
-                mutableVariant.sku = await mutableVariant.sku;
-            }
-            if (mutableVariant.barcode instanceof Promise) {
-                mutableVariant.barcode = await mutableVariant.barcode;
-            }
-            if (mutableVariant.qrCode instanceof Promise) {
-                mutableVariant.qrCode = await mutableVariant.qrCode;
-            }
-
-            // Ensure SKU is generated if missing
-            if (!mutableVariant.sku) {
-                mutableVariant.sku = generateUniqueSku(productName, mutableVariant.attributes || []);
-            }
-            mutableVariant.sku = (mutableVariant.sku || '').toUpperCase();
-
-            // Perform uniqueness checks for SKU, Barcode, QR Code
-            // For new product creation, both currentProductId and currentVariantId are null
-            const isSkuUnique = await checkVariantUniqueness('sku', mutableVariant.sku, null, null);
-            if (!isSkuUnique) {
-                cleanupUploadedFiles(req.files);
-                return res.status(400).json({ message: `SKU '${mutableVariant.sku}' already exists.` });
-            }
-            if (mutableVariant.barcode) { // Only check if barcode is provided
-                const isBarcodeUnique = await checkVariantUniqueness('barcode', mutableVariant.barcode, null, null);
-                if (!isBarcodeUnique) {
-                    cleanupUploadedFiles(req.files);
-                    return res.status(400).json({ message: `Barcode '${mutableVariant.barcode}' already exists.` });
-                }
-            }
-            if (mutableVariant.qrCode) { // Only check if qrCode is provided
-                const isQrCodeUnique = await checkVariantUniqueness('qrCode', mutableVariant.qrCode, null, null);
-                if (!isQrCodeUnique) {
-                    cleanupUploadedFiles(req.files);
-                    return res.status(400).json({ message: `QR Code '${mutableVariant.qrCode}' already exists.` });
-                }
-            }
-
-            const { sku, attributes, supplier, barcode, qrCode, images } = mutableVariant; // Destructure images here
-            const { priceHistory, stockHistory, initialStock } = createInitialVariantHistory(mutableVariant, req.user._id);
-
-            processedVariants.push({
-                sku,
-                attributes,
-                supplier,
-                priceHistory,
-                stock: initialStock,
-                stockHistory,
-                images: images || [], // Use the images destructured from mutableVariant
-                barcode,
-                qrCode,
-                isDeleted: false,
-                deletedAt: null,
-            });
+            const processedVariant = await _processVariantData(variantData, productName, null, null, req.files, req.user._id);
+            processedVariants.push(processedVariant);
         }
 
         const product = await Product.create({
@@ -206,9 +165,6 @@ const createProduct = async (req, res, next) => {
     }
 };
 
-// NOTE: The following functions need to be updated to support the new data model.
-// This is a placeholder to be completed in the next steps.
-
 const getAllProducts = async (req, res, next) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -216,12 +172,10 @@ const getAllProducts = async (req, res, next) => {
         const skip = (page - 1) * limit;
         const { search, category, brand } = req.query;
 
-        // Base pipeline for matching products
         const matchStage = {
             isDeleted: false,
         };
 
-        // Add text search capabilities
         if (search) {
             matchStage.$or = [
                 { productName: { $regex: search, $options: 'i' } },
@@ -236,7 +190,6 @@ const getAllProducts = async (req, res, next) => {
             { $match: matchStage },
             { $unwind: '$variants' },
             { $match: { 'variants.isDeleted': false } },
-            // Group back to reconstruct the product with filtered variants
             {
                 $group: {
                     _id: '$_id',
@@ -244,7 +197,7 @@ const getAllProducts = async (req, res, next) => {
                     description: { $first: '$description' },
                     category: { $first: '$category' },
                     brand: { $first: '$brand' },
-                    totalStock: { $first: '$totalStock' }, // This is the pre-calculated total, consider recalculating if needed
+                    totalStock: { $first: '$totalStock' },
                     isActive: { $first: '$isActive' },
                     createdAt: { $first: '$createdAt' },
                     variants: { $push: '$variants' }
@@ -253,7 +206,6 @@ const getAllProducts = async (req, res, next) => {
             { $sort: { createdAt: -1 } },
             { $skip: skip },
             { $limit: limit },
-            // Populate category, brand, and supplier
             {
                 $lookup: {
                     from: 'categories',
@@ -303,12 +255,11 @@ const getAllProducts = async (req, res, next) => {
                     }
                 }
             },
-            { $project: { suppliers: 0 } } // Remove the temporary suppliers array
+            { $project: { suppliers: 0 } }
         ];
 
         const products = await Product.aggregate(aggregationPipeline);
 
-        // We need a separate query to get the total count accurately based on the initial match
         const total = await Product.countDocuments(matchStage);
 
         res.status(200).json({
@@ -348,7 +299,6 @@ const getProductById = async (req, res, next) => {
                     variants: { $push: '$variants' }
                 }
             },
-            // Populate lookups
             { $lookup: { from: 'categories', localField: 'category', foreignField: '_id', as: 'category' } },
             { $lookup: { from: 'brands', localField: 'brand', foreignField: '_id', as: 'brand' } },
             { $lookup: { from: 'users', localField: 'variants.priceHistory.changedBy', foreignField: '_id', as: 'priceChangers' } },
@@ -379,7 +329,7 @@ const getProductById = async (req, res, next) => {
                     }
                 }
             },
-            { $project: { suppliers: 0 } } // Remove the temporary suppliers array
+            { $project: { suppliers: 0 } }
         ];
 
         const results = await Product.aggregate(aggregationPipeline);
@@ -388,7 +338,6 @@ const getProductById = async (req, res, next) => {
             return res.status(404).json({ message: 'Product not found' });
         }
 
-        // Manually populate user data since aggregation lookups can be tricky with nested arrays
         const product = results[0];
         const priceChangers = new Map(results[0].priceChangers.map(u => [u._id.toString(), `${u.firstName} ${u.lastName}`]));
         const stockPerformers = new Map(results[0].stockPerformers.map(u => [u._id.toString(), `${u.firstName} ${u.lastName}`]));
@@ -423,132 +372,65 @@ const updateProduct = async (req, res, next) => {
             return res.status(404).json({ message: 'Product not found.' });
         }
 
-        console.log('--- updateProduct Start ---');
-        console.log('req.body.productData:', req.body.productData);
-        console.log('req.files:', req.files); // Will be an array of file objects if any files were uploaded
-
         let parsedProductData;
         try {
             parsedProductData = JSON.parse(req.body.productData);
-            console.log('parsedProductData after JSON.parse:', parsedProductData);
         } catch (parseError) {
-            console.error('JSON parse error:', parseError);
             return res.status(400).json({ message: 'Invalid productData JSON format.' });
         }
-        // Transform empty strings to null for category, brand, and variant.supplier before validation
         parsedProductData = transformEmptyStringsToNull(parsedProductData);
-        console.log('parsedProductData after transformEmptyStringsToNull:', parsedProductData);
 
-        // Use Joi to validate the incoming data for update
         const { error, value } = updateProductSchema.validate(parsedProductData, { abortEarly: false });
         if (error) {
-            console.error('Joi Validation Error:', error);
             return res.status(400).json({
                 message: 'Validation failed',
                 details: error.details.map(detail => detail.message)
             });
         }
-        console.log('Joi Validation Value (after validation):', value);
 
-        let { variants = [], ...otherProductData } = value; // Use the validated value, default variants to []
-        console.log('Variants from Joi value (after defaulting to []):', variants);
+        let { variants = [], ...otherProductData } = value;
 
-        // Handle file uploads
         if (req.files && req.files.length > 0) {
-            console.log('--- Processing file uploads for variants ---');
             variants = processAndMoveVariantImages(req.files, variants, product.productName);
-            console.log('Variants after processAndMoveVariantImages:', variants);
         }
 
-        // Update top-level product fields (productName, description, category, brand, isActive)
         Object.assign(product, otherProductData);
-        console.log('Product Mongoose doc after Object.assign (top-level fields updated):', product);
 
-        // Note: variants is guaranteed to be an array here due to `let { variants = [], ... } = value`
-        const uniquenessCheckSets = { skus: new Set(), barcodes: new Set(), qrCodes: new Set() };
         const incomingVariantIds = new Set();
 
         for (const variantData of variants) {
-            console.log('--- Processing incoming variantData ---');
-            console.log('Current variantData in loop:', variantData);
+            const currentVariantId = variantData._id?.toString();
+            incomingVariantIds.add(currentVariantId);
 
-            const mutableVariant = { ...variantData };
-            incomingVariantIds.add(mutableVariant._id?.toString());
-            console.log('mutableVariant after spread and _id added:', mutableVariant);
-
-            // Explicitly resolve sku, barcode, qrCode if they are promises from Joi validation
-            if (mutableVariant.sku instanceof Promise) {
-                mutableVariant.sku = await mutableVariant.sku;
-            }
-            if (mutableVariant.barcode instanceof Promise) {
-                mutableVariant.barcode = await mutableVariant.barcode;
-            }
-            if (mutableVariant.qrCode instanceof Promise) {
-                mutableVariant.qrCode = await mutableVariant.qrCode;
-            }
-
-            // Ensure SKU is generated if missing for new variants
-            if (!mutableVariant.sku) {
-                mutableVariant.sku = generateUniqueSku(product.productName, mutableVariant.attributes || []);
-                console.log('SKU generated for new variant:', mutableVariant.sku);
-            }
-            mutableVariant.sku = (mutableVariant.sku || '').toUpperCase();
-            console.log('mutableVariant after SKU processing:', mutableVariant);
-
-            if (mutableVariant._id) { // Existing variant
-                const variantToUpdate = product.variants.id(mutableVariant._id); // Mongoose method to find subdocument
-                console.log('Mongoose product.variants subdocument found (variantToUpdate):', variantToUpdate);
+            if (currentVariantId) { // Existing variant
+                const variantToUpdate = product.variants.id(currentVariantId);
                 if (!variantToUpdate || variantToUpdate.isDeleted) {
-                    console.log(`Skipping variant ${mutableVariant._id} (not found or deleted).`);
-                    continue; // Skip if variant not found or already deleted
+                    continue;
                 }
 
-                // Perform uniqueness checks for SKU, Barcode, QR Code
-                const isSkuUnique = await checkVariantUniqueness('sku', mutableVariant.sku, product._id, mutableVariant._id);
-                if (!isSkuUnique) {
-                    cleanupUploadedFiles(req.files);
-                    return res.status(400).json({ message: `SKU '${mutableVariant.sku}' already exists.` });
-                }
-                if (mutableVariant.barcode) { // Only check if barcode is provided
-                    const isBarcodeUnique = await checkVariantUniqueness('barcode', mutableVariant.barcode, product._id, mutableVariant._id);
-                    if (!isBarcodeUnique) {
-                        cleanupUploadedFiles(req.files);
-                        return res.status(400).json({ message: `Barcode '${mutableVariant.barcode}' already exists.` });
-                    }
-                }
-                if (mutableVariant.qrCode) { // Only check if qrCode is provided
-                    const isQrCodeUnique = await checkVariantUniqueness('qrCode', mutableVariant.qrCode, product._id, mutableVariant._id);
-                    if (!isQrCodeUnique) {
-                        cleanupUploadedFiles(req.files);
-                        return res.status(400).json({ message: `QR Code '${mutableVariant.qrCode}' already exists.` });
-                    }
-                }
+                const processedVariant = await _processVariantData(variantData, product.productName, product._id, currentVariantId, req.files, req.user._id);
 
                 // Price History
-                // Ensure priceHistory is an array before accessing length
                 const latestPrice = variantToUpdate.priceHistory && variantToUpdate.priceHistory.length > 0
                     ? variantToUpdate.priceHistory[variantToUpdate.priceHistory.length - 1]
-                    : { buyingPrice: 0, sellingPrice: 0 }; // Default if no history
-                const newBuyingPrice = Number(mutableVariant.buyingPrice);
-                const newSellingPrice = Number(mutableVariant.sellingPrice);
+                    : { buyingPrice: 0, sellingPrice: 0 };
+                const newBuyingPrice = Number(processedVariant.buyingPrice);
+                const newSellingPrice = Number(processedVariant.sellingPrice);
                 if (latestPrice.buyingPrice !== newBuyingPrice || latestPrice.sellingPrice !== newSellingPrice) {
-                    // Ensure priceHistory is initialized as an array if it somehow isn't
                     if (!Array.isArray(variantToUpdate.priceHistory)) variantToUpdate.priceHistory = [];
                     variantToUpdate.priceHistory.push({
                         buyingPrice: newBuyingPrice,
                         sellingPrice: newSellingPrice,
                         changedBy: req.user._id,
                     });
-                    console.log('Price history updated for variant:', variantToUpdate._id);
                 }
 
                 // Stock History
-                const stockChange = Number(mutableVariant.stock) - variantToUpdate.stock;
+                const stockChange = Number(processedVariant.stock) - variantToUpdate.stock;
                 if (stockChange !== 0) {
-                    const stockChangeType = mutableVariant.stockChangeType || 'ADJUSTMENT';
-                    const stockChangeReason = mutableVariant.stockChangeReason || 'Manual update';
+                    const stockChangeType = processedVariant.stockChangeType || 'ADJUSTMENT';
+                    const stockChangeReason = processedVariant.stockChangeReason || 'Manual update';
 
-                    // Ensure stockHistory is initialized as an array if it somehow isn't
                     if (!Array.isArray(variantToUpdate.stockHistory)) variantToUpdate.stockHistory = [];
                     variantToUpdate.stockHistory.push({
                         change: stockChange,
@@ -556,91 +438,47 @@ const updateProduct = async (req, res, next) => {
                         reason: stockChangeReason,
                         performedBy: req.user._id,
                     });
-                    variantToUpdate.stock = mutableVariant.stock;
+                    variantToUpdate.stock = processedVariant.stock;
                     if (stockChange > 0) product.lastRestocked = new Date();
-                    console.log('Stock history updated for variant:', variantToUpdate._id);
                 }
 
                 // Update other fields
                 Object.assign(variantToUpdate, {
-                    attributes: mutableVariant.attributes || [], // Ensure attributes is array
-                    supplier: mutableVariant.supplier,
-                    barcode: mutableVariant.barcode,
-                    qrCode: mutableVariant.qrCode,
-                    images: mutableVariant.images || [], // Ensure images is array
+                    sku: processedVariant.sku,
+                    attributes: processedVariant.attributes || [],
+                    supplier: processedVariant.supplier,
+                    barcode: processedVariant.barcode,
+                    qrCode: processedVariant.qrCode,
+                    images: processedVariant.images || [],
                 });
-                console.log('variantToUpdate after Object.assign (fields updated):', variantToUpdate);
 
             } else { // New variant
-                console.log('--- Creating new variant ---');
-                // Perform uniqueness checks for SKU, Barcode, QR Code (for new variant, currentVariantId is null)
-                const isSkuUnique = await checkVariantUniqueness('sku', mutableVariant.sku, product._id, null);
-                if (!isSkuUnique) {
-                    cleanupUploadedFiles(req.files);
-                    return res.status(400).json({ message: `SKU '${mutableVariant.sku}' already exists.` });
-                }
-                if (mutableVariant.barcode) { // Only check if barcode is provided
-                    const isBarcodeUnique = await checkVariantUniqueness('barcode', mutableVariant.barcode, product._id, null);
-                    if (!isBarcodeUnique) {
-                        cleanupUploadedFiles(req.files);
-                        return res.status(400).json({ message: `Barcode '${mutableVariant.barcode}' already exists.` });
-                    }
-                }
-                if (mutableVariant.qrCode) { // Only check if qrCode is provided
-                    const isQrCodeUnique = await checkVariantUniqueness('qrCode', mutableVariant.qrCode, product._id, null);
-                    if (!isQrCodeUnique) {
-                        cleanupUploadedFiles(req.files);
-                        return res.status(400).json({ message: `QR Code '${mutableVariant.qrCode}' already exists.` });
-                    }
-                }
+                const processedVariant = await _processVariantData(variantData, product.productName, product._id, null, req.files, req.user._id);
 
-                const { priceHistory, stockHistory, initialStock } = createInitialVariantHistory(mutableVariant, req.user._id);
-
-                const newVariant = {
-                    ...mutableVariant,
-                    priceHistory,
-                    stock: initialStock,
-                    stockHistory,
-                    images: mutableVariant.images || [], // Ensure images is array
-                    attributes: mutableVariant.attributes || [], // Ensure attributes is array
-                };
-                if (initialStock > 0) {
+                if (processedVariant.stock > 0) {
                     product.lastRestocked = new Date();
                 }
-                product.variants.push(newVariant);
-                console.log('New variant pushed to product.variants:', newVariant);
+                product.variants.push(processedVariant);
             }
         }
 
-        // Soft-delete variants that are no longer in the request
         product.variants.forEach(variant => {
-            if (!variant.isDeleted && !incomingVariantIds.has(variant._id?.toString())) { // Check if _id exists
+            if (!variant.isDeleted && !incomingVariantIds.has(variant._id?.toString())) {
                 variant.isDeleted = true;
                 variant.deletedAt = new Date();
-                console.log(`Variant ${variant._id} soft-deleted.`);
-                // Note: We don't record 'deletedBy' at variant level in this schema, but could be added.
             }
         });
-        console.log('Product Mongoose doc before save (after variant processing):', product);
-
 
         await product.save();
-        console.log('Product saved successfully!');
         res.status(200).json(product);
 
     } catch (error) {
-        console.error('Caught error in updateProduct:', error);
         cleanupUploadedFiles(req.files);
         next(error);
-    } finally {
-        console.log('--- updateProduct End ---');
     }
 };
 
 const deleteProduct = async (req, res, next) => {
-    // TODO: This function is mostly correct but review to ensure it cascades as expected.
-    // The current implementation soft-deletes the whole product, which is good.
-    // We might also need a method to soft-delete a single VARIANT.
     try {
         const { id } = req.params;
 

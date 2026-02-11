@@ -19,9 +19,8 @@ const EditProductPage = () => {
   const handleSubmit = async (data) => {
     try {
       await updateProductMutation.mutateAsync({ id: productId, ...data });
-      console.log("the product id is ", productId)
       toast.success('Product updated successfully!');
-      router.push('../../products'); // Navigate back to the product list
+      router.push('../../products'); 
     } catch (err) {
       toast.error(err?.message || 'Failed to update product.');
     }
