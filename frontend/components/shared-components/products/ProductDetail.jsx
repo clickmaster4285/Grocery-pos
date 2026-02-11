@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -29,6 +30,8 @@ const ProductDetail = ({ product, role }) => {
   const router = useRouter();
   const deleteProductMutation = useDeleteProduct();
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+
+  console.log("the productis ", product)
 
   if (!product) {
     return (
@@ -52,12 +55,14 @@ const ProductDetail = ({ product, role }) => {
   };
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
+    <Card className="w-full">
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-3xl font-bold">{product.name}</CardTitle>
-            <CardDescription className="mt-1">{product.description}</CardDescription>
+            <CardTitle className="text-3xl font-bold">{product.productName}</CardTitle>
+            {product.description && (
+              <CardDescription className="mt-2 text-md">{product.description}</CardDescription>
+            )}
           </div>
           <div className="flex space-x-2">
             <Button variant="outline" size="sm" onClick={() => router.push(`/${role}/products/${product._id}/edit`)}>
@@ -74,7 +79,7 @@ const ProductDetail = ({ product, role }) => {
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This action cannot be undone. This will soft delete the product{' '}
-                    <span className="font-bold">{product.name}</span>.
+                    <span className="font-bold">{product.productName}</span>.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -92,15 +97,27 @@ const ProductDetail = ({ product, role }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">Brand</p>
-            <p className="text-base">{product.brand}</p>
+            <p className="text-base">{product.brand?.name || 'N/A'}</p>
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">Category</p>
-            <p className="text-base">{product.category}</p>
+            <p className="text-base">{product.category?.name || 'N/A'}</p>
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">Total Stock</p>
             <p className="text-base font-semibold">{product.totalStock}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-muted-foreground">Status</p>
+            <Badge className={`text-base ${product.isActive ? 'bg-green-500' : 'bg-red-500'}`}>
+              {product.isActive ? 'Active' : 'Inactive'}
+            </Badge>
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-muted-foreground">Last Restocked</p>
+            <p className="text-base">
+              {product.lastRestocked ? new Date(product.lastRestocked).toLocaleDateString() : 'N/A'}
+            </p>
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">Created At</p>
@@ -130,23 +147,66 @@ const ProductDetail = ({ product, role }) => {
                   <TabsContent key={variant._id} value={variant._id} className="mt-4">
                     <Card>
                       <CardHeader>
-                        <CardTitle>Variant Details: {variant.sku}</CardTitle>
+                        <CardTitle className="flex justify-between items-center">
+                          Variant: {variant.sku || 'N/A'}
+                          {variant.isDeleted && <Badge variant="destructive">Soft Deleted</Badge>}
+                        </CardTitle>
                       </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <CardContent className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           <div className="space-y-1">
                             <p className="text-sm font-medium text-muted-foreground">SKU</p>
-                            <p className="text-base">{variant.sku}</p>
+                            <p className="text-base">{variant.sku || 'N/A'}</p>
                           </div>
                           <div className="space-y-1">
-                            <p className="text-sm font-medium text-muted-foreground">Price</p>
-                            <p className="text-base">${variant.price.toFixed(2)}</p>
+                            <p className="text-sm font-medium text-muted-foreground">Current Selling Price</p>
+                            <p className="text-base font-semibold">
+                              ${variant.priceHistory && variant.priceHistory.length > 0
+                                ? variant.priceHistory[variant.priceHistory.length - 1].sellingPrice?.toFixed(2)
+                                : '0.00'}
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium text-muted-foreground">Current Buying Price</p>
+                            <p className="text-base font-semibold">
+                              ${variant.priceHistory && variant.priceHistory.length > 0
+                                ? variant.priceHistory[variant.priceHistory.length - 1].buyingPrice?.toFixed(2)
+                                : '0.00'}
+                            </p>
                           </div>
                           <div className="space-y-1">
                             <p className="text-sm font-medium text-muted-foreground">Stock</p>
                             <p className="text-base">{variant.stock}</p>
                           </div>
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium text-muted-foreground">Supplier</p>
+                            <p className="text-base">{variant.supplier?.name || 'N/A'}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium text-muted-foreground">Barcode</p>
+                            <p className="text-base">{variant.barcode || 'N/A'}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium text-muted-foreground">QR Code</p>
+                            <p className="text-base">{variant.qrCode || 'N/A'}</p>
+                          </div>
                         </div>
+
+                        {variant.attributes && variant.attributes.length > 0 && (
+                          <>
+                            <Separator />
+                            <div>
+                              <h4 className="text-lg font-semibold mb-2">Attributes</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {variant.attributes.map((attr, idx) => (
+                                  <Badge key={idx} variant="secondary">
+                                    {attr.key}: {attr.value}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
 
                         <Separator />
 
@@ -155,7 +215,7 @@ const ProductDetail = ({ product, role }) => {
                           {variant.images && variant.images.length > 0 ? (
                             <div className="flex flex-wrap gap-2">
                               {variant.images.map((url, index) => (
-                                <div key={index} className="relative w-24 h-24 rounded-md overflow-hidden border">
+                                <div key={index} className="relative w-48 h-48 rounded-md overflow-hidden border">
                                   <Image src={`${API_URL}${url}`} alt={`Variant image ${index + 1}`} fill style={{ objectFit: 'cover' }} unoptimized={true} />
                                 </div>
                               ))}
@@ -174,17 +234,19 @@ const ProductDetail = ({ product, role }) => {
                               <Table>
                                 <TableHeader>
                                   <TableRow>
-                                    <TableHead>Date</TableHead>
+                                    <TableHead>Effective Date</TableHead>
                                     <TableHead>Buying Price</TableHead>
                                     <TableHead>Selling Price</TableHead>
+                                    <TableHead>Changed By</TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                   {variant.priceHistory.map((history, index) => (
                                     <TableRow key={index}>
-                                      <TableCell>{new Date(history.date).toLocaleDateString()}</TableCell>
-                                      <TableCell>${history.buyingPrice.toFixed(2)}</TableCell>
-                                      <TableCell>${history.sellingPrice.toFixed(2)}</TableCell>
+                                      <TableCell>{new Date(history.effectiveDate).toLocaleDateString()}</TableCell>
+                                      <TableCell>${history.buyingPrice?.toFixed(2)}</TableCell>
+                                      <TableCell>${history.sellingPrice?.toFixed(2)}</TableCell>
+                                      <TableCell>{history.changedBy || 'System'}</TableCell>
                                     </TableRow>
                                   ))}
                                 </TableBody>
@@ -194,6 +256,41 @@ const ProductDetail = ({ product, role }) => {
                             <div className="text-muted-foreground text-sm">No price history available.</div>
                           )}
                         </div>
+
+                        <Separator />
+
+                        <div>
+                          <h4 className="text-lg font-semibold mb-2">Stock History</h4>
+                          {variant.stockHistory && variant.stockHistory.length > 0 ? (
+                            <div className="rounded-md border">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Change</TableHead>
+                                    <TableHead>Type</TableHead>
+                                    <TableHead>Reason</TableHead>
+                                    <TableHead>Performed By</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {variant.stockHistory.map((history, index) => (
+                                    <TableRow key={index}>
+                                      <TableCell>{new Date(history.date).toLocaleDateString()}</TableCell>
+                                      <TableCell>{history.change}</TableCell>
+                                      <TableCell>{history.type}</TableCell>
+                                      <TableCell>{history.reason || 'N/A'}</TableCell>
+                                      <TableCell>{history.performedBy || 'System'}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          ) : (
+                            <div className="text-muted-foreground text-sm">No stock history available.</div>
+                          )}
+                        </div>
+
                       </CardContent>
                     </Card>
                   </TabsContent>

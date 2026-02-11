@@ -4,7 +4,8 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button'; // Assuming button is used for actions
+import { Button } from '@/components/ui/button'; 
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const ProductDetailSkeleton = () => {
   return (

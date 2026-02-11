@@ -277,82 +277,17 @@ const getAllProducts = async (req, res, next) => {
 
 const getProductById = async (req, res, next) => {
     try {
-        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        const { id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ message: 'Invalid product ID format' });
         }
 
-        const aggregationPipeline = [
-            { $match: { _id: new mongoose.Types.ObjectId(req.params.id), isDeleted: false } },
-            { $unwind: '$variants' },
-            { $match: { 'variants.isDeleted': false } },
-            {
-                $group: {
-                    _id: '$_id',
-                    productName: { $first: '$productName' },
-                    description: { $first: '$description' },
-                    category: { $first: '$category' },
-                    brand: { $first: '$brand' },
-                    totalStock: { $first: '$totalStock' },
-                    isActive: { $first: '$isActive' },
-                    createdAt: { $first: '$createdAt' },
-                    updatedAt: { $first: '$updatedAt' },
-                    variants: { $push: '$variants' }
-                }
-            },
-            { $lookup: { from: 'categories', localField: 'category', foreignField: '_id', as: 'category' } },
-            { $lookup: { from: 'brands', localField: 'brand', foreignField: '_id', as: 'brand' } },
-            { $lookup: { from: 'users', localField: 'variants.priceHistory.changedBy', foreignField: '_id', as: 'priceChangers' } },
-            { $lookup: { from: 'users', localField: 'variants.stockHistory.performedBy', foreignField: '_id', as: 'stockPerformers' } },
-            { $lookup: { from: 'suppliers', localField: 'variants.supplier', foreignField: '_id', as: 'suppliers' } },
-            { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
-            { $unwind: { path: '$brand', preserveNullAndEmptyArrays: true } },
-            {
-                $addFields: {
-                    variants: {
-                        $map: {
-                            input: '$variants',
-                            as: 'variant',
-                            in: {
-                                $mergeObjects: [
-                                    '$$variant',
-                                    {
-                                        supplier: {
-                                            $arrayElemAt: [
-                                                '$suppliers',
-                                                { $indexOfArray: ['$suppliers._id', '$$variant.supplier'] }
-                                            ]
-                                        }
-                                    }
-                                ]
-                            }
-                        }
-                    }
-                }
-            },
-            { $project: { suppliers: 0 } }
-        ];
+        // Fetch the raw product document without any aggregation
+        const product = await Product.findById(id);
 
-        const results = await Product.aggregate(aggregationPipeline);
-
-        if (!results || results.length === 0) {
+        if (!product) {
             return res.status(404).json({ message: 'Product not found' });
         }
-
-        const product = results[0];
-        const priceChangers = new Map(results[0].priceChangers.map(u => [u._id.toString(), `${u.firstName} ${u.lastName}`]));
-        const stockPerformers = new Map(results[0].stockPerformers.map(u => [u._id.toString(), `${u.firstName} ${u.lastName}`]));
-
-        product.variants.forEach(variant => {
-            variant.priceHistory.forEach(h => {
-                if (h.changedBy) h.changedBy = priceChangers.get(h.changedBy.toString()) || 'Unknown User';
-            });
-            variant.stockHistory.forEach(h => {
-                if (h.performedBy) h.performedBy = stockPerformers.get(h.performedBy.toString()) || 'Unknown User';
-            });
-        });
-
-        delete product.priceChangers;
-        delete product.stockPerformers;
 
         res.status(200).json(product);
     } catch (error) {

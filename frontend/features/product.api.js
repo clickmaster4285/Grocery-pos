@@ -34,6 +34,7 @@ const fetchProductById = async ({ queryKey }) => {
   const [, , id] = queryKey;
   if (!id) return null;
   const { data } = await api.get(`/products/${id}`);
+console.log("the data from product api is ", data)
   return data;
 };
 
