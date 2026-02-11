@@ -55,11 +55,11 @@ const variantSchema = z.object({
   isDeleted: z.boolean().optional(),
   // Fields for explicit stock adjustments during editing
   stockChangeAmount: z.preprocess(
-    (val) => (val === '' ? undefined : Number(val)), // Allow empty string but preprocess to undefined
-    z.number().int().optional()
+    (val) => (val === '' ? null : Number(val)), // Allow empty string but preprocess to null
+    z.number().int().optional().nullable()
   ),
-  stockChangeType: z.enum(['RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT']).optional(),
-  stockChangeReason: z.string().max(200).optional(),
+  stockChangeType: z.enum(['RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT']).optional().nullable(),
+  stockChangeReason: z.string().max(200).optional().nullable(),
 });
 
 const productFormSchema = z.object({
@@ -172,43 +172,59 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
     return [];
   }, [suppliersData]);
 
-  const form = useForm({
-    resolver: zodResolver(productFormSchema),
-    defaultValues: initialData ? {
-      ...initialData,
-      category: initialData.category?._id || '',
-      brand: initialData.brand?._id || '',
-      variants: initialData.variants?.map(variant => ({
-        ...variant,
-        buyingPrice: variant.priceHistory?.length ? variant.priceHistory[variant.priceHistory.length - 1].buyingPrice : 0.01,
-        sellingPrice: variant.priceHistory?.length ? variant.priceHistory[variant.priceHistory.length - 1].sellingPrice : 0.01,
-        supplier: variant.supplier?._id || '',
-        attributes: variant.attributes || [],
-        barcode: variant.barcode || '',
-        qrCode: variant.qrCode || '',
-        isDeleted: variant.isDeleted || false,
-      })) || [],
-    } : {
-      productName: '',
-      description: '',
-      brand: '',
-      category: '',
-      variants: [{
-        sku: '',
-        buyingPrice: 0.01,
-        sellingPrice: 0.01,
-        stock: 0,
-        supplier: '',
-        barcode: '',
-        qrCode: '',
-        images: [],
-        attributes: [],
-      }],
-    },
-    mode: 'onChange',
-  });
+    const form = useForm({
 
-  const { fields, append, remove } = useFieldArray({
+      resolver: zodResolver(productFormSchema),
+      defaultValues: initialData ? {
+        ...initialData,
+        category: initialData.category?._id || '',
+        brand: initialData.brand?._id || '',
+        variants: initialData.variants?.map(variant => ({
+          ...variant,
+          _id: variant._id ? String(variant._id) : '',
+          buyingPrice: variant.priceHistory?.length ? variant.priceHistory[variant.priceHistory.length - 1].buyingPrice : 0.01,
+
+          sellingPrice: variant.priceHistory?.length ? variant.priceHistory[variant.priceHistory.length - 1].sellingPrice : 0.01,
+          supplier: variant.supplier?._id || '',
+          attributes: variant.attributes || [],
+          barcode: variant.barcode || '',
+          qrCode: variant.qrCode || '',
+          isDeleted: variant.isDeleted || false,
+        stockChangeAmount: null,
+        stockChangeType: null,
+        stockChangeReason: null,
+        })) || [{
+          sku: '',
+          buyingPrice: 0.01,
+          sellingPrice: 0.01,
+          stock: 0,
+          supplier: '',
+          barcode: '',
+          qrCode: '',
+          images: [],
+          attributes: [],
+        }],
+      } : {
+        productName: '',
+        description: '',
+        brand: '',
+        category: '',
+        variants: [{
+          sku: '',
+          buyingPrice: 0.01,
+          sellingPrice: 0.01,
+          stock: 0,
+          supplier: '',
+          barcode: '',
+          qrCode: '',
+          images: [],
+          attributes: [],
+        }],
+      },
+      mode: 'onChange',
+    });  
+
+    const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: 'variants',
   });
