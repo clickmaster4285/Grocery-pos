@@ -15,14 +15,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Trash2, Plus, Minus, Search, ShoppingCart, CreditCard, Banknote, Landmark, Store, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Minus, Search, ShoppingCart, CreditCard, Banknote, Landmark, Store, Loader2, Printer } from 'lucide-react';
 import { toast } from 'sonner';
+import { useReactToPrint } from 'react-to-print';
+import ReceiptPrint from './ReceiptPrint';
 
 const POS = () => {
   const { user } = useAuth();
   const { hasRole } = usePermissions();
   const isAdmin = hasRole('admin');
   const searchInputRef = useRef(null);
+  const receiptRef = useRef(null);
   
   // State for the active branch being managed in POS
   const [activeBranchId, setActiveBranchId] = useState(user?.branch_id || '');
@@ -38,6 +41,21 @@ const POS = () => {
   const [customerName, setCustomerName] = useState('');
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
+  const [lastSaleData, setLastSaleData] = useState(null);
+
+  // Print function
+  const handlePrint = useReactToPrint({
+    contentRef: receiptRef,
+    documentTitle: `Receipt-${lastSaleData?.billNumber}`,
+  });
+
+  // Effect to trigger print once sale data is captured
+  useEffect(() => {
+    if (lastSaleData) {
+        handlePrint();
+        setLastSaleData(null); 
+    }
+  }, [lastSaleData, handlePrint]);
 
   // Auto-focus search input on load
   useEffect(() => {
@@ -124,12 +142,12 @@ const POS = () => {
   const total = cart.reduce((acc, item) => acc + item.subtotal, 0);
   const finalTotal = Math.max(0, total - discount);
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (shouldPrint = false) => {
     if (cart.length === 0) return toast.error("Cart is empty");
     if (!activeBranchId) return toast.error("Please select a branch first");
 
     try {
-      await createSaleMutation.mutateAsync({
+      const result = await createSaleMutation.mutateAsync({
         branchId: activeBranchId,
         items: cart.map(item => ({
           product: item.productId,
@@ -142,6 +160,14 @@ const POS = () => {
       });
       
       toast.success("Sale completed successfully!");
+      
+      if (shouldPrint) {
+        setLastSaleData({
+            ...result.data,
+            cashierName: `${user.firstName} ${user.lastName}`
+        });
+      }
+
       setCart([]);
       setCustomerName('');
       setDiscount(0);
@@ -162,9 +188,20 @@ const POS = () => {
     );
   }
 
+  const activeBranch = branches?.data?.find(b => b._id === activeBranchId);
+
   return (
-    <div className="flex flex-col gap-6 h-[calc(100vh-140px)]">
-      {/* Branch Selection Header (Visible to Admins) */}
+    <div className="flex flex-col gap-6">
+      {/* Hidden Receipt Component */}
+      <div style={{ display: 'none' }}>
+        <ReceiptPrint 
+            ref={receiptRef} 
+            sale={lastSaleData} 
+            branch={activeBranch} 
+        />
+      </div>
+
+      {/* Branch Selection Header */}
       <Card className="shrink-0">
         <CardContent className="p-4 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -187,7 +224,7 @@ const POS = () => {
                   </Select>
                 </div>
               ) : (
-                <h3 className="font-bold">{branches?.data?.find(b => b._id === activeBranchId)?.branch_name || 'My Branch'}</h3>
+                <h3 className="font-bold">{activeBranch?.branch_name || 'My Branch'}</h3>
               )}
             </div>
           </div>
@@ -196,7 +233,7 @@ const POS = () => {
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input 
               ref={searchInputRef}
-              placeholder="Scan Barcode or Type Product/SKU..." 
+              placeholder="Scan Barcode or Type Product..." 
               className="pl-8 h-9" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -226,22 +263,45 @@ const POS = () => {
                   {stock.map((item) => {
                     const variant = item.product.variants.find(v => v._id === item.variantId);
                     const price = variant?.priceHistory[variant.priceHistory.length - 1]?.sellingPrice;
+                    const isOutOfStock = item.quantity <= 0;
                     
                     return (
-                      <Card key={item._id} className="cursor-pointer hover:border-primary transition-colors group" onClick={() => addToCart(item)}>
+                      <Card 
+                        key={item._id} 
+                        className={`relative overflow-hidden transition-colors group ${
+                          isOutOfStock 
+                            ? 'opacity-60 grayscale-[0.5] cursor-not-allowed bg-muted/50' 
+                            : 'cursor-pointer hover:border-primary'
+                        }`} 
+                        onClick={() => !isOutOfStock && addToCart(item)}
+                      >
+                        {isOutOfStock && (
+                          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/20 backdrop-blur-[1px]">
+                            <div className="bg-destructive/90 text-destructive-foreground text-[10px] font-black px-2 py-1 rounded rotate-[-15deg] shadow-lg border border-white/20 uppercase tracking-tighter">
+                              Out of Stock
+                            </div>
+                          </div>
+                        )}
                         <CardContent className="p-4 flex flex-col gap-2">
                           <div className="flex justify-between items-start">
                             <Badge variant="outline" className="text-[10px]">{variant?.sku}</Badge>
-                            <span className="font-bold text-primary">${price?.toFixed(2)}</span>
+                            <span className={`font-bold ${isOutOfStock ? 'text-muted-foreground' : 'text-primary'}`}>
+                              ${price?.toFixed(2)}
+                            </span>
                           </div>
                           <h3 className="font-semibold text-sm line-clamp-2 h-10 leading-tight">{item.product.productName}</h3>
                           <div className="flex justify-between items-center mt-2">
-                            <span className={`text-[11px] font-medium ${item.quantity < 5 ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
+                            <span className={`text-[11px] font-medium ${
+                              isOutOfStock ? 'text-destructive font-bold' : 
+                              item.quantity < 5 ? 'text-red-500 font-bold' : 'text-muted-foreground'
+                            }`}>
                               Stock: {item.quantity}
                             </span>
-                            <div className="bg-primary text-primary-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Plus className="h-3 w-3" />
-                            </div>
+                            {!isOutOfStock && (
+                              <div className="bg-primary text-primary-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Plus className="h-3 w-3" />
+                              </div>
+                            )}
                           </div>
                         </CardContent>
                       </Card>
@@ -260,7 +320,7 @@ const POS = () => {
 
         {/* Cart / Billing Area */}
         <div className="flex flex-col gap-4 h-full overflow-hidden">
-          <Card className="flex-1 flex flex-col overflow-hidden border-2 border-primary/20 shadow-lg">
+          <Card className="flex-1 flex flex-col overflow-hidden border-2 border-primary/20 shadow-lg pt-0">
             <CardHeader className="bg-primary text-primary-foreground py-3 rounded-t-lg shrink-0">
               <div className="flex justify-between items-center">
                 <CardTitle className="flex items-center gap-2 text-base font-bold">
@@ -285,7 +345,7 @@ const POS = () => {
                   {cart.map((item) => (
                     <TableRow key={item.variantId} className="hover:bg-transparent border-b">
                       <TableCell className="pl-4 py-3">
-                        <div className="flex flex-col max-w-[120px]">
+                        <div className="flex flex-col max-w-30">
                           <span className="font-bold text-xs truncate leading-none mb-1">{item.productName}</span>
                           <span className="text-[10px] text-muted-foreground font-medium">{item.sku}</span>
                         </div>
@@ -400,13 +460,23 @@ const POS = () => {
                   </div>
                 </div>
 
-                <Button 
-                  className="w-full h-11 text-base font-bold shadow-lg shadow-primary/20 transition-all active:scale-[0.98]" 
-                  onClick={handleCheckout}
-                  disabled={cart.length === 0 || createSaleMutation.isLoading}
-                >
-                  {createSaleMutation.isLoading ? "PROCESSING..." : "FINALIZE SALE"}
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                        variant="outline"
+                        className="h-11 font-bold border-2 border-primary text-primary hover:bg-primary/5 transition-all" 
+                        onClick={() => handleCheckout(false)}
+                        disabled={cart.length === 0 || createSaleMutation.isLoading}
+                    >
+                        {createSaleMutation.isLoading ? "..." : "FINALIZE ONLY"}
+                    </Button>
+                    <Button 
+                        className="h-11 font-bold shadow-lg shadow-primary/20 transition-all active:scale-[0.98] gap-2" 
+                        onClick={() => handleCheckout(true)}
+                        disabled={cart.length === 0 || createSaleMutation.isLoading}
+                    >
+                        {createSaleMutation.isLoading ? "..." : <><Printer className="h-4 w-4" /> FINALIZE & PRINT</>}
+                    </Button>
+                </div>
               </div>
             </CardFooter>
           </Card>

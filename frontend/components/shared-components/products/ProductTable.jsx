@@ -19,7 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ArrowUpDown, Eye, Edit, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { ArrowUpDown, Eye, Edit, Trash2, ChevronDown, ChevronRight, ChevronLeft as ChevronLeftIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
@@ -96,7 +96,7 @@ export const columns = [
             className="rounded-md"
             preload={true}
             style={{ objectFit: 'cover' }}
-            unoptimized={true}  // <--- ADD THIS
+            unoptimized={true} 
           />
         </div>
       );
@@ -276,23 +276,24 @@ const VariantDetails = ({ variant }) => {
     </div>
   );
 };
+
 const ProductTable = ({ products, isLoading, isError, error, pagination, setPagination, pageCount, role, onEditProduct }) => {
   const table = useReactTable({
     data: products || [],
     columns,
+    pageCount: pageCount,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    // getExpandedRowModel: getExpandedRowModel(), // Add this
-    getSubRows: row => row.variants,           // Add this
+    getExpandedRowModel: getExpandedRowModel(),
     onPaginationChange: setPagination,
     state: {
       pagination,
     },
     manualPagination: true,
     meta: {
-      role, // Pass role to columns for action routing
-      onEditProduct, // Pass onEditProduct to meta
+      role, 
+      onEditProduct,
     },
   });
 
@@ -300,9 +301,9 @@ const ProductTable = ({ products, isLoading, isError, error, pagination, setPagi
     return (
       <div className="rounded-md border p-4">
         <Skeleton className="h-10 w-full mb-4" />
-        <div className="space-y-2">
+        <div className="space-y-3">
           {Array.from({ length: pagination.pageSize }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full" />
+            <Skeleton key={i} className="h-16 w-full" />
           ))}
         </div>
       </div>
@@ -311,19 +312,19 @@ const ProductTable = ({ products, isLoading, isError, error, pagination, setPagi
 
   if (isError) {
     toast.error(error?.message || 'Failed to fetch products.');
-    return <div className="text-red-500 p-4">Error: {error?.message || 'Failed to load products.'}</div>;
+    return <div className="text-red-500 p-4 font-bold">Error: {error?.message || 'Failed to load products.'}</div>;
   }
 
   return (
-    <div className="w-full">
-      <div className="rounded-md border">
+    <div className="w-full space-y-4">
+      <div className="rounded-md border shadow-sm">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-muted/50">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} className="font-bold">
                       {header.isPlaceholder
                         ? null
                         : flexRender(header.column.columnDef.header, header.getContext())}
@@ -337,7 +338,7 @@ const ProductTable = ({ products, isLoading, isError, error, pagination, setPagi
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <React.Fragment key={row.id}>
-                  <TableRow data-state={row.getIsSelected() && 'selected'}>
+                  <TableRow data-state={row.getIsSelected() && 'selected'} className="group">
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -345,18 +346,20 @@ const ProductTable = ({ products, isLoading, isError, error, pagination, setPagi
                     ))}
                   </TableRow>
                   {row.getIsExpanded() && (
-                    <TableRow>
-                      <TableCell colSpan={columns.length} className="py-0 pl-14 pr-4">
-                        <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-md border border-gray-200 dark:border-gray-700">
-                          <h4 className="font-semibold text-sm mb-2">Variants:</h4>
+                    <TableRow className="bg-muted/30">
+                      <TableCell colSpan={columns.length} className="py-4 pl-14 pr-6">
+                        <div className="space-y-3">
+                          <h4 className="font-black text-xs uppercase tracking-widest text-primary flex items-center gap-2">
+                            <PlusCircle className="h-3 w-3" /> Variant Inventory Details
+                          </h4>
                           {row.original.variants && row.original.variants.length > 0 ? (
-                            <div className="space-y-3">
+                            <div className="grid gap-3">
                               {row.original.variants.map((variant, index) => (
                                 <VariantDetails key={variant._id || index} variant={variant} />
                               ))}
                             </div>
                           ) : (
-                            <p className="text-gray-500 text-sm">No variants available.</p>
+                            <p className="text-muted-foreground text-sm italic">No variants recorded for this product.</p>
                           )}
                         </div>
                       </TableCell>
@@ -366,34 +369,44 @@ const ProductTable = ({ products, isLoading, isError, error, pagination, setPagi
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground font-medium">
+                  No products found matching your criteria.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </Button>
+
+      {/* Pagination Controls */}
+      <div className="flex items-center justify-between px-2">
+        <div className="text-sm text-muted-foreground font-medium">
+          Page <span className="font-bold text-foreground">{pagination.pageIndex + 1}</span> of <span className="font-bold text-foreground">{pageCount > 0 ? pageCount : 1}</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="font-bold h-8 gap-1"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            <ChevronLeftIcon className="h-4 w-4" /> Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="font-bold h-8 gap-1"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            Next <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );
 };
 
 export default ProductTable;
+

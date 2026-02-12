@@ -111,12 +111,15 @@ exports.getBranchSales = async (req, res) => {
     }
 };
 
-// Get sales history with role filtering
+// Get sales history with advanced filtering and pagination
 exports.getAllSales = async (req, res) => {
     try {
+        const { search, startDate, endDate, page = 1, limit = 10 } = req.query;
+        const skip = (page - 1) * limit;
+        
         let query = {};
         
-        // If not admin, filter by user's branch
+        // 1. Role-based Branch Isolation
         if (req.user.role !== 'admin') {
             if (!req.user.branch_id) {
                 return res.status(400).json({ success: false, message: 'User is not assigned to any branch' });
@@ -124,12 +127,58 @@ exports.getAllSales = async (req, res) => {
             query.branch = req.user.branch_id;
         }
 
-        const sales = await Sale.find(query)
-            .populate('branch', 'branch_name')
-            .populate('cashier', 'firstName lastName')
-            .sort({ createdAt: -1 });
+        // 2. Search Filter (Bill Number or Customer Name/Phone)
+        if (search) {
+            query.$or = [
+                { billNumber: { $regex: search, $options: 'i' } },
+                { customerName: { $regex: search, $options: 'i' } },
+                { customerPhone: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        // 3. Date Range Filter
+        if (startDate || endDate) {
+            query.createdAt = {};
+            if (startDate) {
+                const start = new Date(startDate);
+                start.setHours(0, 0, 0, 0);
+                query.createdAt.$gte = start;
+            }
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = end;
+            }
+        } else {
+            // Default: Only today's records
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            const todayEnd = new Date();
+            todayEnd.setHours(23, 59, 59, 999);
+            query.createdAt = { $gte: todayStart, $lte: todayEnd };
+        }
+
+        // 4. Execution with Pagination
+        const [sales, total] = await Promise.all([
+            Sale.find(query)
+                .populate('branch', 'branch_name')
+                .populate('cashier', 'firstName lastName')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(parseInt(limit)),
+            Sale.countDocuments(query)
+        ]);
         
-        res.status(200).json({ success: true, data: sales });
+        res.status(200).json({ 
+            success: true, 
+            data: sales,
+            pagination: {
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(total / limit)
+            }
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

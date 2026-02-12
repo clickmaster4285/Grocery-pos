@@ -2,6 +2,7 @@ const StockTransfer = require('../models/stockTransfer.model');
 const BranchStock = require('../models/branchStock.model');
 const Product = require('../models/product.model');
 const mongoose = require('mongoose');
+const Fuse = require('fuse.js');
 
 // Create a new stock transfer
 exports.createTransfer = async (req, res) => {
@@ -116,25 +117,57 @@ exports.getBranchStock = async (req, res) => {
             return res.status(200).json({ success: true, data: [] });
         }
 
+        const searchTerms = search.trim().split(/\s+/);
+        // Create a regex that ensures all search terms are present (order-independent)
+        const smartRegex = new RegExp(searchTerms.map(term => `(?=.*${term})`).join(''), 'i');
+
         let query = { branch: branchId };
         
+        // First, attempt a high-performance DB search using regex
         let stock = await BranchStock.find(query)
             .populate({
                 path: 'product',
                 select: 'productName category brand variants',
                 match: {
                     $or: [
-                        { productName: { $regex: search, $options: 'i' } },
-                        { 'variants.sku': { $regex: search, $options: 'i' } }
+                        { productName: { $regex: smartRegex } },
+                        { 'variants.sku': { $regex: smartRegex } }
                     ]
                 }
             })
             .populate('branch', 'branch_name');
         
-        // Filter out items where the product didn't match the search criteria
-        stock = stock.filter(item => item.product !== null);
+        // Filter out items where the product didn't match the regex criteria
+        let finalResults = stock.filter(item => item.product !== null);
+
+        // If no results found with regex, use Fuse.js for fuzzy matching
+        if (finalResults.length === 0) {
+            // Fetch all stock for this branch to perform fuzzy search in memory
+            const allStock = await BranchStock.find(query)
+                .populate('product', 'productName variants')
+                .populate('branch', 'branch_name');
+            
+            // Prepare data for Fuse - flatten nested fields for searching
+            const searchData = allStock.map(item => {
+                const variant = item.product?.variants.find(v => v._id.toString() === item.variantId.toString());
+                return {
+                    ...item.toObject(),
+                    searchableName: item.product?.productName || '',
+                    searchableSku: variant?.sku || ''
+                };
+            });
+
+            const fuse = new Fuse(searchData, {
+                keys: ['searchableName', 'searchableSku'],
+                threshold: 0.3, // 0.0 is perfect match, 1.0 matches everything
+                distance: 100
+            });
+
+            const fuseResults = fuse.search(search);
+            finalResults = fuseResults.map(result => result.item);
+        }
         
-        res.status(200).json({ success: true, data: stock });
+        res.status(200).json({ success: true, data: finalResults });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

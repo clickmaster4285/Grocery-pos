@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useMemo, useState } from 'react';
-import { useGetAllProducts } from '@/features/product.api';
+import { useGetAllProducts, useGetProductStats } from '@/features/product.api';
 import ProductTable from './ProductTable';
+import ProductStatsCards from './ProductStatsCards';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { PlusCircle, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useDebounce } from '@/hooks/useDebounce'; 
@@ -12,7 +14,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 const ProductsPage = ({ role }) => {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState({ category: undefined, brand: undefined });
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
@@ -21,10 +23,12 @@ const ProductsPage = ({ role }) => {
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
     search: debouncedSearchTerm,
-    ...filters,
+    category: filters.category,
+    brand: filters.brand,
   }), [pagination, debouncedSearchTerm, filters]);
 
   const { data, isLoading, isError, error } = useGetAllProducts(queryFilters);
+  const { data: stats, isLoading: statsLoading } = useGetProductStats();
 
   const handleCreateProduct = () => {
     router.push(`/${role}/products/create`);
@@ -36,40 +40,54 @@ const ProductsPage = ({ role }) => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Products</h2>
-          <p className="text-muted-foreground">
-            Manage your store's products and inventory.
+          <h2 className="text-3xl font-black tracking-tight uppercase">Product Inventory</h2>
+          <p className="text-muted-foreground font-medium">
+            Manage store items, monitor stock distribution, and track suppliers.
           </p>
         </div>
-        <Button onClick={handleCreateProduct}>
+        <Button onClick={handleCreateProduct} className="shadow-lg shadow-primary/20 font-bold">
           <PlusCircle className="mr-2 h-4 w-4" />
-          Add Product
+          Add New Product
         </Button>
       </div>
-      <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+
+      {/* Stats & Filter Cards */}
+      <ProductStatsCards 
+        stats={stats} 
+        loading={statsLoading} 
+        filters={filters}
+        onFilterChange={setFilters}
+      />
+
+      {/* Search Bar */}
+      <div className="relative group">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
         <Input
           type="search"
-          placeholder="Search products..."
-          className="w-full pl-8"
+          placeholder="Smart Search: Type product name, SKU, or barcode (handles typos automatically)..."
+          className="w-full pl-10 h-11 text-sm font-medium border-2 focus-visible:ring-primary/10 shadow-sm"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
-      <ProductTable
-        products={data?.products}
-        isLoading={isLoading}
-        isError={isError}
-        error={error}
-        pagination={pagination}
-        setPagination={setPagination}
-        pageCount={data?.totalPages ?? -1}
-        role={role}
-        onEditProduct={handleEditProduct} // Pass the edit handler to the table
-      />
 
+      {/* Products Table */}
+      <Card className="border-none shadow-none">
+        <ProductTable
+            products={data?.products}
+            isLoading={isLoading}
+            isError={isError}
+            error={error}
+            pagination={pagination}
+            setPagination={setPagination}
+            pageCount={data?.totalPages ?? -1}
+            role={role}
+            onEditProduct={handleEditProduct}
+        />
+      </Card>
     </div>
   );
 }

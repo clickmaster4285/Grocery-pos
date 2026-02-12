@@ -21,7 +21,7 @@ const CreateProductPage = () => {
   };
 
   return (
-    <div className="container mx-auto py-8">
+    <div>
       <ProductForm
         onSubmit={handleSubmit}
         isLoading={createProductMutation.isPending}
