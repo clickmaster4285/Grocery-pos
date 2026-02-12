@@ -6,6 +6,7 @@ const productRoutes = require('./product.routes');
 const categoryRoutes = require('./category.routes'); // New Import
 const brandRoutes = require('./brand.routes');     // New Import
 const supplierRoutes = require('./supplier.routes'); // New Import
+const stockTransferRoutes = require('./stockTransfer.routes');
 
 const router = express.Router();
 
@@ -17,5 +18,6 @@ router.use('/products', productRoutes);
 router.use('/categories', categoryRoutes); // New Route
 router.use('/brands', brandRoutes);       // New Route
 router.use('/suppliers', supplierRoutes); // New Route
+router.use('/stock-transfers', stockTransferRoutes);
 
 module.exports = router;

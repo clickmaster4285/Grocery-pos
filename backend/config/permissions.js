@@ -5,10 +5,11 @@ const modules = [
   'Dashboard',
   'Branches',
   'Users',
-  'Brands',    
+  'Brands',
   'Categories',
   'Products',
-  'Suppliers', 
+  'Suppliers',
+  'Stock',
 ];
 const permissionTypes = [
   'create',

@@ -105,7 +105,7 @@ const ProductDetail = ({ product, role }) => {
 
       {/* Barcode Print Dialog */}
       <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-106">
           <DialogHeader>
             <DialogTitle>Print Barcodes</DialogTitle>
             <DialogDescription>

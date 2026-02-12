@@ -84,7 +84,7 @@ export default function DynamicSidebar() {
     });
 
     // Separate items into main and bottom sections
-    const mainItems = allItems.filter(item => item.name === 'Dashboard' || item.name === 'Users' || item.name === 'Products' || item.name === 'Branches' || item.name === 'Categories' || item.name === 'Brands' || item.name === 'Suppliers');
+    const mainItems = allItems.filter(item => item.name === 'Dashboard' || item.name === 'Users' || item.name === 'Products' || item.name === 'Branches' || item.name === 'Categories' || item.name === 'Brands' || item.name === 'Suppliers' || item.name === 'Stock');
     const bottomItems = allItems.filter(item => item.name === 'Settings' || item.name === 'Help');
 
 

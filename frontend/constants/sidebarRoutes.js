@@ -8,6 +8,7 @@ import {
   Tag,
   Building2,
   Truck,
+  Boxes,
 } from 'lucide-react';
 
 export const MODULE_ICONS = {
@@ -20,5 +21,6 @@ export const MODULE_ICONS = {
   Categories: <Tag size={18} />,
   Brands: <Building2 size={18} />,
   Suppliers: <Truck size={18} />,
+  Stock: <Boxes size={18} />,
   // Add other modules here
 };

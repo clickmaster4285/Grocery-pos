@@ -32,7 +32,7 @@ const stockHistorySchema = new mongoose.Schema({
     type: {
         type: String,
         required: [true, 'Type of stock change is required.'],
-        enum: ['RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT'],
+        enum: ['RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT', 'TRANSFER_IN', 'TRANSFER_OUT'],
     },
     reason: {
         type: String,
