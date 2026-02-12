@@ -10,6 +10,7 @@ const modules = [
   'Products',
   'Suppliers',
   'Stock',
+  'Sales',
 ];
 const permissionTypes = [
   'create',

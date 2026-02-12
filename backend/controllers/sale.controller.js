@@ -1,0 +1,128 @@
+const Sale = require('../models/sale.model');
+const BranchStock = require('../models/branchStock.model');
+const Product = require('../models/product.model');
+const mongoose = require('mongoose');
+
+// Helper to generate bill number: SALE-YYYYMMDD-XXXX
+const generateBillNumber = async () => {
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+    
+    // Find count of sales today to increment the serial
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+    
+    const count = await Sale.countDocuments({
+        createdAt: { $gte: startOfDay, $lte: endOfDay }
+    });
+    
+    const serial = (count + 1).toString().padStart(4, '0');
+    return `SALE-${dateStr}-${serial}`;
+};
+
+// Create a new sale
+exports.createSale = async (req, res) => {
+    try {
+        const { branchId, items, discount, paymentMethod, customerName, customerPhone } = req.body;
+        const cashierId = req.user._id;
+
+        if (!items || items.length === 0) {
+            return res.status(400).json({ success: false, message: 'No items in the sale.' });
+        }
+
+        let totalAmount = 0;
+        const processedItems = [];
+
+        // Validate items and check branch stock
+        for (const item of items) {
+            const product = await Product.findById(item.product);
+            if (!product) throw new Error(`Product ${item.product} not found`);
+
+            const variant = product.variants.id(item.variantId);
+            if (!variant) throw new Error(`Variant ${item.variantId} not found`);
+
+            // Check Branch Stock
+            const branchStock = await BranchStock.findOne({
+                branch: branchId,
+                product: item.product,
+                variantId: item.variantId
+            });
+
+            if (!branchStock || branchStock.quantity < item.quantity) {
+                throw new Error(`Insufficient stock in branch for ${product.productName} (${variant.sku})`);
+            }
+
+            // Get latest price
+            const latestPrice = variant.priceHistory[variant.priceHistory.length - 1].sellingPrice;
+            const itemSubtotal = latestPrice * item.quantity;
+            totalAmount += itemSubtotal;
+
+            processedItems.push({
+                product: item.product,
+                variantId: item.variantId,
+                sku: variant.sku,
+                productName: product.productName,
+                quantity: item.quantity,
+                unitPrice: latestPrice,
+                subtotal: itemSubtotal
+            });
+
+            // Deduct from Branch Stock
+            branchStock.quantity -= item.quantity;
+            await branchStock.save();
+        }
+
+        const finalAmount = totalAmount - (discount || 0);
+        const billNumber = await generateBillNumber();
+
+        const sale = new Sale({
+            billNumber,
+            branch: branchId,
+            items: processedItems,
+            totalAmount,
+            discount: discount || 0,
+            finalAmount,
+            paymentMethod,
+            cashier: cashierId,
+            customerName,
+            customerPhone
+        });
+
+        await sale.save();
+
+        res.status(201).json({ success: true, data: sale });
+
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+// Get sales history for a branch
+exports.getBranchSales = async (req, res) => {
+    try {
+        const { branchId } = req.params;
+        const sales = await Sale.find({ branch: branchId })
+            .populate('cashier', 'firstName lastName')
+            .sort({ createdAt: -1 });
+        
+        res.status(200).json({ success: true, data: sales });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Get single sale detail
+exports.getSaleDetail = async (req, res) => {
+    try {
+        const sale = await Sale.findById(req.params.id)
+            .populate('branch', 'branch_name')
+            .populate('cashier', 'firstName lastName')
+            .populate('items.product', 'productName');
+            
+        if (!sale) return res.status(404).json({ success: false, message: 'Sale not found' });
+        
+        res.status(200).json({ success: true, data: sale });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
