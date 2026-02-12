@@ -49,7 +49,7 @@ const EditProductPage = () => {
   }
 
   return (
-    <div className="container mx-auto py-8">
+    <div>
       <ProductForm
         initialData={productData}
         onSubmit={handleSubmit}

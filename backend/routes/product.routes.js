@@ -11,6 +11,11 @@ router.post(
   productController.createProduct
 );
 
+// Get product statistics
+router.get(
+  '/stats', auth, productController.getProductStats
+);
+
 // Get all products
 router.get(
   '/', auth, checkPermission('products:read'),

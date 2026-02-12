@@ -1,9 +1,12 @@
 const Product = require('../models/product.model');
+const Category = require('../models/category.model');
+const Brand = require('../models/brand.model');
 const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 const { createProductSchema, updateProductSchema } = require('../validation/product.validation');
 const { transformEmptyStringsToNull, cleanupUploadedFiles, createInitialVariantHistory, checkVariantUniqueness } = require('../utils/product.utils');
+const Fuse = require('fuse.js');
 
 const MAX_VARIANT_IMAGE_TOTAL_SIZE = 25 * 1024 * 1024; // 25MB file size limit per variant
 
@@ -172,95 +175,113 @@ const getAllProducts = async (req, res, next) => {
         const skip = (page - 1) * limit;
         const { search, category, brand } = req.query;
 
-        const matchStage = {
+        let matchStage = {
             isDeleted: false,
         };
 
-        if (search) {
+        // Safety check for category and brand IDs
+        if (category && category !== 'undefined' && mongoose.Types.ObjectId.isValid(category)) {
+            matchStage.category = new mongoose.Types.ObjectId(category);
+        }
+        if (brand && brand !== 'undefined' && mongoose.Types.ObjectId.isValid(brand)) {
+            matchStage.brand = new mongoose.Types.ObjectId(brand);
+        }
+
+        // Tier 1: Smart Regex Search
+        if (search && search.trim() !== '') {
+            const searchTerms = search.trim().split(/\s+/);
+            const smartRegex = new RegExp(searchTerms.map(term => `(?=.*${term})`).join(''), 'i');
+            
             matchStage.$or = [
-                { productName: { $regex: search, $options: 'i' } },
-                { 'variants.sku': { $regex: search, $options: 'i' } },
-                { 'variants.barcode': { $regex: search, $options: 'i' } }
+                { productName: { $regex: smartRegex } },
+                { 'variants.sku': { $regex: smartRegex } },
+                { 'variants.barcode': { $regex: smartRegex } }
             ];
         }
-        if (category) matchStage.category = category;
-        if (brand) matchStage.brand = brand;
 
-        const aggregationPipeline = [
-            { $match: matchStage },
-            { $unwind: '$variants' },
-            { $match: { 'variants.isDeleted': false } },
-            {
-                $group: {
-                    _id: '$_id',
-                    productName: { $first: '$productName' },
-                    description: { $first: '$description' },
-                    category: { $first: '$category' },
-                    brand: { $first: '$brand' },
-                    totalStock: { $first: '$totalStock' },
-                    isActive: { $first: '$isActive' },
-                    createdAt: { $first: '$createdAt' },
-                    variants: { $push: '$variants' }
-                }
-            },
-            { $sort: { createdAt: -1 } },
-            { $skip: skip },
-            { $limit: limit },
-            {
-                $lookup: {
-                    from: 'categories',
-                    localField: 'category',
-                    foreignField: '_id',
-                    as: 'category'
-                }
-            },
-            { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
-            {
-                $lookup: {
-                    from: 'brands',
-                    localField: 'brand',
-                    foreignField: '_id',
-                    as: 'brand'
-                }
-            },
-            { $unwind: { path: '$brand', preserveNullAndEmptyArrays: true } },
-            {
-                $lookup: {
-                    from: 'suppliers',
-                    localField: 'variants.supplier',
-                    foreignField: '_id',
-                    as: 'suppliers'
-                }
-            },
-            {
-                $addFields: {
-                    variants: {
-                        $map: {
-                            input: '$variants',
-                            as: 'variant',
-                            in: {
-                                $mergeObjects: [
-                                    '$$variant',
-                                    {
-                                        supplier: {
-                                            $arrayElemAt: [
-                                                '$suppliers',
-                                                { $indexOfArray: ['$suppliers._id', '$$variant.supplier'] }
-                                            ]
-                                        }
-                                    }
-                                ]
-                            }
-                        }
+        const buildPipeline = (isCount = false) => {
+            const pipeline = [
+                { $match: matchStage },
+                { $unwind: '$variants' },
+                { $match: { 'variants.isDeleted': false } },
+                {
+                    $group: {
+                        _id: '$_id',
+                        productName: { $first: '$productName' },
+                        description: { $first: '$description' },
+                        category: { $first: '$category' },
+                        brand: { $first: '$brand' },
+                        totalStock: { $first: '$totalStock' },
+                        isActive: { $first: '$isActive' },
+                        createdAt: { $first: '$createdAt' },
+                        variants: { $push: '$variants' }
                     }
                 }
-            },
-            { $project: { suppliers: 0 } }
-        ];
+            ];
 
-        const products = await Product.aggregate(aggregationPipeline);
+            if (!isCount) {
+                pipeline.push(
+                    { $sort: { createdAt: -1 } },
+                    { $skip: skip },
+                    { $limit: limit },
+                    {
+                        $lookup: {
+                            from: 'categories',
+                            localField: 'category',
+                            foreignField: '_id',
+                            as: 'category'
+                        }
+                    },
+                    { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
+                    {
+                        $lookup: {
+                            from: 'brands',
+                            localField: 'brand',
+                            foreignField: '_id',
+                            as: 'brand'
+                        }
+                    },
+                    { $unwind: { path: '$brand', preserveNullAndEmptyArrays: true } }
+                );
+            }
+            return pipeline;
+        };
 
-        const total = await Product.countDocuments(matchStage);
+        let products = await Product.aggregate(buildPipeline(false));
+        let total = (await Product.aggregate(buildPipeline(true))).length;
+
+        // Tier 2: Fuzzy Search Fallback if no exact results found
+        if (search && products.length === 0) {
+            const allProducts = await Product.aggregate([
+                { $match: { isDeleted: false } },
+                { $unwind: '$variants' },
+                { $match: { 'variants.isDeleted': false } },
+                {
+                    $group: {
+                        _id: '$_id',
+                        productName: { $first: '$productName' },
+                        category: { $first: '$category' },
+                        brand: { $first: '$brand' },
+                        variants: { $push: '$variants' }
+                    }
+                }
+            ]);
+
+            const fuse = new Fuse(allProducts, {
+                keys: ['productName', 'variants.sku', 'variants.barcode'],
+                threshold: 0.3
+            });
+
+            const fuzzyResults = fuse.search(search);
+            total = fuzzyResults.length;
+            const paginatedFuzzy = fuzzyResults.slice(skip, skip + limit).map(r => r.item);
+            
+            // Re-populate the fuzzy results
+            products = await Product.populate(paginatedFuzzy, [
+                { path: 'category' },
+                { path: 'brand' }
+            ]);
+        }
 
         res.status(200).json({
             success: true,
@@ -269,6 +290,53 @@ const getAllProducts = async (req, res, next) => {
             totalPages: Math.ceil(total / limit),
             currentPage: page,
             products
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getProductStats = async (req, res, next) => {
+    try {
+        const [totalProducts, categoryStats, brandStats] = await Promise.all([
+            Product.countDocuments({ isDeleted: false }),
+            Product.aggregate([
+                { $match: { isDeleted: false } },
+                { $group: { _id: '$category', count: { $sum: 1 } } },
+                {
+                    $lookup: {
+                        from: 'categories',
+                        localField: '_id',
+                        foreignField: '_id',
+                        as: 'details'
+                    }
+                },
+                { $unwind: '$details' },
+                { $project: { name: '$details.name', count: 1 } }
+            ]),
+            Product.aggregate([
+                { $match: { isDeleted: false } },
+                { $group: { _id: '$brand', count: { $sum: 1 } } },
+                {
+                    $lookup: {
+                        from: 'brands',
+                        localField: '_id',
+                        foreignField: '_id',
+                        as: 'details'
+                    }
+                },
+                { $unwind: '$details' },
+                { $project: { name: '$details.name', count: 1 } }
+            ])
+        ]);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                totalProducts,
+                categoryStats,
+                brandStats
+            }
         });
     } catch (error) {
         next(error);
@@ -501,6 +569,7 @@ const deleteProduct = async (req, res, next) => {
 module.exports = {
     createProduct,
     getAllProducts,
+    getProductStats,
     getProductById,
     updateProduct,
     deleteProduct,

@@ -26,12 +26,12 @@ export const useGetBranchSales = (branchId) => {
   });
 };
 
-export const useGetSalesHistory = () => {
+export const useGetSalesHistory = (params = {}) => {
   return useQuery({
-    queryKey: ['sales', 'history'],
+    queryKey: ['sales', 'history', params],
     queryFn: async () => {
-      const response = await api.get('/sales/history');
-      return response.data.data;
+      const response = await api.get('/sales/history', { params });
+      return response.data;
     },
   });
 };

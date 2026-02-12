@@ -101,8 +101,9 @@ To provide a Google-like search experience while maintaining speed:
 ## 8. Current Roadmap
 
 -   [x] **Phase 1: Core Infrastructure**: Auth, Users, Branches, Permissions.
--   [x] **Phase 2: Product Engine**: Multi-variant support, Barcode generation, Image uploads.
--   [x] **Phase 3: Inventory 2.0**: Warehouse vs. Branch tracking, Stock transfers.
--   [x] **Phase 4: Smart POS**: Hybrid search, Barcode auto-add, Branch isolation.
--   [ ] **Phase 5: Customer Experience**: Receipt printing, Refund processing, Customer loyalty points.
--   [ ] **Phase 6: Management Insight**: Sales dashboards, Low-stock alerts, Profit/Loss reporting.
+- [x] **Phase 2: Product Engine**: Multi-variant support, Barcode generation, Image uploads, and Smart Inventory Dashboard.
+- [x] **Phase 3: Inventory 2.0**: Warehouse vs. Branch tracking, Stock transfers, and Search-optimized catalog.
+- [x] **Phase 4: Smart POS**: Hybrid search, Barcode auto-add, Branch isolation, and Thermal Receipt Printing.
+- [ ] **Phase 5: Customer Experience**: Refund processing, Customer loyalty points, and Multi-language support.
+- [ ] **Phase 6: Management Insight**: Sales dashboards, Low-stock alerts, and Profit/Loss reporting.
+

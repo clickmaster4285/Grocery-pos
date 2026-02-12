@@ -37,6 +37,16 @@ const fetchProductById = async ({ queryKey }) => {
   return data;
 };
 
+export const useGetProductStats = () => {
+  return useQuery({
+    queryKey: ['products', 'stats'],
+    queryFn: async () => {
+      const { data } = await api.get('/products/stats');
+      return data.data;
+    },
+  });
+};
+
 export const useGetProductById = (id) => {
   return useQuery({
     queryKey: PRODUCT_QUERY_KEYS.detail(id),

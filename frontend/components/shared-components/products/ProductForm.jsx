@@ -134,9 +134,7 @@ const VariantAttributes = ({ form, variantIndex, supplierOptions, isLoadingSuppl
 };
 
 const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
-
   const { user } = useAuth();
-
   const { data: categoriesData, isLoading: isLoadingCategories } = useGetAllCategories();
 
   const categoryOptions = useMemo(() => {
@@ -297,7 +295,7 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmitHandler)} className="space-y-8 p-4">
+      <form onSubmit={form.handleSubmit(onSubmitHandler)} className="space-y-8 bg-white p-2">
         <h2 className="text-3xl font-bold tracking-tight text-primary">
           {isEditing ? 'Edit Product' : 'Create New Product'}
         </h2>
