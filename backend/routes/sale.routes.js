@@ -5,6 +5,7 @@ const auth = require('../middleware/auth');
 const checkPermission = require('../middleware/checkPermission');
 
 router.post('/', auth, checkPermission('sales:create'), saleController.createSale);
+router.get('/history', auth, checkPermission('sales:read'), saleController.getAllSales);
 router.get('/branch/:branchId', auth, checkPermission('sales:read'), saleController.getBranchSales);
 router.get('/:id', auth, checkPermission('sales:read'), saleController.getSaleDetail);
 

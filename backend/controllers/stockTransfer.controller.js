@@ -109,9 +109,30 @@ exports.getTransfers = async (req, res) => {
 exports.getBranchStock = async (req, res) => {
     try {
         const { branchId } = req.params;
-        const stock = await BranchStock.find({ branch: branchId })
-            .populate('product', 'productName category brand')
+        const { search } = req.query;
+        
+        // Return empty if no search term is provided (to keep catalog empty initially)
+        if (!search || search.trim() === '') {
+            return res.status(200).json({ success: true, data: [] });
+        }
+
+        let query = { branch: branchId };
+        
+        let stock = await BranchStock.find(query)
+            .populate({
+                path: 'product',
+                select: 'productName category brand variants',
+                match: {
+                    $or: [
+                        { productName: { $regex: search, $options: 'i' } },
+                        { 'variants.sku': { $regex: search, $options: 'i' } }
+                    ]
+                }
+            })
             .populate('branch', 'branch_name');
+        
+        // Filter out items where the product didn't match the search criteria
+        stock = stock.filter(item => item.product !== null);
         
         res.status(200).json({ success: true, data: stock });
     } catch (error) {

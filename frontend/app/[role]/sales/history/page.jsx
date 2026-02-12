@@ -1,22 +1,21 @@
 "use client";
 
 import React from 'react';
-import { useGetBranchSales } from '@/features/sale.api';
+import { useGetSalesHistory } from '@/features/sale.api';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Eye } from 'lucide-react';
+import { ChevronLeft, Eye, Store } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 
 const SalesHistory = () => {
   const { user } = useAuth();
   const { role } = useParams();
   const router = useRouter();
-  const branchId = user?.branch_id || '';
   
-  const { data: sales, isLoading } = useGetBranchSales(branchId);
+  const { data: sales, isLoading } = useGetSalesHistory();
 
   return (
     <div className="space-y-6">
@@ -37,6 +36,7 @@ const SalesHistory = () => {
               <TableRow>
                 <TableHead>Bill Number</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead>Branch</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Method</TableHead>
                 <TableHead>Total</TableHead>
@@ -45,10 +45,22 @@ const SalesHistory = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sales?.map((sale) => (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-12">
+                    Loading sales history...
+                  </TableCell>
+                </TableRow>
+              ) : sales?.map((sale) => (
                 <TableRow key={sale._id}>
                   <TableCell className="font-mono font-medium">{sale.billNumber}</TableCell>
                   <TableCell>{new Date(sale.createdAt).toLocaleString()}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Store className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="font-medium">{sale.branch?.branch_name}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>{sale.customerName || 'Walk-in'}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">{sale.paymentMethod}</Badge>
@@ -62,10 +74,10 @@ const SalesHistory = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {sales?.length === 0 && (
+              {!isLoading && sales?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
-                    No sales found for this branch.
+                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                    No sales found.
                   </TableCell>
                 </TableRow>
               )}

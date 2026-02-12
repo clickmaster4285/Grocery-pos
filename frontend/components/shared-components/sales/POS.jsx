@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useGetBranchStock } from '@/features/stockTransfer.api';
 import { useCreateSale } from '@/features/sale.api';
 import { useGetAllBranches } from '@/features/branch.api';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useDebounce } from '@/hooks/useDebounce';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,26 +15,47 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Trash2, Plus, Minus, Search, ShoppingCart, CreditCard, Banknote, Landmark, Store } from 'lucide-react';
+import { Trash2, Plus, Minus, Search, ShoppingCart, CreditCard, Banknote, Landmark, Store, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const POS = () => {
   const { user } = useAuth();
   const { hasRole } = usePermissions();
   const isAdmin = hasRole('admin');
+  const searchInputRef = useRef(null);
   
   // State for the active branch being managed in POS
   const [activeBranchId, setActiveBranchId] = useState(user?.branch_id || '');
   
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 300);
+
+  const { data: stock, isLoading: stockLoading, isFetching: stockFetching } = useGetBranchStock(activeBranchId, debouncedSearch);
   const { data: branches } = useGetAllBranches();
-  const { data: stock, isLoading: stockLoading } = useGetBranchStock(activeBranchId);
   const createSaleMutation = useCreateSale();
 
   const [cart, setCart] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
+
+  // Auto-focus search input on load
+  useEffect(() => {
+    if (searchInputRef.current) searchInputRef.current.focus();
+  }, []);
+
+  // Handle barcode / exact SKU match auto-add
+  useEffect(() => {
+    if (stock && stock.length === 1 && searchQuery.trim() !== '') {
+        const item = stock[0];
+        const variant = item.product.variants.find(v => v._id === item.variantId);
+        // If exact SKU match, add and clear search
+        if (variant && (variant.sku.toLowerCase() === searchQuery.toLowerCase() || variant.barcode === searchQuery)) {
+            addToCart(item);
+            setSearchQuery('');
+        }
+    }
+  }, [stock]);
 
   // Update active branch if user data loads late
   useEffect(() => {
@@ -53,15 +75,6 @@ const POS = () => {
       setActiveBranchId(branchId);
     }
   };
-
-  // Filter stock based on search
-  const filteredStock = useMemo(() => {
-    if (!stock) return [];
-    return stock.filter(item => 
-      item.product?.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.product?.variants.find(v => v._id === item.variantId)?.sku.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [stock, searchQuery]);
 
   const addToCart = (stockItem) => {
     const variant = stockItem.product.variants.find(v => v._id === stockItem.variantId);
@@ -132,6 +145,8 @@ const POS = () => {
       setCart([]);
       setCustomerName('');
       setDiscount(0);
+      setSearchQuery('');
+      if (searchInputRef.current) searchInputRef.current.focus();
     } catch (err) {
       toast.error(err.response?.data?.message || "Checkout failed");
     }
@@ -172,7 +187,7 @@ const POS = () => {
                   </Select>
                 </div>
               ) : (
-                <h3 className="font-bold">{stock?.[0]?.branch?.branch_name || 'My Branch'}</h3>
+                <h3 className="font-bold">{branches?.data?.find(b => b._id === activeBranchId)?.branch_name || 'My Branch'}</h3>
               )}
             </div>
           </div>
@@ -180,7 +195,8 @@ const POS = () => {
           <div className="relative w-full md:w-96">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input 
-              placeholder="Search products or SKU..." 
+              ref={searchInputRef}
+              placeholder="Scan Barcode or Type Product/SKU..." 
               className="pl-8 h-9" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -194,14 +210,20 @@ const POS = () => {
         <div className="lg:col-span-2 flex flex-col gap-4 overflow-hidden">
           <Card className="flex-1 flex flex-col overflow-hidden">
             <CardHeader className="py-3 border-b bg-muted/30">
-              <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Product Catalog</CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Search Results</CardTitle>
+                {stockFetching && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+              </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto p-4">
               {stockLoading ? (
-                <div className="flex items-center justify-center h-full text-muted-foreground">Loading inventory...</div>
-              ) : filteredStock.length > 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                    <p className="text-sm font-medium">Searching Inventory...</p>
+                </div>
+              ) : stock?.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {filteredStock.map((item) => {
+                  {stock.map((item) => {
                     const variant = item.product.variants.find(v => v._id === item.variantId);
                     const price = variant?.priceHistory[variant.priceHistory.length - 1]?.sellingPrice;
                     
@@ -228,8 +250,8 @@ const POS = () => {
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
-                  <ShoppingCart className="h-12 w-12 opacity-10" />
-                  <p className="text-sm">No products found in this branch.</p>
+                  <Search className="h-12 w-12 opacity-10" />
+                  <p className="text-sm">{searchQuery ? "No products found." : "Scan a barcode or type to search products."}</p>
                 </div>
               )}
             </CardContent>
@@ -263,7 +285,7 @@ const POS = () => {
                   {cart.map((item) => (
                     <TableRow key={item.variantId} className="hover:bg-transparent border-b">
                       <TableCell className="pl-4 py-3">
-                        <div className="flex flex-col max-w-30">
+                        <div className="flex flex-col max-w-[120px]">
                           <span className="font-bold text-xs truncate leading-none mb-1">{item.productName}</span>
                           <span className="text-[10px] text-muted-foreground font-medium">{item.sku}</span>
                         </div>

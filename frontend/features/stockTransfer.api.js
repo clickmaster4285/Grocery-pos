@@ -26,11 +26,13 @@ export const useGetTransfers = () => {
   });
 };
 
-export const useGetBranchStock = (branchId) => {
+export const useGetBranchStock = (branchId, search = '') => {
   return useQuery({
-    queryKey: ['branch-stock', branchId],
+    queryKey: ['branch-stock', branchId, search],
     queryFn: async () => {
-      const response = await api.get(`/stock-transfers/branch/${branchId}`);
+      const response = await api.get(`/stock-transfers/branch/${branchId}`, {
+        params: { search }
+      });
       return response.data.data;
     },
     enabled: !!branchId,

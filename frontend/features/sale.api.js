@@ -26,6 +26,16 @@ export const useGetBranchSales = (branchId) => {
   });
 };
 
+export const useGetSalesHistory = () => {
+  return useQuery({
+    queryKey: ['sales', 'history'],
+    queryFn: async () => {
+      const response = await api.get('/sales/history');
+      return response.data.data;
+    },
+  });
+};
+
 export const useGetSaleDetail = (saleId) => {
   return useQuery({
     queryKey: ['sale', saleId],

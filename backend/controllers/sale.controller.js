@@ -111,6 +111,30 @@ exports.getBranchSales = async (req, res) => {
     }
 };
 
+// Get sales history with role filtering
+exports.getAllSales = async (req, res) => {
+    try {
+        let query = {};
+        
+        // If not admin, filter by user's branch
+        if (req.user.role !== 'admin') {
+            if (!req.user.branch_id) {
+                return res.status(400).json({ success: false, message: 'User is not assigned to any branch' });
+            }
+            query.branch = req.user.branch_id;
+        }
+
+        const sales = await Sale.find(query)
+            .populate('branch', 'branch_name')
+            .populate('cashier', 'firstName lastName')
+            .sort({ createdAt: -1 });
+        
+        res.status(200).json({ success: true, data: sales });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // Get single sale detail
 exports.getSaleDetail = async (req, res) => {
     try {

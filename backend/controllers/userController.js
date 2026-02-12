@@ -135,6 +135,12 @@ const updateUser = async (req, res, next) => {
     if (updateFields.role && typeof updateFields.role !== 'string') {
       return res.status(400).json({ message: 'Role must be a string.' });
     }
+    
+    // Hash password if it's being updated
+    if (updateFields.password) {
+      updateFields.password = await hashPassword(updateFields.password);
+    }
+
     if (updateFields.permissions && (!Array.isArray(updateFields.permissions) || !updateFields.permissions.every(p => typeof p === 'string'))) {
     }
     if (updateFields.branch_id) {
