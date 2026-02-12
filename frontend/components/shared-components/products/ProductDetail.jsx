@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2, Barcode as BarcodeIcon, Printer } from 'lucide-react';
 import { useDeleteProduct } from '@/features/product.api';
 import { toast } from 'sonner';
 import {
@@ -22,7 +22,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { useReactToPrint } from 'react-to-print';
+import BarcodePrint from './BarcodePrint';
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -30,6 +42,17 @@ const ProductDetail = ({ product, role }) => {
   const router = useRouter();
   const deleteProductMutation = useDeleteProduct();
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  
+  // Barcode Printing State
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+  const [printCount, setPrintCount] = useState(1);
+  const [activeVariantForPrint, setActiveVariantForPrint] = useState(null);
+  const printRef = useRef(null);
+
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Barcodes_${product?.productName || 'Product'}`,
+  });
 
   if (!product) {
     return (
@@ -52,8 +75,68 @@ const ProductDetail = ({ product, role }) => {
     }
   };
 
+  const openPrintDialog = (variant) => {
+    setActiveVariantForPrint(variant);
+    setPrintCount(1);
+    setIsPrintDialogOpen(true);
+  };
+
+  const confirmPrint = () => {
+    setIsPrintDialogOpen(false);
+    // Give state a moment to update if needed, then trigger print
+    setTimeout(() => {
+      handlePrint();
+    }, 150);
+  };
+
   return (
     <Card className="w-full">
+      {/* Printable Area - Rendered but off-screen */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+        {activeVariantForPrint && (
+          <BarcodePrint 
+            ref={printRef} 
+            value={activeVariantForPrint.barcode || activeVariantForPrint.sku} 
+            count={printCount}
+            productName={product.productName}
+          />
+        )}
+      </div>
+
+      {/* Barcode Print Dialog */}
+      <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Print Barcodes</DialogTitle>
+            <DialogDescription>
+              Enter the number of barcodes you want to print for variant {activeVariantForPrint?.sku}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="print-count" className="text-right">
+                Quantity
+              </Label>
+              <Input
+                id="print-count"
+                type="number"
+                min="1"
+                max="100"
+                value={printCount}
+                onChange={(e) => setPrintCount(parseInt(e.target.value) || 1)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPrintDialogOpen(false)}>Cancel</Button>
+            <Button onClick={confirmPrint}>
+              <Printer className="mr-2 h-4 w-4" /> Print
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
@@ -146,8 +229,13 @@ const ProductDetail = ({ product, role }) => {
                     <Card>
                       <CardHeader>
                         <CardTitle className="flex justify-between items-center">
-                          Variant: {variant.sku || 'N/A'}
-                          {variant.isDeleted && <Badge variant="destructive">Soft Deleted</Badge>}
+                          <div className="flex items-center gap-2">
+                            Variant: {variant.sku || 'N/A'}
+                            {variant.isDeleted && <Badge variant="destructive">Soft Deleted</Badge>}
+                          </div>
+                          <Button variant="outline" size="sm" onClick={() => openPrintDialog(variant)}>
+                            <BarcodeIcon className="mr-2 h-4 w-4" /> Generate Barcode
+                          </Button>
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-6">

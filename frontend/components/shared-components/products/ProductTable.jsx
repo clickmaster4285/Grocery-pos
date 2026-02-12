@@ -90,7 +90,7 @@ export const columns = [
         <div className="w-10 h-10 relative">
           <Image
             src={`${API_URL}${imageUrl}`}
-            alt={`Variant image`}
+            alt={`Main image`}
             width={80}
             height={80}
             className="rounded-md"
@@ -163,24 +163,6 @@ export const columns = [
       );
     },
     cell: ({ row }) => <div className="text-right font-bold">{row.getValue('totalStock')}</div>,
-  },
-  {
-    accessorKey: 'lastRestocked',
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-        >
-          Last Restocked
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-    cell: ({ row }) => {
-      const date = row.original.lastRestocked;
-      return date ? new Intl.DateTimeFormat('en-US').format(new Date(date)) : 'N/A';
-    },
   },
   {
     id: 'actions',
@@ -260,8 +242,8 @@ const VariantDetails = ({ variant }) => {
           <Image
             src={`${API_URL}${variant.images[0]}`}
             alt={`Variant ${variant.sku} image`}
-            width={80}
-            height={80}
+            width={180}
+            height={180}
             style={{ objectFit: 'cover' }}
             className="rounded-md"
             unoptimized={true}
@@ -301,7 +283,7 @@ const ProductTable = ({ products, isLoading, isError, error, pagination, setPagi
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getExpandedRowModel: getExpandedRowModel(), // Add this
+    // getExpandedRowModel: getExpandedRowModel(), // Add this
     getSubRows: row => row.variants,           // Add this
     onPaginationChange: setPagination,
     state: {

@@ -348,8 +348,6 @@ const updateProduct = async (req, res, next) => {
             }
         }
 
-        console.log('Parsed Product Data BEFORE Joi validation:', JSON.stringify(parsedProductData, null, 2));
-
         const { error, value } = updateProductSchema.validate(parsedProductData, { abortEarly: false });
         if (error) {
             return res.status(400).json({
