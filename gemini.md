@@ -171,3 +171,18 @@ That is a great architectural question. While we could technically use one model
 
   By keeping them separate, your system remains fast, organized, and provides a clear    
   paper trail for your business operations.
+
+
+  To handle typos effectively in a POS system, I recommend a multi-stage search strategy.  Currently, our search is an "exact substring" match, which fails if words are out of   
+  order or slightly misspelled.
+
+  Recommended Strategy:
+
+
+   1. Tokenization (Order-Independent): Split the search query into separate words. For  
+      example, "Red Apple" should find "Apple Red".
+   2. Fuzzy Search Fallback: If no exact results are found, we can employ Fuzzy Matching 
+      (using a library like fuse.js) which allows for 1-2 character differences (e.g.,   
+      "aple" finding "apple").
+   3. Frontend "Did you mean?": If no exact match is found, display a list of "Close     
+      Matches" to help the user.

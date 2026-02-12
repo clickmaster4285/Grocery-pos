@@ -285,7 +285,7 @@ const POS = () => {
                   {cart.map((item) => (
                     <TableRow key={item.variantId} className="hover:bg-transparent border-b">
                       <TableCell className="pl-4 py-3">
-                        <div className="flex flex-col max-w-[120px]">
+                        <div className="flex flex-col max-w-30">
                           <span className="font-bold text-xs truncate leading-none mb-1">{item.productName}</span>
                           <span className="text-[10px] text-muted-foreground font-medium">{item.sku}</span>
                         </div>
