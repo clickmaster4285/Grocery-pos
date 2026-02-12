@@ -1,188 +1,108 @@
 # Gemini Technical Assistant & Project Documentation
 
-This document serves as the living technical memory, architectural overview, and decision log for the **Grocery Store** project. It is maintained by the Gemini technical assistant.
+This document serves as the living technical memory, architectural overview, and decision log for the **Supermarket Management System** project. It is maintained by the Gemini technical assistant.
 
 ## 1. Project Overview & Architecture
 
-The project is a full-stack web application designed to serve as a digital platform for a grocery store. It follows a modern, decoupled architecture with a separate frontend (Next.js/React) and backend (Node.js/Express).
+The Supermarket Management System is a robust, full-stack application designed for high-concurrency retail environments with multiple physical locations. It utilizes a decoupled, API-first architecture.
 
-## 2. Technologies & Frameworks
+### 1.1. Core Architectural Principles
+-   **Decoupled Frontend/Backend**: Next.js (App Router) for the UI and Node.js/Express for the RESTful API.
+-   **Data-State Separation**: Inventory is split between current availability (`BranchStock`) and transaction history (`StockTransfer`).
+-   **Permission-Driven Security**: Fine-grained access control using a `module:action` string convention.
+-   **Fail-Safe Operations**: Use of sequential logic for stock updates to ensure consistency in standalone MongoDB environments where transactions are unavailable.
 
-### Backend
--   **Runtime:** Node.js
--   **Framework:** Express.js (`^4.18.2`)
--   **Database:** MongoDB (Mongoose ODM `^8.0.0`)
--   **Authentication:** JSON Web Tokens (JWT `^9.0.2`)
--   **Validation:** Joi (`^17.11.0`)
+## 2. Technical Stack
 
-### Frontend
--   **Framework:** Next.js (`16.1.1`), React (`19.2.3`)
--   **Styling:** Tailwind CSS (`^4`), shadcn/ui components
--   **API Communication:** Axios (`^1.13.2`)
--   **State Management:** TanStack Query (`^5.90.12`)
+### Backend (The Core)
+-   **Runtime**: Node.js (`v18+` recommended)
+-   **Framework**: Express.js
+-   **Database**: MongoDB with Mongoose ODM
+-   **Search**: Hybrid system using Native MongoDB Regex and Fuse.js for in-memory fuzzy matching.
+-   **Auth**: JWT (JSON Web Tokens) with a 24h expiration.
+-   **Security**: `bcryptjs` for one-way password hashing and `helmet` for HTTP header security.
 
-## 3. Key Features & Architectural Changes
+### Frontend (The Interface)
+-   **Framework**: Next.js (App Router), React 19
+-   **Styling**: Tailwind CSS 4 with `shadcn/ui` components for a professional, accessible UI.
+-   **State Management**: TanStack Query (React Query) for server-state caching and synchronization.
+-   **Icons**: Lucide-react.
+-   **Notifications**: Sonner (Toast system).
 
-This section summarizes the significant features and architectural updates implemented.
+## 3. Inventory & Stock Management Logic
 
-### 3.1. User Management & Authentication System Enhancements
+### 3.1. The Warehouse vs. Branch Model
+The system operates on a "Central Warehouse" philosophy:
+1.  **Central Stock**: Stored directly in the `Product.variants[].stock` field. This represents the total warehouse or global supply.
+2.  **Branch Stock**: Tracked in the `BranchStock` model. This represents inventory physically present at a specific store.
 
-#### 3.1.1. User Model & Authorization
--   **`User` Model:** Updated to include a single `role` (string) and a `permissions` array (strings) for explicit, permission-based authorization.
--   **Role-Based Mapping Deprecated:** `backend/config/roles.js` (including `ROLE_PERMISSIONS`) removed; permissions are now stored directly on the user.
--   **JWT Payload:** Now includes `userId`, `role`, and `permissions` for client-side authorization checks.
--   **Soft Delete:** Implemented for users (`isDeleted`, `deletedAt`, `deletedBy` fields) to prevent permanent data loss and maintain audit trails. Authentication and query logic respect this status.
--   **Admin Bootstrapping:** `backend/config/bootstrap.js` initializes a default admin user if none exists, assigning all available permissions.
+### 3.2. Sequential Stock Update Flow
+Since the project uses a standalone MongoDB instance, transactions are disabled. To maintain integrity, stock movements follow a strict sequential check-then-update pattern:
+1.  **Validation**: Check if the source (Warehouse or Branch) has sufficient quantity.
+2.  **Deduction**: Decrement the source stock.
+3.  **Increment**: Increment the destination stock.
+4.  **Logging**: Create a `StockTransfer` record to document the movement.
 
-#### 3.1.2. API Endpoints
--   **`/api/users/permissions` (GET):** New endpoint to retrieve all available system permissions, crucial for dynamic UI in user management.
--   **User CRUD Operations:** Implemented/fixed endpoints for creating, reading, updating, and soft-deleting users.
-    -   `POST /api/users` (`users:create`)
-    -   `GET /api/users` (`users:read`)
-    -   `GET /api/users/:id` (`users:read`)
-    -   `PATCH /api/users/:id` (`users:update`)
-    -   `DELETE /api/users/:id` (`users:delete`)
+### 3.3. Key Models
+-   **Product**: Contains metadata (name, category, brand) and an array of `variants`. Each variant has its own SKU, price history, and warehouse stock.
+-   **BranchStock**: A junction model linking `Branch`, `Product`, and `VariantId`. It contains the current `quantity`.
+-   **StockTransfer**: A permanent log of movements including `fromLocation`, `toLocation`, `items`, and the `performedBy` user ID.
 
-#### 3.1.3. Middleware
--   **`auth` Middleware:** Ensures user is authenticated and not soft-deleted.
--   **`checkPermission` Middleware:** Validates explicit user permissions against route requirements.
+## 4. Professional POS (Point of Sale) Terminal
 
-### 3.2. Frontend User Interface & Experience
+The POS is the most performance-critical module, optimized for fast checkout and accurate inventory synchronization.
 
-### 3.2.1. Staff Management Pages Refactor
-Refactored staff management from modal-based interactions to dedicated pages for improved UX:
--   `frontend/app/[role]/users/create/page.jsx`: Dedicated page for new users creation.
--   `frontend/app/[role]/users/[id]/page.jsx`: For viewing users details (now includes a redesigned permissions table).
--   `frontend/app/[role]/users/[id]/edit/page.jsx`: For editing existing users.
+### 4.1. The Hybrid Search Engine
+To provide a Google-like search experience while maintaining speed:
+-   **Tier 1: Smart Regex**: The backend tokenizes input (e.g., "blue shirt" $\rightarrow$ `shirt blue`). It uses positive lookaheads in regex to find products containing all terms regardless of order. This is highly efficient as it runs on the database index.
+-   **Tier 2: Fuse.js Fallback**: If Regex returns 0 results, the system assumes a typo (e.g., "shrt"). It fetches branch inventory and performs an in-memory fuzzy search using Fuse.js, ranking results by Levenshtein distance.
 
-#### 3.2.2. Component Enhancements
--   **`StaffForm`:** Adapted for page-based use (removed `Dialog` context), integrated `ComboBox` for role selection (supporting custom roles), and streamlined permission handling.
--   **`StaffTable`:** New component replacing `StaffCard` grid for a list-based display of staff members. Table rows are clickable for detail view.
--   **`StaffCard`:** Updated name display (`firstName`, `lastName`) and removed non-existent 'Department' field.
--   **`ComboBox` (`frontend/components/ui/combobox.jsx`):** New reusable UI component for flexible selection with custom input capabilities.
--   **`StaffDetailPage` (`frontend/app/[role]/users/[id]/page.jsx`):** Permissions are now displayed in a structured table with tick/cross icons for clarity.
+### 4.2. Barcode & Scanner Integration
+-   **Auto-Add Logic**: The `POS.jsx` component monitors search results. If a search query (from a barcode scanner) returns exactly **one** match AND that match's SKU/Barcode is an exact string match, the system adds it to the cart immediately and clears the input.
+-   **Performance**: Debouncing (300ms) ensures the UI stays responsive while typing, but the auto-add logic triggers instantly on exact matches to support rapid scanning.
 
-#### 3.2.3. Authentication & Profile Hooks
--   **`frontend/hooks/useAuth.js`:** Centralized `useGetMe` (fetches current user) and new `useUpdateProfile` (updates user profile) hooks.
--   **`frontend/app/[role]/profile/page.jsx`:** Updated to use new auth hooks, correctly handles `firstName`/`lastName`, and includes `lastName` input.
+## 5. Security & Authorization
 
-### 3.3. Branch Management
-A new feature for managing store branches has been implemented.
+### 5.1. RBAC (Role-Based Access Control)
+-   **Convention**: Permissions are strings like `products:create`, `sales:read`, `users:delete`.
+-   **Enforcement**: The `checkPermission(perm)` middleware verifies the presence of the required string in the `req.user.permissions` array.
+-   **User Update Security**: The `updateUser` controller prevents non-admins from assigning the 'admin' role or editing other admin profiles.
 
-#### 3.3.1. Backend
--   **`Branch` Model:** A new model `backend/models/branch.model.js` has been created. It includes `branch_name`, `tax_region`, `opening_time`, `closing_time`, `status` ('ACTIVE' or 'INACTIVE'), and `address`.
--   **API Endpoints:** New endpoints have been added for branch management under `/api/branches`.
-    -   `POST /` (`branches:create`): Create a new branch.
-    -   `GET /` (`branches:read`): Retrieve all branches.
-    -   `GET /:id` (`branches:read`): Retrieve a single branch.
-    -   `PUT /:id` (`branches:update`): Update a branch.
-    -   `DELETE /:id` (`branches:delete`): Toggle the status of a branch between 'ACTIVE' and 'INACTIVE'.
--   **Permissions:** New permissions `branches:create`, `branches:read`, `branches:update`, and `branches:delete` have been added to `backend/config/permissions.js`.
+### 5.2. Data Isolation
+-   **Branch Locking**: Non-admin users are automatically filtered by their `branch_id`.
+    -   In `getAllSales`, the query is automatically extended with `{ branch: req.user.branch_id }`.
+    -   In the POS, the `activeBranchId` is initialized and locked to the user's branch.
+-   **Admin Override**: Users with the `admin` role bypass branch locking, allowing them to view global analytics and manage inventory for any location.
 
-#### 3.3.2. Frontend
--   **Branch Management Page:** A new page at `frontend/app/[role]/branches/page.jsx` provides a UI for managing branches.
--   **Components:**
-    -   A filterable and searchable table `frontend/components/shared-components/branches/branches-table.jsx` to display branches.
-    -   Modals for creating/editing (`branch-modal.jsx`) and confirming status changes (`delete-confirmation-modal.jsx`).
--   **State Management & API:**
-    -   API requests and caching are handled using `@tanstack/react-query` in `frontend/features/branch/branch.api.js`. It provides hooks like `useGetAllBranches`, `useCreateBranch`, `useUpdateBranch`, and `useToggleBranchStatus`.
--   **UI Integration:**
-    -   The `DynamicSidebar.jsx` and `DashboardModule.jsx` have been modified to integrate the new branch management feature.
+## 6. Development & Coding Conventions
 
-### 3.4. General Frontend Improvements & Bug Fixes
+### 6.1. Backend
+-   **Populate Policy**: Always populate `variants` when querying stock or sales to avoid "undefined" errors on the frontend SKU/Price fields.
+-   **Password Handling**: Never save passwords without hashing. The `updateUser` controller must explicitly handle the `password` field to re-hash it if changed.
+-   **Error Handling**: Use the centralized `errorHandler` middleware to ensure consistent JSON error responses across all endpoints.
 
-*   **Sidebar Icon Integration:**
-    *   `frontend/constants/sidebarRoutes.js`: Added icons for 'Branches' and 'Products' modules to `MODULE_ICONS`.
-*   **Sidebar Theming Update:**
-    *   `frontend/components/layout/DynamicSidebar.jsx`: Reversed the color scheme for active and normal states in sidebar navigation items for better visual distinction.
-*   **Next.js Client Component Directives:**
-    *   `frontend/components/shared-components/branches/branch-modal.jsx` and `frontend/components/shared-components/branches/branches.jsx`: Added `"use client";` directives to resolve build errors related to React Hooks usage in App Router.
+### 6.2. Frontend
+-   **React Query Keys**: Use structured keys like `['branch-stock', branchId, searchQuery]` to ensure efficient cache invalidation.
+-   **UI Consistency**: Use `shadcn` components directly. Custom CSS should be avoided in favor of Tailwind utility classes.
+-   **Async Safety**: Always use optional chaining (`?.`) when accessing nested properties from API data (e.g., `item.product?.productName`).
 
-### 3.5. Enhanced User Management
+## 7. Operational Flows
 
-#### 3.5.1. User-Branch Association
--   **Backend Model Update:**
-    *   `backend/models/User.js`: Added an optional `branch_id` field (Mongoose `ObjectId` referencing the `Branch` model) to the User schema.
--   **API Controller Logic:**
-    *   `backend/controllers/userController.js`:
-        *   Imported `mongoose` and `Branch` model.
-        *   `createUser` function: Modified to accept and validate the `branch_id` from the request body, ensuring it's a valid and active branch.
-        *   `updateUser` function: Modified to accept and validate `branch_id` if present in update fields.
--   **Frontend Integration:**
-    *   `frontend/app/[role]/users/create/page.jsx` and `frontend/app/[role]/users/[id]/edit/page.jsx`: Updated to fetch all available branches using `useGetAllBranches` and pass them to the `StaffForm` component.
-    *   `frontend/components/shared-components/users/StaffForm.jsx`:
-        *   Modified to accept a `branches` prop.
-        *   Integrated a `ComboBox` for selecting a branch, mapping branch names to IDs.
-        *   Updated form data to include the selected `branch_id` for user creation/updates.
+### 7.1. The Sales Process
+1.  User searches for item (Regex/Fuzzy).
+2.  Item added to Cart (State managed in `cart` array).
+3.  Checkout triggered:
+    -   Backend validates branch stock for every item.
+    -   Backend generates unique Bill Number (`SALE-YYYYMMDD-XXXX`).
+    -   Backend deducts quantities from `BranchStock`.
+    -   Backend creates `Sale` record.
+4.  Frontend invalidates `branch-stock` and `sales` queries to refresh UI.
 
-#### 3.5.2. Admin User Exclusion
--   **API Controller Logic:**
-    *   `backend/controllers/userController.js`: Modified the `getAllUsers` function to filter out users with the `role: 'admin'` from the returned list and total count.
+## 8. Current Roadmap
 
-#### 3.5.3. Permission Filtering for Non-Admins
--   **Frontend Logic:**
-    *   `frontend/hooks/useUsersHook.js`: Implemented logic to filter the available permissions displayed in the user creation/edit form (`StaffForm`). Non-admin users can only see and assign permissions that they themselves possess. Admin users retain the ability to see and assign all permissions.
-
-### 3.6. Avatar Generation Refinements
-
-*   **Frontend Utility Update:**
-    *   `frontend/utils/avatarUtils.js`:
-        *   Corrected `primaryRole` calculation to use `user.role` (string) instead of `user.roles` (array).
-        *   Refined `roleStyles` mappings for 'admin' (micah), 'manager' (personas), 'staff' (avataaars), and 'customer' (notionists) to ensure human-like and role-appropriate styles.
-        *   Modified `generateAvatar` to pass all additional options as query parameters to DiceBear.
-        *   **Simplified Approach:** Following user feedback, the detailed `roleSpecificOptions` were removed. Avatar generation now relies only on the `style` and `backgroundColor` derived from the user's role, providing a simplified yet functional and good-looking avatar.
-        *   Cleaned up `console.log` statements.
-
-## 4. Open Problems & Next Steps
-
--   **Frontend-Backend Integration:** Continue to ensure seamless communication and data flow between frontend and backend.
--   **Comprehensive Testing:** Implement unit and integration tests for new features across both frontend and backend.
--   **Specific Grocery Features:** Begin implementation of core grocery store functionalities (e.g., product catalog, shopping cart, order processing).
-
-
-That is a great architectural question. While we could technically use one model,      
-  separating them into BranchStock and StockTransfer is a standard best practice in      
-  inventory systems for two main reasons: Current State vs. Event History.
-
-  Think of it like a Bank Account:
-
-
-  1. BranchStock (The "Wallet Balance")
-  This represents the Current State.
-   * Purpose: It tells you exactly how many items are in a branch right now.
-   * Why we need it: When a customer wants to buy something, the system needs to check if     it's available instantly. If we didn't have this, we would have to calculate the sum     of every transfer ever made since the business started just to see if we have 1 item     left. That would be extremely slow as your data grows.
-
-
-  2. StockTransfer (The "Bank Statement")
-  This represents the History.
-   * Purpose: It tells you who moved the stock, when, and where it came from.
-   * Why we need it:
-       * Audit Trail: If 10 items go missing, you can look at the transfers to see who   
-         was responsible for the move.
-       * Tracking: It allows you to see the "path" of a product (Warehouse -> Branch A ->         Branch B).
-       * Data Recovery: If the current stock count gets corrupted, you can "replay" the  
-         transfers to calculate what the stock should be.
-
-
-          Summary
-   * BranchStock is for Speed (Fast lookups for sales and stock checks).
-   * StockTransfer is for Accountability (Knowing the history of your inventory).        
-
-
-  By keeping them separate, your system remains fast, organized, and provides a clear    
-  paper trail for your business operations.
-
-
-  To handle typos effectively in a POS system, I recommend a multi-stage search strategy.  Currently, our search is an "exact substring" match, which fails if words are out of   
-  order or slightly misspelled.
-
-  Recommended Strategy:
-
-
-   1. Tokenization (Order-Independent): Split the search query into separate words. For  
-      example, "Red Apple" should find "Apple Red".
-   2. Fuzzy Search Fallback: If no exact results are found, we can employ Fuzzy Matching 
-      (using a library like fuse.js) which allows for 1-2 character differences (e.g.,   
-      "aple" finding "apple").
-   3. Frontend "Did you mean?": If no exact match is found, display a list of "Close     
-      Matches" to help the user.
+-   [x] **Phase 1: Core Infrastructure**: Auth, Users, Branches, Permissions.
+-   [x] **Phase 2: Product Engine**: Multi-variant support, Barcode generation, Image uploads.
+-   [x] **Phase 3: Inventory 2.0**: Warehouse vs. Branch tracking, Stock transfers.
+-   [x] **Phase 4: Smart POS**: Hybrid search, Barcode auto-add, Branch isolation.
+-   [ ] **Phase 5: Customer Experience**: Receipt printing, Refund processing, Customer loyalty points.
+-   [ ] **Phase 6: Management Insight**: Sales dashboards, Low-stock alerts, Profit/Loss reporting.
