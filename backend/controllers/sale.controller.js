@@ -1,22 +1,48 @@
 const Sale = require('../models/sale.model');
 const BranchStock = require('../models/branchStock.model');
 const Product = require('../models/product.model');
+const Counter = require('../models/counter.model');
 const mongoose = require('mongoose');
 
-// Helper to generate bill number: SALE-YYYYMMDD-XXXX
+// Helper to generate bill number: SALE-YYYYMMDD-[BASE36_SERIAL]
+// Base-36 uses 0-9 and A-Z, allowing 1,679,616 unique IDs in just 4 characters.
 const generateBillNumber = async () => {
+    // 1. Get current date in YYYYMMDD format for the bill prefix
     const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, ''); 
     
-    // Find count of sales today to increment the serial
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
-    
-    const count = await Sale.countDocuments({
-        createdAt: { $gte: startOfDay, $lte: endOfDay }
-    });
-    
-    const serial = (count + 1).toString().padStart(4, '0');
+    // 2. ATOMIC COUNTER UPDATE
+    // We use findOneAndUpdate with an aggregation pipeline to ensure atomicity.
+    // This prevents "race conditions" where two sales get the same number.
+    const counter = await Counter.findOneAndUpdate(
+        { id: 'sale_bill' },
+        [
+            {
+                $set: {
+                    // 3. DAILY RESET LOGIC
+                    // If the stored 'lastDate' matches today, increment the sequence.
+                    // Otherwise, it's a new day, so we reset the counter to 1.
+                    seq: {
+                        $cond: {
+                            if: { $eq: ["$lastDate", dateStr] },
+                            then: { $add: ["$seq", 1] },
+                            else: 1 
+                        }
+                    },
+                    lastDate: dateStr
+                }
+            }
+        ],
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    // 4. BASE-36 CONVERSION
+    // .toString(36) converts the number (e.g., 1234) into alphanumeric (e.g., 'ya').
+    // .toUpperCase() ensures the bill looks professional (e.g., 'YA').
+    // .padStart(4, '0') ensures the length is always 4 characters (e.g., '00YA').
+    const serial = counter.seq.toString(36).toUpperCase().padStart(4, '0');
+
+    // Result Example: SALE-20260213-0A2F
     return `SALE-${dateStr}-${serial}`;
 };
 
@@ -158,20 +184,33 @@ exports.getAllSales = async (req, res) => {
             query.createdAt = { $gte: todayStart, $lte: todayEnd };
         }
 
-        // 4. Execution with Pagination
-        const [sales, total] = await Promise.all([
+        // 4. Execution with Pagination and Stats
+        const [sales, total, stats] = await Promise.all([
             Sale.find(query)
                 .populate('branch', 'branch_name')
                 .populate('cashier', 'firstName lastName')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(parseInt(limit)),
-            Sale.countDocuments(query)
+            Sale.countDocuments(query),
+            // Aggregate Stats
+            Sale.aggregate([
+                { $match: query },
+                {
+                    $group: {
+                        _id: null,
+                        totalCollection: { $sum: "$finalAmount" },
+                        totalSales: { $sum: 1 },
+                        totalItems: { $sum: { $sum: "$items.quantity" } }
+                    }
+                }
+            ])
         ]);
         
         res.status(200).json({ 
             success: true, 
             data: sales,
+            stats: stats[0] || { totalCollection: 0, totalSales: 0, totalItems: 0 },
             pagination: {
                 total,
                 page: parseInt(page),

@@ -11,6 +11,7 @@ const modules = [
   'Suppliers',
   'Stock',
   'Sales',
+  'Returns',
 ];
 const permissionTypes = [
   'create',

@@ -15,7 +15,7 @@ The Supermarket Management System is a robust, full-stack application designed f
 ## 2. Technical Stack
 
 ### Backend (The Core)
--   **Runtime**: Node.js (`v18+` recommended)
+-   **Runtime**: Node.js (`v22+` recommended)
 -   **Framework**: Express.js
 -   **Database**: MongoDB with Mongoose ODM
 -   **Search**: Hybrid system using Native MongoDB Regex and Fuse.js for in-memory fuzzy matching.
