@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useSaleReturnHook } from '@/hooks/useSaleReturnHook';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
 import { 
     Clock, 
     ArrowRightLeft, 
@@ -11,13 +12,43 @@ import {
     User, 
     Calendar,
     AlertCircle,
-    Package
+    Package,
+    Printer
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
+import { useReactToPrint } from 'react-to-print';
+import ReturnReceiptPrint from './ReturnReceiptPrint';
 
 const BillLifecycle = ({ saleId }) => {
     const { getSaleHistoryQuery } = useSaleReturnHook(saleId);
     const { data: history, isLoading } = getSaleHistoryQuery;
+    
+    const receiptRef = useRef(null);
+    const [selectedActivity, setSelectedActivity] = useState(null);
+
+    // Helper to safely format dates
+    const safeFormat = (dateStr, formatStr = 'PPP p') => {
+        if (!dateStr) return 'Date N/A';
+        const date = new Date(dateStr);
+        if (!isValid(date)) return 'Date N/A';
+        return format(date, formatStr);
+    };
+
+    const handlePrint = useReactToPrint({
+        contentRef: receiptRef,
+        documentTitle: `ReturnReceipt-${selectedActivity?.returnNumber}`,
+    });
+
+    const triggerPrint = (activity) => {
+        setSelectedActivity(activity);
+    };
+
+    useEffect(() => {
+        if (selectedActivity) {
+            handlePrint();
+            setSelectedActivity(null);
+        }
+    }, [selectedActivity, handlePrint]);
 
     if (isLoading) return <div className="p-8 text-center animate-pulse text-muted-foreground font-medium">Loading history...</div>;
     if (!history) return <div className="p-8 text-center text-muted-foreground">No history available for this bill.</div>;
@@ -26,6 +57,16 @@ const BillLifecycle = ({ saleId }) => {
 
     return (
         <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+            {/* Hidden Receipt Component */}
+            <div style={{ display: 'none' }}>
+                <ReturnReceiptPrint 
+                    ref={receiptRef}
+                    returnData={selectedActivity}
+                    originalSale={originalSale}
+                    branch={originalSale?.branch}
+                />
+            </div>
+
             {/* 1. Original Sale Event */}
             <div className="relative pl-8 pb-8 border-l-2 border-primary/20 last:border-0 last:pb-0">
                 <div className="absolute -left-2.75 top-0 bg-primary text-primary-foreground rounded-full p-1.5 shadow-lg shadow-primary/20">
@@ -35,24 +76,24 @@ const BillLifecycle = ({ saleId }) => {
                 <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between">
                         <h4 className="font-black text-primary uppercase tracking-tighter text-lg">Original Purchase</h4>
-                        <Badge variant="outline" className="font-mono text-[10px]">{originalSale.billNumber}</Badge>
+                        <Badge variant="outline" className="font-mono text-[10px]">{originalSale?.billNumber}</Badge>
                     </div>
                     
                     <div className="flex items-center gap-4 text-xs font-bold text-muted-foreground bg-muted/50 p-2 rounded-md">
                         <div className="flex items-center gap-1.5">
                             <Calendar className="h-3.5 w-3.5" />
-                            {format(new Date(originalSale.createdAt), 'PPP p')}
+                            {safeFormat(originalSale?.createdAt)}
                         </div>
                         <div className="flex items-center gap-1.5">
                             <User className="h-3.5 w-3.5" />
-                            By: {originalSale.cashier?.firstName} {originalSale.cashier?.lastName}
+                            By: {originalSale?.cashier?.firstName} {originalSale?.cashier?.lastName}
                         </div>
                     </div>
 
                     <Card className="mt-2 border-dashed border-primary/30 shadow-none">
                         <CardContent className="p-3">
                             <div className="space-y-2">
-                                {originalSale.items.map((item, idx) => (
+                                {originalSale?.items.map((item, idx) => (
                                     <div key={idx} className="flex justify-between text-xs items-start">
                                         <div className="flex gap-2">
                                             <span className="bg-primary/10 text-primary font-black px-1.5 rounded">{item.quantity}x</span>
@@ -61,13 +102,13 @@ const BillLifecycle = ({ saleId }) => {
                                                 <p className="text-[10px] opacity-60 font-mono">{item.sku}</p>
                                             </div>
                                         </div>
-                                        <p className="font-black">${item.subtotal.toFixed(2)}</p>
+                                        <p className="font-black">${item.subtotal?.toFixed(2)}</p>
                                     </div>
                                 ))}
                                 <Separator className="my-2" />
                                 <div className="flex justify-between font-black text-sm pt-1">
                                     <span>Total Amount Paid</span>
-                                    <span className="text-primary">${originalSale.finalAmount.toFixed(2)}</span>
+                                    <span className="text-primary">${originalSale?.finalAmount?.toFixed(2)}</span>
                                 </div>
                             </div>
                         </CardContent>
@@ -76,7 +117,7 @@ const BillLifecycle = ({ saleId }) => {
             </div>
 
             {/* 2. Subsequent Activity (Returns/Exchanges) */}
-            {activityLog.map((activity, index) => (
+            {activityLog?.map((activity, index) => (
                 <div key={activity._id} className="relative pl-8 pb-8 border-l-2 border-primary/20 last:border-0 last:pb-0">
                     <div className={`absolute -left-2.75 top-0 rounded-full p-1.5 shadow-lg ${
                         activity.type === 'RETURN' 
@@ -88,18 +129,28 @@ const BillLifecycle = ({ saleId }) => {
 
                     <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between">
-                            <h4 className={`font-black uppercase tracking-tighter text-lg ${
-                                activity.type === 'RETURN' ? 'text-red-600' : 'text-amber-600'
-                            }`}>
-                                {activity.type === 'RETURN' ? 'Item Return' : 'Item Exchange'}
-                            </h4>
+                            <div className="flex items-center gap-2">
+                                <h4 className={`font-black uppercase tracking-tighter text-lg ${
+                                    activity.type === 'RETURN' ? 'text-red-600' : 'text-amber-600'
+                                }`}>
+                                    {activity.type === 'RETURN' ? 'Item Return' : 'Item Exchange'}
+                                </h4>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                    onClick={() => triggerPrint(activity)}
+                                >
+                                    <Printer className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
                             <Badge variant="secondary" className="font-mono text-[10px]">{activity.returnNumber}</Badge>
                         </div>
 
                         <div className="flex items-center gap-4 text-xs font-bold text-muted-foreground bg-muted/50 p-2 rounded-md">
                             <div className="flex items-center gap-1.5">
                                 <Calendar className="h-3.5 w-3.5" />
-                                {format(new Date(activity.createdAt), 'PPP p')}
+                                {safeFormat(activity.createdAt)}
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <User className="h-3.5 w-3.5" />
@@ -143,14 +194,14 @@ const BillLifecycle = ({ saleId }) => {
                                     <div className="space-y-1">
                                         {activity.exchangedItems.map((item, idx) => (
                                             <div key={idx} className="flex justify-between items-center bg-amber-50/50 p-2 rounded border border-amber-100">
-                                                <div className="flex gap-2 items-center">
+                                                <div className="flex gap-3 items-center">
                                                     <span className="bg-amber-500 text-white font-black px-1.5 rounded text-[10px]">{item.quantity}x</span>
                                                     <div>
                                                         <p className="font-bold text-xs">{item.productName}</p>
-                                                        <p className="text-[9px] opacity-60 font-mono">{item.sku}</p>
+                                                        <p className="text-[9px] opacity-60 font-mono text-uppercase">{item.sku}</p>
                                                     </div>
                                                 </div>
-                                                <p className="font-black text-xs text-amber-600">+${item.subtotal.toFixed(2)}</p>
+                                                <p className="font-black text-xs text-amber-600">+${item.subtotal?.toFixed(2)}</p>
                                             </div>
                                         ))}
                                     </div>
@@ -169,10 +220,10 @@ const BillLifecycle = ({ saleId }) => {
                                         : 'text-green-600'
                                     }`}>
                                         {activity.type === 'RETURN' 
-                                            ? `-$${activity.totalRefundAmount.toFixed(2)}` 
+                                            ? `-$${activity.totalRefundAmount?.toFixed(2)}` 
                                             : activity.totalExchangeDifference > 0 
-                                                ? `+$${activity.totalExchangeDifference.toFixed(2)}`
-                                                : `-$${Math.abs(activity.totalExchangeDifference).toFixed(2)}`
+                                                ? `+$${activity.totalExchangeDifference?.toFixed(2)}`
+                                                : `-$${Math.abs(activity.totalExchangeDifference)?.toFixed(2)}`
                                         }
                                     </p>
                                 </div>

@@ -184,20 +184,33 @@ exports.getAllSales = async (req, res) => {
             query.createdAt = { $gte: todayStart, $lte: todayEnd };
         }
 
-        // 4. Execution with Pagination
-        const [sales, total] = await Promise.all([
+        // 4. Execution with Pagination and Stats
+        const [sales, total, stats] = await Promise.all([
             Sale.find(query)
                 .populate('branch', 'branch_name')
                 .populate('cashier', 'firstName lastName')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(parseInt(limit)),
-            Sale.countDocuments(query)
+            Sale.countDocuments(query),
+            // Aggregate Stats
+            Sale.aggregate([
+                { $match: query },
+                {
+                    $group: {
+                        _id: null,
+                        totalCollection: { $sum: "$finalAmount" },
+                        totalSales: { $sum: 1 },
+                        totalItems: { $sum: { $sum: "$items.quantity" } }
+                    }
+                }
+            ])
         ]);
         
         res.status(200).json({ 
             success: true, 
             data: sales,
+            stats: stats[0] || { totalCollection: 0, totalSales: 0, totalItems: 0 },
             pagination: {
                 total,
                 page: parseInt(page),

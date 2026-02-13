@@ -66,11 +66,13 @@ export default function DynamicSidebar() {
       return { mainSections: [], bottomSection: { items: [] } };
     }
 
+    // Define which modules should always appear in the bottom section
+    const BOTTOM_MODULE_NAMES = ['Settings', 'Help'];
+
     const allItems = user.availableModules.map(moduleInfo => {
-      // Determine the path based on the module name
       let path;
       if (moduleInfo.moduleName === 'Dashboard') {
-        path = '/dashboard'; // Dashboard might have a fixed path
+        path = '/dashboard';
       } else {
         path = `/${moduleInfo.moduleName.toLowerCase()}`;
       }
@@ -79,14 +81,13 @@ export default function DynamicSidebar() {
         name: moduleInfo.moduleName,
         path: path,
         icon: MODULE_ICONS[moduleInfo.moduleName],
-        permissions: moduleInfo.permissions, // Keep permissions for potential future use
+        permissions: moduleInfo.permissions,
       };
     });
 
-    // Separate items into main and bottom sections
-    const mainItems = allItems.filter(item => item.name === 'Dashboard' || item.name === 'Users' || item.name === 'Products' || item.name === 'Branches' || item.name === 'Categories' || item.name === 'Brands' || item.name === 'Suppliers' || item.name === 'Stock' || item.name === 'Sales');
-    const bottomItems = allItems.filter(item => item.name === 'Settings' || item.name === 'Help');
-
+    // Automatically separate items: Bottom modules go to bottom, everything else goes to main
+    const mainItems = allItems.filter(item => !BOTTOM_MODULE_NAMES.includes(item.name));
+    const bottomItems = allItems.filter(item => BOTTOM_MODULE_NAMES.includes(item.name));
 
     return {
       mainSections: mainItems.length > 0 ? [{ title: 'Main Menu', items: mainItems }] : [],

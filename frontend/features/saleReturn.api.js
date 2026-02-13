@@ -15,6 +15,7 @@ export const useProcessReturn = () => {
             queryClient.invalidateQueries(['sales']);
             queryClient.invalidateQueries(['branch-stock']);
             queryClient.invalidateQueries(['sale-history', variables.saleId]);
+            queryClient.invalidateQueries(['returns']);
             toast.success('Return/Exchange processed successfully');
         },
         onError: (error) => {
@@ -31,5 +32,15 @@ export const useGetSaleHistory = (saleId) => {
             return response.data.data;
         },
         enabled: !!saleId,
+    });
+};
+
+export const useGetAllReturns = () => {
+    return useQuery({
+        queryKey: ['returns'],
+        queryFn: async () => {
+            const response = await api.get('/sale-returns/all');
+            return response?.data;
+        }
     });
 };

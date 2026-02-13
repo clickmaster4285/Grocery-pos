@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useGetSaleDetail } from '@/features/sale.api';
 import { Button } from '@/components/ui/button';
@@ -17,21 +17,39 @@ import {
     Calendar,
     CreditCard,
     ArrowRightLeft,
-    Package
+    Package,
+    FileText
 } from 'lucide-react';
 import BillLifecycle from '@/components/shared-components/sales/BillLifecycle';
 import { format } from 'date-fns';
+import { useReactToPrint } from 'react-to-print';
+import ReceiptPrint from '@/components/shared-components/sales/ReceiptPrint';
 
 const SaleDetailPage = () => {
     const { id, role } = useParams();
     const router = useRouter();
     const { data: sale, isLoading } = useGetSaleDetail(id);
+    const receiptRef = useRef(null);
 
-    if (isLoading) return <div className="p-20 text-center animate-pulse font-black text-primary text-2xl uppercase">Loading Bill Data...</div>;
+    const handlePrint = useReactToPrint({
+        contentRef: receiptRef,
+        documentTitle: `Receipt-${sale?.billNumber}`,
+    });
+
+    if (isLoading) return <div className="p-20 text-center animate-pulse font-black text-primary text-2xl uppercase tracking-widest">Loading Bill Data...</div>;
     if (!sale) return <div className="p-20 text-center text-red-500 font-bold">Sale record not found.</div>;
 
     return (
         <div className="space-y-6">
+            {/* Hidden Receipt Component */}
+            <div style={{ display: 'none' }}>
+                <ReceiptPrint 
+                    ref={receiptRef} 
+                    sale={sale} 
+                    branch={sale?.branch} 
+                />
+            </div>
+
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -47,7 +65,7 @@ const SaleDetailPage = () => {
                     <Button variant="outline" className="font-bold gap-2" onClick={() => router.push(`/${role}/sales/history/${id}/return`)}>
                         <RotateCcw className="h-4 w-4" /> Process Return
                     </Button>
-                    <Button className="font-black gap-2">
+                    <Button className="font-black gap-2 shadow-lg shadow-primary/20" onClick={handlePrint}>
                         <Printer className="h-4 w-4" /> Print Copy
                     </Button>
                 </div>
@@ -56,7 +74,7 @@ const SaleDetailPage = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* LEFT: Sale Overview */}
                 <div className="lg:col-span-1 space-y-6">
-                    <Card className="shadow-sm border-2">
+                    <Card className="shadow-sm border-2 border-primary/10">
                         <CardHeader className="bg-muted/50 pb-4">
                             <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
                                 <FileText className="h-4 w-4" /> Summary
@@ -109,7 +127,7 @@ const SaleDetailPage = () => {
                         </CardContent>
                     </Card>
 
-                    <Card className="shadow-sm">
+                    <Card className="shadow-sm border-2">
                         <CardHeader>
                             <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                                 <User className="h-4 w-4" /> Customer
@@ -124,7 +142,7 @@ const SaleDetailPage = () => {
 
                 {/* RIGHT: Items & History */}
                 <div className="lg:col-span-2 space-y-6">
-                    <Card className="shadow-sm overflow-hidden">
+                    <Card className="shadow-sm overflow-hidden border-2">
                         <CardHeader className="bg-primary text-primary-foreground border-b-0">
                             <CardTitle className="text-lg font-black uppercase tracking-tighter flex items-center gap-2">
                                 <HistoryIcon className="h-5 w-5" /> Bill lifecycle & History
@@ -135,7 +153,7 @@ const SaleDetailPage = () => {
                         </CardContent>
                     </Card>
 
-                    <Card className="shadow-sm">
+                    <Card className="shadow-sm border-2">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                                 <Package className="h-4 w-4" /> Purchased Items
@@ -168,9 +186,5 @@ const SaleDetailPage = () => {
         </div>
     );
 };
-
-// Placeholder for FileText since it wasn't imported initially
-const FileText = ({ className }) => <FileTextIcon className={className} />;
-import { FileText as FileTextIcon } from 'lucide-react';
 
 export default SaleDetailPage;

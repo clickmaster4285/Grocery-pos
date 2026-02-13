@@ -23,11 +23,15 @@ import {
   History,
   RotateCcw,
   MoreVertical,
-  FileText
+  FileText,
+  DollarSign,
+  ShoppingCart,
+  Package
 } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { useReactToPrint } from 'react-to-print';
 import ReceiptPrint from '@/components/shared-components/sales/ReceiptPrint';
+import StatsCard from '@/components/ui/StatsCard';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,6 +68,7 @@ const SalesHistory = () => {
   });
 
   const sales = response?.data;
+  const stats = response?.stats;
   const pagination = response?.pagination;
 
   // Print Logic
@@ -107,13 +112,38 @@ const SalesHistory = () => {
           <Button variant="outline" size="icon" onClick={() => router.push(`/${role}/sales`)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight text-primary  uppercase italic">Transaction History</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-primary k uppercase italic">Transaction History</h1>
         </div>
 
         <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
           <Calendar className="h-4 w-4" />
           <span>{startDate === endDate ? `Records for ${startDate}` : `${startDate} to ${endDate}`}</span>
         </div>
+      </div>
+
+      {/* KPI STATS CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatsCard 
+            title="Total Collection" 
+            value={`$${stats?.totalCollection.toFixed(2) || '0.00'}`}
+            icon={<DollarSign />}
+            color="emerald"
+            description="Total revenue in range"
+        />
+        <StatsCard 
+            title="Total Sales" 
+            value={stats?.totalSales || 0}
+            icon={<ShoppingCart />}
+            color="sky"
+            description="Invoices generated"
+        />
+        <StatsCard 
+            title="Units Sold" 
+            value={stats?.totalItems || 0}
+            icon={<Package />}
+            color="primary"
+            description="Individual items moved"
+        />
       </div>
 
       {/* Filter Toolbar */}

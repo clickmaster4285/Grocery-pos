@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useGetSaleDetail } from '@/features/sale.api';
 import { useSaleReturnHook } from '@/hooks/useSaleReturnHook';
@@ -23,13 +23,21 @@ import {
     Trash2, 
     Package,
     AlertCircle,
-    CheckCircle2
+    CheckCircle2,
+    XCircle,
+    Printer
 } from 'lucide-react';
+import { useReactToPrint } from 'react-to-print';
+import ReturnReceiptPrint from '@/components/shared-components/sales/ReturnReceiptPrint';
 
 const ProcessReturnPage = () => {
     const { id, role } = useParams();
     const router = useRouter();
-    const { data: sale, isLoading: isSaleLoading } = useGetSaleDetail(id);
+    
+    const { getSaleHistoryQuery, processReturnMutation } = useSaleReturnHook(id);
+    const { data: historyData, isLoading: isSaleLoading } = getSaleHistoryQuery;
+    
+    const sale = historyData?.originalSale;
     
     const [type, setType] = useState('RETURN');
     const [returnedItems, setReturnedItems] = useState([]);
@@ -37,11 +45,29 @@ const ProcessReturnPage = () => {
     const debouncedExchangeSearch = useDebounce(exchangeSearch, 300);
     const [exchangedItems, setExchangedItems] = useState([]);
 
-    const { processReturnMutation } = useSaleReturnHook();
+    // Printing States
+    const receiptRef = useRef(null);
+    const [printAfterSync, setPrintAfterSync] = useState(false);
+    const [newReturnData, setNewReturnData] = useState(null);
+
     const { data: productsData } = useGetAllProducts({ search: debouncedExchangeSearch, limit: 5 });
+
+    const handlePrint = useReactToPrint({
+        contentRef: receiptRef,
+        documentTitle: `ReturnReceipt-${newReturnData?.returnNumber}`,
+        onAfterPrint: () => router.push(`/${role}/sales/history/${id}`)
+    });
+
+    useEffect(() => {
+        if (newReturnData && printAfterSync) {
+            handlePrint();
+        }
+    }, [newReturnData, printAfterSync]);
 
     // Return Selection Logic
     const toggleReturnItem = (item) => {
+        if (item.remainingQty <= 0) return;
+
         const exists = returnedItems.find(i => i.variantId === item.variantId);
         if (exists) {
             setReturnedItems(returnedItems.filter(i => i.variantId !== item.variantId));
@@ -52,7 +78,7 @@ const ProcessReturnPage = () => {
                 productName: item.productName,
                 sku: item.sku,
                 quantity: 1,
-                maxQuantity: item.quantity,
+                maxQuantity: item.remainingQty,
                 unitPrice: item.unitPrice,
                 condition: 'GOOD',
                 reason: ''
@@ -86,22 +112,40 @@ const ProcessReturnPage = () => {
     const exchangeTotal = exchangedItems.reduce((acc, curr) => acc + curr.subtotal, 0);
     const difference = exchangeTotal - refundTotal;
 
-    const handleSubmit = () => {
+    const handleSubmit = (shouldPrint = false) => {
         if (returnedItems.length === 0) return;
+        setPrintAfterSync(shouldPrint);
+
         processReturnMutation.mutate({
             saleId: id,
             type,
             returnedItems: returnedItems.map(({ maxQuantity, ...rest }) => rest),
             exchangedItems: type === 'EXCHANGE' ? exchangedItems : []
         }, {
-            onSuccess: () => router.push(`/${role}/sales/history/${id}`)
+            onSuccess: (res) => {
+                if (shouldPrint) {
+                    setNewReturnData(res.data);
+                } else {
+                    router.push(`/${role}/sales/history/${id}`);
+                }
+            }
         });
     };
 
-    if (isSaleLoading) return <div className="p-20 text-center animate-pulse font-black text-primary text-2xl uppercase italic">Initiating Return Protocol...</div>;
+    if (isSaleLoading) return <div className="p-20 text-center animate-pulse font-black text-primary text-2xl uppercase italic">Calculating Return Eligibility...</div>;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-7xl mx-auto">
+            {/* Hidden Receipt Component */}
+            <div style={{ display: 'none' }}>
+                <ReturnReceiptPrint 
+                    ref={receiptRef}
+                    returnData={newReturnData}
+                    originalSale={sale}
+                    branch={sale?.branch}
+                />
+            </div>
+
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -130,33 +174,47 @@ const ProcessReturnPage = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-12 gap-8 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 {/* 1. SELECT ITEMS (Left) */}
-                <div className=" xl:col-span-4 space-y-4">
+                <div className="lg:col-span-4 space-y-4">
                     <Card className="shadow-sm border-2">
                         <CardHeader className="border-b bg-muted/30">
-                            <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">1. Purchased Items</CardTitle>
+                            <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">1. Eligible Items</CardTitle>
                         </CardHeader>
                         <CardContent className="p-4 space-y-2">
                             {sale?.items.map((item) => {
                                 const isSelected = returnedItems.some(i => i.variantId === item.variantId);
+                                const isFullyReturned = item.remainingQty <= 0;
+
                                 return (
                                     <div 
                                         key={item.variantId} 
-                                        onClick={() => toggleReturnItem(item)}
-                                        className={`p-4 rounded-xl border-2 transition-all cursor-pointer group ${
-                                            isSelected 
-                                            ? 'border-primary bg-primary/5 shadow-md shadow-primary/10' 
-                                            : 'border-muted bg-background hover:border-primary/30'
+                                        onClick={() => !isFullyReturned && toggleReturnItem(item)}
+                                        className={`p-4 rounded-xl border-2 transition-all cursor-pointer group relative overflow-hidden ${
+                                            isFullyReturned 
+                                            ? 'opacity-50 grayscale cursor-not-allowed border-dashed bg-muted/10' 
+                                            : isSelected 
+                                                ? 'border-primary bg-primary/5 shadow-md shadow-primary/10' 
+                                                : 'border-muted bg-background hover:border-primary/30'
                                         }`}
                                     >
+                                        {isFullyReturned && (
+                                            <div className="absolute inset-0 bg-muted/20 flex items-center justify-center z-10">
+                                                <Badge variant="destructive" className="font-black gap-1 uppercase text-[8px]">
+                                                    <XCircle className="h-3 w-3" /> Fully Returned
+                                                </Badge>
+                                            </div>
+                                        )}
+                                        
                                         <div className="flex justify-between items-start">
                                             <div>
                                                 <p className={`font-black text-sm ${isSelected ? 'text-primary' : ''}`}>{item.productName}</p>
                                                 <p className="text-[10px] font-mono text-muted-foreground uppercase">{item.sku}</p>
                                             </div>
                                             <div className="flex flex-col items-end gap-1">
-                                                <Badge variant={isSelected ? 'default' : 'outline'} className="font-black">Qty: {item.quantity}</Badge>
+                                                <Badge variant={isSelected ? 'default' : 'outline'} className="font-black">
+                                                    Rem: {item.remainingQty} / {item.quantity}
+                                                </Badge>
                                                 <p className="text-xs font-bold text-muted-foreground">${item.unitPrice}</p>
                                             </div>
                                         </div>
@@ -168,7 +226,7 @@ const ProcessReturnPage = () => {
                 </div>
 
                 {/* 2. RETURN DETAILS (Middle) */}
-                <div className="xl:col-span-5 space-y-4">
+                <div className="lg:col-span-5 space-y-4">
                     <Card className="shadow-sm border-2 min-h-100">
                         <CardHeader className="border-b bg-muted/30 flex flex-row items-center justify-between">
                             <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">2. Return Configuration</CardTitle>
@@ -187,13 +245,16 @@ const ProcessReturnPage = () => {
                                             <div className="flex justify-between items-center">
                                                 <p className="font-black text-sm text-primary">{item.productName}</p>
                                                 <div className="flex items-center gap-3">
-                                                    <Label className="text-[10px] font-black uppercase">Return Qty:</Label>
-                                                    <Input 
-                                                        type="number" 
-                                                        className="w-20 h-9 text-center font-black"
-                                                        value={item.quantity}
-                                                        onChange={(e) => updateReturnQty(item.variantId, parseInt(e.target.value))}
-                                                    />
+                                                    <Label className="text-[10px] font-black uppercase">Qty:</Label>
+                                                    <div className="flex items-center gap-1">
+                                                        <Input 
+                                                            type="number" 
+                                                            className="w-16 h-9 text-center font-black"
+                                                            value={item.quantity}
+                                                            onChange={(e) => updateReturnQty(item.variantId, parseInt(e.target.value))}
+                                                        />
+                                                        <span className="text-[10px] font-bold text-muted-foreground">/ {item.maxQuantity}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-3">
@@ -227,7 +288,7 @@ const ProcessReturnPage = () => {
                         </CardContent>
                     </Card>
 
-                    {/* EXCHANGE SEARCH (Middle bottom if Exchange mode) */}
+                    {/* EXCHANGE SEARCH */}
                     {type === 'EXCHANGE' && (
                         <Card className="shadow-lg border-2 border-amber-500/30">
                             <CardHeader className="border-b bg-amber-500/10">
@@ -296,7 +357,7 @@ const ProcessReturnPage = () => {
                 </div>
 
                 {/* 3. FINAL SUMMARY (Right) */}
-                <div className="xl:col-span-3 space-y-6 sticky top-6">
+                <div className="lg:col-span-3 space-y-6 sticky top-6">
                     <Card className="shadow-2xl border-primary/20 bg-primary/5">
                         <CardHeader>
                             <CardTitle className="text-lg font-black uppercase tracking-tighter text-primary">Settlement Summary</CardTitle>
@@ -333,14 +394,24 @@ const ProcessReturnPage = () => {
                                 </div>
                             </div>
 
-                            <Button 
-                                className="w-full h-14 font-black text-lg uppercase tracking-tighter gap-3 shadow-lg shadow-primary/20"
-                                disabled={returnedItems.length === 0 || processReturnMutation.isPending}
-                                onClick={handleSubmit}
-                            >
-                                {processReturnMutation.isPending ? 'Syncing...' : `Confirm ${type} Transaction`}
-                                <CheckCircle2 className="h-5 w-5" />
-                            </Button>
+                            <div className="flex flex-col gap-2 pt-4">
+                                <Button 
+                                    className="w-full h-14 font-black text-lg uppercase tracking-tighter gap-3 shadow-lg shadow-primary/20"
+                                    disabled={returnedItems.length === 0 || processReturnMutation.isPending}
+                                    onClick={() => handleSubmit(true)}
+                                >
+                                    {processReturnMutation.isPending ? 'Syncing...' : `Confirm & Print`}
+                                    <Printer className="h-5 w-5" />
+                                </Button>
+                                <Button 
+                                    variant="outline"
+                                    className="w-full h-10 font-bold uppercase text-xs gap-2"
+                                    disabled={returnedItems.length === 0 || processReturnMutation.isPending}
+                                    onClick={() => handleSubmit(false)}
+                                >
+                                    Confirm Without Printing
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
 
