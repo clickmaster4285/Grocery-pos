@@ -52,6 +52,8 @@ const ProcessReturnPage = () => {
 
     const { data: productsData } = useGetAllProducts({ search: debouncedExchangeSearch, limit: 5 });
 
+    console.log({ productsData })
+
     const handlePrint = useReactToPrint({
         contentRef: receiptRef,
         documentTitle: `ReturnReceipt-${newReturnData?.returnNumber}`,
@@ -305,10 +307,10 @@ const ProcessReturnPage = () => {
                                     />
                                     {exchangeSearch && (
                                         <div className="absolute top-full left-0 right-0 mt-2 bg-background border-2 rounded-xl shadow-2xl z-50 overflow-hidden">
-                                            {productsData?.data.map(p => (
+                                            {productsData?.products?.map(p => (
                                                 <div key={p._id} className="p-2 border-b last:border-0 bg-muted/20">
                                                     <p className="text-[10px] font-black uppercase text-muted-foreground px-3 py-1">{p.productName}</p>
-                                                    {p.variants.map(v => (
+                                                    {p?.variants?.map(v => (
                                                         <div 
                                                             key={v._id} 
                                                             className="flex justify-between items-center p-3 hover:bg-primary/5 cursor-pointer rounded-lg m-1 transition-colors"
