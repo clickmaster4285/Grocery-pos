@@ -2,27 +2,27 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import {
-    ChevronLeft,
-    Truck,
-    Hash,
-    User,
-    Mail,
-    Phone,
-    MapPin,
-    ShieldCheck,
-    CreditCard,
-    Save,
+import { 
+    ChevronLeft, 
+    Truck, 
+    Hash, 
+    User, 
+    Mail, 
+    Phone, 
+    MapPin, 
+    ShieldCheck, 
+    CreditCard, 
+    Save, 
     LayoutDashboard,
     Loader2,
     Info,
     Building2,
-    Banknote
+    Banknote,
+    Globe
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -32,6 +32,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Country, State, City } from "country-state-city";
+import { ComboBox } from "@/components/ui/combobox";
 import { toast } from 'sonner';
 import { useCreateSupplier, useUpdateSupplier, useGetSupplierById } from '@/features/supplier.api';
 
@@ -68,10 +70,17 @@ const SupplierFormView = () => {
     const isEditMode = !!id;
 
     const [formData, setFormData] = useState(initialFormData);
+    const [states, setStates] = useState([]);
+    const [cities, setCities] = useState([]);
 
     const { data: supplierData, isLoading: isSupplierLoading } = useGetSupplierById(id);
     const createSupplierMutation = useCreateSupplier();
     const updateSupplierMutation = useUpdateSupplier();
+
+    const countries = Country.getAllCountries().map(c => ({
+        label: c.name,
+        value: c.isoCode
+    }));
 
     useEffect(() => {
         if (isEditMode && supplierData?.data) {
@@ -104,10 +113,65 @@ const SupplierFormView = () => {
         }
     }, [isEditMode, supplierData]);
 
+    useEffect(() => {
+        const countryObj = Country.getAllCountries().find(c => c.name === formData.address.country);
+        if (countryObj) {
+            const countryStates = State.getStatesOfCountry(countryObj.isoCode).map(s => ({
+                label: s.name,
+                value: s.isoCode
+            }));
+            setStates(countryStates);
+        } else {
+            setStates([]);
+        }
+    }, [formData.address.country]);
+
+    useEffect(() => {
+        const countryObj = Country.getAllCountries().find(c => c.name === formData.address.country);
+        if (countryObj) {
+            const stateObj = State.getStatesOfCountry(countryObj.isoCode).find(s => s.name === formData.address.state);
+            if (stateObj) {
+                const stateCities = City.getCitiesOfState(countryObj.isoCode, stateObj.isoCode).map(c => ({
+                    label: c.name,
+                    value: c.name
+                }));
+                setCities(stateCities);
+            } else {
+                setCities([]);
+            }
+        } else {
+            setCities([]);
+        }
+    }, [formData.address.country, formData.address.state]);
+
+    const handleCountryChange = (isoCode) => {
+        const name = Country.getCountryByCode(isoCode)?.name || "";
+        setFormData(prev => ({
+            ...prev,
+            address: { ...prev.address, country: name, state: "", city: "" }
+        }));
+    };
+
+    const handleStateChange = (stateIsoCode) => {
+        const countryObj = Country.getAllCountries().find(c => c.name === formData.address.country);
+        const name = State.getStateByCodeAndCountry(stateIsoCode, countryObj?.isoCode)?.name || "";
+        setFormData(prev => ({
+            ...prev,
+            address: { ...prev.address, state: name, city: "" }
+        }));
+    };
+
+    const handleCityChange = (cityName) => {
+        setFormData(prev => ({
+            ...prev,
+            address: { ...prev.address, city: cityName }
+        }));
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         const toastId = toast.loading(isEditMode ? 'Synchronizing supplier records...' : 'Registering new supplier node...');
-
+        
         try {
             if (isEditMode) {
                 await updateSupplierMutation.mutateAsync({ id, supplierData: formData });
@@ -139,18 +203,18 @@ const SupplierFormView = () => {
     return (
         <div className="bg-white p-2 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-border/50">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-border/50 pb-6">
                 <div className="space-y-3">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => router.back()}
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => router.back()} 
                         className="group -ml-2 text-muted-foreground hover:text-foreground h-8 px-2"
                     >
                         <ChevronLeft className="mr-1 h-4 w-4 transition-transform group-hover:-translate-x-1" />
                         <span className="text-[10px] font-bold uppercase tracking-widest">Back to Network</span>
                     </Button>
-                    <div className="space-y-1">
+                   <div className="space-y-1">
                         <div className="flex items-center gap-3">
                             <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
                                 <Truck className="h-4.5 w-4.5 text-primary" />
@@ -160,17 +224,18 @@ const SupplierFormView = () => {
                             </h1>
                         </div>
                         <p className="text-xs font-medium text-muted-foreground max-w-md ml-12">
-                            {isEditMode
-                                ? `Update node parameters for ${formData.name}.`
+                            {isEditMode 
+                                ? `Update node parameters for ${formData.name}.` 
                                 : 'Initialize a new supply chain node with global identification.'}
                         </p>
                     </div>
                 </div>
+
                 <div className="flex items-center gap-3">
                     <Button variant="outline" onClick={() => router.back()} className="font-bold text-[10px] uppercase tracking-widest px-5 h-10 rounded-xl transition-all">
                         Cancel
                     </Button>
-                    <Button onClick={handleSubmit} className="bg-primary hover:bg-primary/90 font-bold text-[10px] uppercase tracking-widest px-6 h-10 rounded-xl shadow-lg shadow-primary/20 gap-2 transition-all">
+                   <Button onClick={handleSubmit} className="bg-primary hover:bg-primary/90 font-bold text-[10px] uppercase tracking-widest px-6 h-10 rounded-xl shadow-lg shadow-primary/20 gap-2 transition-all">
                         <Save className="h-4 w-4" />
                         {isEditMode ? 'Sync Records' : 'Create Records'}
                     </Button>
@@ -180,14 +245,14 @@ const SupplierFormView = () => {
             <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-2">
                 {/* Left Form Column */}
                 <div className="lg:col-span-8">
-
+                    
                     {/* 1. Core Identity */}
                     <section>
                         <div className="flex items-center gap-2">
                             <Badge variant="outline" className="h-5 w-5 rounded-full p-0 flex items-center justify-center border-primary/30 text-primary text-[9px] font-bold">1</Badge>
                             <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground">Core Identity</h2>
                         </div>
-
+                        
                         <Card className="border-none shadow-none bg-muted/30 rounded-2xl overflow-hidden">
                             <CardContent>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -235,7 +300,7 @@ const SupplierFormView = () => {
                                         >
                                             <SelectTrigger id="status">
                                                 <SelectValue />
-                                            </SelectTrigger>
+                                           </SelectTrigger>
                                             <SelectContent className="rounded-xl border-border/50 shadow-xl">
                                                 <SelectItem value="ACTIVE">Active Supplier</SelectItem>
                                                 <SelectItem value="INACTIVE" >Inactive Node</SelectItem>
@@ -253,7 +318,7 @@ const SupplierFormView = () => {
                             <Badge variant="outline" className="h-5 w-5 rounded-full p-0 flex items-center justify-center border-primary/30 text-primary text-[9px] font-bold">2</Badge>
                             <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground">Communication Channels</h2>
                         </div>
-
+                        
                         <Card className="border-none shadow-none bg-muted/30 rounded-2xl overflow-hidden">
                             <CardContent>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -292,7 +357,7 @@ const SupplierFormView = () => {
                             <Badge variant="outline" className="h-5 w-5 rounded-full p-0 flex items-center justify-center border-primary/30 text-primary text-[9px] font-bold">3</Badge>
                             <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground">Geographical Deployment</h2>
                         </div>
-
+                        
                         <Card className="border-none shadow-none bg-muted/30 rounded-2xl overflow-hidden">
                             <CardContent className="space-y-6">
                                 <div className="space-y-2">
@@ -309,30 +374,36 @@ const SupplierFormView = () => {
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
-                                        <Label htmlFor="city" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">City Node</Label>
-                                        <Input
-                                            id="city"
+                                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Country</Label>
+                                        <ComboBox
+                                            items={countries}
+                                            value={Country.getAllCountries().find(c => c.name === formData.address.country)?.isoCode || ""}
+                                            onValueChange={handleCountryChange}
+                                            placeholder="Select Country"
+                                            searchPlaceholder="Search grid..."
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">State / Province</Label>
+                                        <ComboBox
+                                            items={states}
+                                            value={states.find(s => s.label === formData.address.state)?.value || ""}
+                                            onValueChange={handleStateChange}
+                                            placeholder="Select State"
+                                            searchPlaceholder="Search states..."
+                                            disabled={!formData.address.country}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">City Node</Label>
+                                        <ComboBox
+                                            items={cities}
                                             value={formData.address.city}
-                                            onChange={(e) => setFormData({ ...formData, address: { ...formData.address, city: e.target.value } })}
-                                            placeholder="City"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="state" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">State / Province</Label>
-                                        <Input
-                                            id="state"
-                                            value={formData.address.state}
-                                            onChange={(e) => setFormData({ ...formData, address: { ...formData.address, state: e.target.value } })}
-                                            placeholder="State"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="country" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Country Registry</Label>
-                                        <Input
-                                            id="country"
-                                            value={formData.address.country}
-                                            onChange={(e) => setFormData({ ...formData, address: { ...formData.address, country: e.target.value } })}
-                                            placeholder="Country"
+                                            onValueChange={handleCityChange}
+                                            placeholder="Select City"
+                                            searchPlaceholder="Search cities..."
+                                            disabled={!formData.address.state}
+                                            custom={true}
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -355,7 +426,7 @@ const SupplierFormView = () => {
                             <Badge variant="outline" className="h-5 w-5 rounded-full p-0 flex items-center justify-center border-primary/30 text-primary text-[9px] font-bold">4</Badge>
                             <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground">Fiscal & Financial Logic</h2>
                         </div>
-
+                        
                         <Card className="border-none shadow-none bg-muted/30 rounded-2xl overflow-hidden">
                             <CardContent className="space-y-8">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -376,7 +447,7 @@ const SupplierFormView = () => {
                                         >
                                             <SelectTrigger id="payment_terms">
                                                 <SelectValue />
-                                            </SelectTrigger>
+                                           </SelectTrigger>
                                             <SelectContent className="rounded-xl border-border/50 shadow-xl">
                                                 <SelectItem value="CASH">Direct Cash</SelectItem>
                                                 <SelectItem value="CREDIT">Open Credit</SelectItem>
@@ -400,7 +471,6 @@ const SupplierFormView = () => {
                                                 value={formData.bank_details.bank_name}
                                                 onChange={(e) => setFormData({ ...formData, bank_details: { ...formData.bank_details, bank_name: e.target.value } })}
                                                 placeholder="Bank Name"
-
                                             />
                                         </div>
                                         <div className="space-y-2">
@@ -410,7 +480,6 @@ const SupplierFormView = () => {
                                                 value={formData.bank_details.account_number}
                                                 onChange={(e) => setFormData({ ...formData, bank_details: { ...formData.bank_details, account_number: e.target.value } })}
                                                 placeholder="Account Number"
-
                                             />
                                         </div>
                                         <div className="space-y-2">
@@ -420,7 +489,6 @@ const SupplierFormView = () => {
                                                 value={formData.bank_details.account_holder_name}
                                                 onChange={(e) => setFormData({ ...formData, bank_details: { ...formData.bank_details, account_holder_name: e.target.value } })}
                                                 placeholder="Account Holder Name"
-
                                             />
                                         </div>
                                     </div>
@@ -439,20 +507,20 @@ const SupplierFormView = () => {
                                     <LayoutDashboard className="h-3.5 w-3.5 text-primary" />
                                     <h3 className="text-[10px] font-bold uppercase tracking-widest text-primary italic">Live Node Preview</h3>
                                 </div>
-
+                                
                                 <div className="space-y-5">
                                     {/* Preview Card */}
                                     <div className="bg-background rounded-2xl p-5 border border-border/50 shadow-sm space-y-4">
                                         <div className="flex justify-between items-start">
                                             <div className="space-y-1">
                                                 <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">{formData.supplier_code || 'PROTOCOL-000'}</p>
-                                                <h4 className="text-base font-bold text-foreground leading-tight">{formData.name || 'Unnamed Supplier'}</h4>
+                                                <h4 className="text-base font-bold text-foreground leading-tight uppercase">{formData.name || 'Unnamed Supplier'}</h4>
                                             </div>
                                             <Badge className={`text-[8px] font-bold uppercase px-2 py-0 h-4 ${formData.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200' : 'bg-muted text-muted-foreground'}`} variant="outline">
                                                 {formData.status}
                                             </Badge>
                                         </div>
-
+                                        
                                         <div className="space-y-3">
                                             <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
                                                 <User className="h-3 w-3 opacity-50" />
