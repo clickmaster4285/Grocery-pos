@@ -207,7 +207,7 @@ const ReturnsManagementPage = () => {
                                             {rtn.originalSale?.billNumber}
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant={rtn.type === 'RETURN' ? 'destructive' : 'default'} className="font-black gap-1">
+                                            <Badge variant={rtn.type === 'RETURN' ? 'destructive' : 'default'} className="font-bold gap-1">
                                                 {rtn.type === 'RETURN' ? <RotateCcw className="h-3 w-3" /> : <ArrowRightLeft className="h-3 w-3" />}
                                                 {rtn.type}
                                             </Badge>

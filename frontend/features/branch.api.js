@@ -6,7 +6,7 @@ const branchAPI = {
   getBranchById: (id) => api.get(`/branches/${id}`),
   createBranch: (branchData) => api.post('/branches', branchData),
   updateBranch: (id, branchData) => api.put(`/branches/${id}`, branchData),
-  toggleBranchStatus: (id) => api.delete(`/branches/${id}`),
+  deleteBranch: (id) => api.delete(`/branches/${id}`),
 };
 
 const branchKeys = {
@@ -62,13 +62,12 @@ export const useUpdateBranch = () => {
   });
 };
 
-export const useToggleBranchStatus = () => {
+export const useDeleteBranch = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id) => branchAPI.toggleBranchStatus(id),
-    onSuccess: (_, id) => {
+    mutationFn: (id) => branchAPI.deleteBranch(id),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: branchKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: branchKeys.detail(id) });
     },
   });
 };

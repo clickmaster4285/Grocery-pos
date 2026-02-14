@@ -7,7 +7,7 @@ const {
   getAllBranches,
   getBranchById,
   updateBranch,
-  toggleBranchStatus
+  deleteBranch
 } = require("../controllers/branch.controller");
 
 
@@ -15,6 +15,6 @@ router.post("/", auth, checkPermission("branches:create"), createBranch);
 router.get("/", auth, checkPermission("branches:read"), getAllBranches);
 router.get("/:id", auth, checkPermission("branches:read"), getBranchById);
 router.put("/:id", auth, checkPermission("branches:update"), updateBranch);
-router.delete("/:id", auth, checkPermission("branches:delete"), toggleBranchStatus);
+router.delete("/:id", auth, checkPermission("branches:delete"), deleteBranch);
 
 module.exports = router;

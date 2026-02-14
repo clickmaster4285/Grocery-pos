@@ -1,15 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Tag, Search } from "lucide-react";
+import { Plus, Tag, Search, Layers } from "lucide-react";
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation'; // Still needed for page navigation (e.g. to forbidden)
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import CategoriesTable from "@/components/shared-components/categories/categories-table";
-import CategoryModal from "@/components/shared-components/categories/category-modal"; // Import the modal
+import CategoryModal from "@/components/shared-components/categories/category-modal";
 import {
     useGetAllCategories,
-    useCreateCategory, // Import mutations for direct use
+    useCreateCategory,
     useUpdateCategory,
     useDeleteCategory,
 } from "@/features/category.api";
@@ -38,7 +38,7 @@ const Categories = () => {
     const { user } = useAuth();
     const userPrimaryRole = user?.role?.toLowerCase() || 'customer';
 
-    const { data, isLoading, refetch } = useGetAllCategories(); // Add refetch from react-query
+    const { data, isLoading, refetch } = useGetAllCategories();
     const createCategoryMutation = useCreateCategory();
     const updateCategoryMutation = useUpdateCategory();
     const deleteCategoryMutation = useDeleteCategory();
@@ -48,7 +48,8 @@ const Categories = () => {
 
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
-    const [modalState, setModalState] = useState({ isOpen: false, mode: "add", category: null }); // State for the category modal
+    const [typeFilter, setTypeFilter] = useState("all");
+    const [modalState, setModalState] = useState({ isOpen: false, mode: "add", category: null });
     const [categoryToDelete, setCategoryToDelete] = useState(null);
 
     // Filter categories based on search and status
@@ -56,16 +57,20 @@ const Categories = () => {
         return categories.filter((category) => {
             const matchesSearch =
                 category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                category.description.toLowerCase().includes(searchQuery.toLowerCase());
+                category.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                category.category_code?.toLowerCase().includes(searchQuery.toLowerCase());
 
             const matchesStatus =
                 statusFilter === "all" ||
                 (statusFilter === "ACTIVE" && category.isActive) ||
                 (statusFilter === "INACTIVE" && !category.isActive);
 
-            return matchesSearch && matchesStatus;
+            const matchesType = 
+                typeFilter === "all" || category.category_type === typeFilter;
+
+            return matchesSearch && matchesStatus && matchesType;
         });
-    }, [categories, searchQuery, statusFilter]);
+    }, [categories, searchQuery, statusFilter, typeFilter]);
 
     // Handlers for Category Modal
     const openAddModal = () => {
@@ -91,11 +96,11 @@ const Categories = () => {
                 toast.success('Category updated successfully.', { id: toastId });
             }
             closeCategoryModal();
-            refetch(); // Refetch categories to update the table
+            refetch();
         } catch (err) {
             toast.error('Operation Failed', {
                 id: toastId,
-                description: err.message || 'An unexpected error occurred.',
+                description: err.response?.data?.message || err.message || 'An unexpected error occurred.',
             });
         }
     };
@@ -103,28 +108,29 @@ const Categories = () => {
 
     // Handlers for Delete Confirmation
     const confirmDeleteCategory = (categoryId) => {
-        setCategoryToDelete(categoryId);
+        const cat = categories.find(c => c._id === categoryId);
+        setCategoryToDelete(cat);
     };
 
     const executeDelete = async () => {
         if (!categoryToDelete) return;
         const toastId = toast.loading('Deleting category...');
         try {
-            await deleteCategoryMutation.mutateAsync(categoryToDelete);
-            toast.success('Category status updated successfully.', { id: toastId });
-            setCategoryToDelete(null); // Clear the category to delete
-            refetch(); // Refetch categories to update the table
+            await deleteCategoryMutation.mutateAsync(categoryToDelete._id);
+            toast.success('Category deleted successfully.', { id: toastId });
+            setCategoryToDelete(null);
+            refetch();
         } catch (err) {
             toast.error('Operation Failed', {
                 id: toastId,
-                description: err.message || 'An unexpected error occurred.',
+                description: err.response?.data?.message || err.message || 'An unexpected error occurred.',
             });
         }
     };
 
 
     if (isLoading) {
-        return <div className="p-6">Loading categories...</div>;
+        return <div className="p-20 text-center animate-pulse font-black text-primary text-xl uppercase tracking-tighter italic">Loading Catalog...</div>;
     }
 
     return (
@@ -132,36 +138,48 @@ const Categories = () => {
             <main className="flex-1">
                 <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-foreground">Categories</h1>
-                        <p className="text-sm text-muted-foreground">
-                            Manage your product categories
+                        <h1 className="text-3xl font-black tracking-tighter uppercase italic text-primary">Category Master</h1>
+                        <p className="text-sm text-muted-foreground font-medium">
+                            Classify and organize your entire product catalog
                         </p>
                     </div>
                     <Button
                         onClick={openAddModal}
-                        className="gap-2 bg-primary hover:bg-primary/90"
+                        className="gap-2 bg-primary hover:bg-primary/90 font-bold px-6 h-11 shadow-lg shadow-primary/20"
                     >
-                        <Plus className="h-4 w-4" />
-                        Add Category
+                        <Plus className="h-5 w-5" />
+                        Create Category
                     </Button>
                 </div>
 
-                <div className="mb-6 flex flex-col gap-4 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mb-6 flex flex-col gap-4 rounded-xl border-2 border-muted bg-card p-4 sm:flex-row sm:items-center sm:justify-between shadow-sm">
                     <div className="flex flex-1 items-center gap-4">
                         <div className="relative flex-1 max-w-sm">
                             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
                                 type="search"
-                                placeholder="Search by name or description..."
+                                placeholder="Search code, name..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10"
+                                className="pl-10 h-10 font-medium"
                             />
                         </div>
 
+                        <Select value={typeFilter} onValueChange={setTypeFilter}>
+                            <SelectTrigger className="w-40 h-10 font-bold">
+                                <SelectValue placeholder="Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Types</SelectItem>
+                                <SelectItem value="PHYSICAL">Physical</SelectItem>
+                                <SelectItem value="SERVICE">Service</SelectItem>
+                                <SelectItem value="DIGITAL">Digital</SelectItem>
+                            </SelectContent>
+                        </Select>
+
                         <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-37.5">
-                                <SelectValue placeholder="Filter by status" />
+                            <SelectTrigger className="w-40 h-10 font-bold">
+                                <SelectValue placeholder="Status" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Status</SelectItem>
@@ -171,11 +189,10 @@ const Categories = () => {
                         </Select>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <Tag className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">
-                            {filteredCategories.length} categor
-                            {filteredCategories.length !== 1 ? "ies" : "y"} found
+                    <div className="flex items-center gap-2 bg-primary/5 px-4 py-2 rounded-lg border border-primary/10">
+                        <Tag className="h-4 w-4 text-primary" />
+                        <span className="text-sm text-primary font-black uppercase tracking-tighter">
+                            {filteredCategories.length} categories classified
                         </span>
                     </div>
                 </div>
@@ -201,16 +218,22 @@ const Categories = () => {
 
             {/* Delete Confirmation AlertDialog */}
             <AlertDialog open={!!categoryToDelete} onOpenChange={(open) => !open && setCategoryToDelete(null)}>
-                <AlertDialogContent>
+                <AlertDialogContent className="border-2 border-destructive/20 shadow-2xl">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This action will toggle the status of the category. You can reactivate it later.
+                        <AlertDialogTitle className="text-2xl font-black uppercase tracking-tighter text-destructive italic">Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription className="font-medium text-foreground/80 py-4">
+                            You are about to delete category <span className="text-primary font-black underline">{categoryToDelete?.name}</span>. 
+                            While the data is archived, this category will no longer be available for new products.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={executeDelete}>Continue</AlertDialogAction>
+                    <AlertDialogFooter className="bg-muted/30 p-4 -mx-6 -mb-6 rounded-b-lg">
+                        <AlertDialogCancel className="font-bold border-2">Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={executeDelete}
+                            className="bg-destructive hover:bg-destructive/90 text-white font-black uppercase tracking-widest px-8"
+                        >
+                            Confirm Delete
+                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

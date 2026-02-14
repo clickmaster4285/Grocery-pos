@@ -1,5 +1,5 @@
 'use client';
-import { Pencil, Trash2 } from "lucide-react"; // Using Trash2 for delete icon
+import { Pencil, Trash2, Tag, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 
 export default function CategoriesTable({ categories,
     onEdit,
-    onDelete, // Renamed from onToggleStatus
+    onDelete,
     userPrimaryRole,
 }) {
     const router = useRouter();
@@ -31,22 +31,34 @@ export default function CategoriesTable({ categories,
         });
     };
 
+    const getTypeColor = (type) => {
+        switch (type) {
+            case 'PHYSICAL': return 'bg-blue-100 text-blue-700 border-blue-200';
+            case 'SERVICE': return 'bg-purple-100 text-purple-700 border-purple-200';
+            case 'DIGITAL': return 'bg-amber-100 text-amber-700 border-amber-200';
+            default: return 'bg-muted text-muted-foreground';
+        }
+    };
+
     return (
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
             <table className="w-full">
                 <thead>
                     <tr className="border-b border-border bg-muted/30">
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Code
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                             Category Name
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                            Description
+                            Type
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                             Status
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                            Created
+                            Audit Info
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-foreground">
                             Actions
@@ -61,14 +73,22 @@ export default function CategoriesTable({ categories,
                             onClick={() => handleRowClick(category._id)}
                         >
                             <td className="px-4 py-4">
-                                <div className="font-medium text-foreground">
-                                    {category.name}
+                                <div className="font-mono text-xs font-bold text-primary">
+                                    {category.category_code || "---"}
                                 </div>
                             </td>
                             <td className="px-4 py-4">
-                                <div className="text-sm text-foreground">
-                                    {category.description || "N/A"}
+                                <div className="font-bold text-foreground">
+                                    {category.name}
                                 </div>
+                                <div className="text-[10px] text-muted-foreground line-clamp-1 max-w-[200px]">
+                                    {category.description || "No description"}
+                                </div>
+                            </td>
+                            <td className="px-4 py-4">
+                                <Badge variant="outline" className={`text-[10px] font-black ${getTypeColor(category.category_type)}`}>
+                                    {category.category_type || 'PHYSICAL'}
+                                </Badge>
                             </td>
                             <td className="px-4 py-4">
                                 <Badge
@@ -77,17 +97,20 @@ export default function CategoriesTable({ categories,
                                     }
                                     className={
                                         category.isActive
-                                            ? "bg-success/10 text-success hover:bg-success/20 border-success/20"
-                                            : "bg-muted text-muted-foreground"
+                                            ? "bg-success/10 text-success hover:bg-success/20 border-success/20 font-bold"
+                                            : "bg-muted text-muted-foreground font-bold"
                                     }
                                 >
                                     {category.isActive ? "Active" : "Inactive"}
                                 </Badge>
                             </td>
                             <td className="px-4 py-4">
-                                <span className="text-sm text-muted-foreground">
+                                <div className="text-xs font-bold text-foreground">
+                                    {category.createdBy?.firstName || "System"}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">
                                     {formatDate(category.createdAt)}
-                                </span>
+                                </div>
                             </td>
                             <td className="px-4 py-4">
                                 <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -100,32 +123,15 @@ export default function CategoriesTable({ categories,
                                         <Pencil className="h-4 w-4" />
                                         <span className="sr-only">Edit</span>
                                     </Button>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-8 w-8 p-0 text-destructive hover:bg-primary/10 hover:text-destructive"
-                                            >
-                                                <Trash2 className="h-4 w-4" /> {/* Changed icon to Trash2 */}
-                                            </Button>
-                                        </DropdownMenuTrigger>
-
-                                        <DropdownMenuContent align="end" className="w-52">
-                                            <DropdownMenuItem
-                                                onClick={() => onDelete(category._id)} // Pass ID for deletion
-                                                className="flex items-center justify-between cursor-pointer"
-                                            >
-                                                <span className="text-sm">
-                                                    {category.isActive ? "Deactivate" : "Activate"}
-                                                </span>
-                                                <Switch
-                                                    checked={category.isActive}
-                                                    pointerEvents="none"
-                                                />
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => onDelete(category._id)}
+                                        className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                        <span className="sr-only">Delete</span>
+                                    </Button>
                                 </div>
                             </td>
                         </tr>
@@ -135,7 +141,7 @@ export default function CategoriesTable({ categories,
 
             {categories.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <p className="text-muted-foreground">No categories found</p>
+                    <p className="text-muted-foreground font-bold">No categories found</p>
                     <p className="text-sm text-muted-foreground">
                         Add a new category to get started
                     </p>

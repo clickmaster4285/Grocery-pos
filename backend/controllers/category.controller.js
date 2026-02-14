@@ -13,13 +13,25 @@ exports.createCategory = async (req, res, next) => {
       });
     }
 
-    const existingCategory = await Category.findOne({ name: value.name, isActive: true });
+    const existingCategory = await Category.findOne({ 
+      name: value.name, 
+      isDeleted: false 
+    });
+    
     if (existingCategory) {
       return res.status(409).json({ message: 'Category with this name already exists.' });
     }
 
-    const category = await Category.create(value);
-    res.status(201).json(category);
+    const category = await Category.create({
+      ...value,
+      createdBy: req.user.id,
+      updatedBy: req.user.id
+    });
+
+    res.status(201).json({
+      success: true,
+      data: category
+    });
   } catch (error) {
     next(error);
   }
@@ -28,8 +40,15 @@ exports.createCategory = async (req, res, next) => {
 // Get all categories
 exports.getAllCategories = async (req, res, next) => {
   try {
-    const categories = await Category.find({ isActive: true }).sort({ name: 1 });
-    res.status(200).json(categories);
+    const categories = await Category.find({})
+      .populate('createdBy', 'firstName lastName')
+      .sort({ name: 1 });
+      
+    res.status(200).json({
+      success: true,
+      count: categories.length,
+      data: categories
+    });
   } catch (error) {
     next(error);
   }
@@ -43,11 +62,17 @@ exports.getCategoryById = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid category ID format.' });
     }
 
-    const category = await Category.findOne({ _id: id, isActive: true });
+    const category = await Category.findOne({ _id: id, isDeleted: false })
+      .populate('createdBy', 'firstName lastName')
+      .populate('updatedBy', 'firstName lastName');
+
     if (!category) {
-      return res.status(404).json({ message: 'Category not found or is inactive.' });
+      return res.status(404).json({ message: 'Category not found.' });
     }
-    res.status(200).json(category);
+    res.status(200).json({
+      success: true,
+      data: category
+    });
   } catch (error) {
     next(error);
   }
@@ -70,28 +95,35 @@ exports.updateCategory = async (req, res, next) => {
     }
 
     if (value.name) {
-      const existingCategory = await Category.findOne({ name: value.name, _id: { $ne: id }, isActive: true });
+      const existingCategory = await Category.findOne({ 
+        name: value.name, 
+        _id: { $ne: id }, 
+        isDeleted: false 
+      });
       if (existingCategory) {
         return res.status(409).json({ message: 'Category with this name already exists.' });
       }
     }
 
     const category = await Category.findOneAndUpdate(
-      { _id: id, isActive: true },
-      value,
+      { _id: id, isDeleted: false },
+      { ...value, updatedBy: req.user.id },
       { new: true, runValidators: true }
     );
 
     if (!category) {
-      return res.status(404).json({ message: 'Category not found or is inactive.' });
+      return res.status(404).json({ message: 'Category not found.' });
     }
-    res.status(200).json(category);
+    res.status(200).json({
+      success: true,
+      data: category
+    });
   } catch (error) {
     next(error);
   }
 };
 
-// Soft delete category by ID (sets isActive to false)
+// Soft delete category by ID
 exports.deleteCategory = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -100,15 +132,22 @@ exports.deleteCategory = async (req, res, next) => {
     }
 
     const category = await Category.findOneAndUpdate(
-      { _id: id, isActive: true },
-      { isActive: false },
+      { _id: id, isDeleted: false },
+      { 
+        isDeleted: true,
+        deletedAt: Date.now(),
+        deletedBy: req.user.id
+      },
       { new: true }
     );
 
     if (!category) {
-      return res.status(404).json({ message: 'Category not found or already inactive.' });
+      return res.status(404).json({ message: 'Category not found or already deleted.' });
     }
-    res.status(200).json({ message: 'Category deactivated successfully.' });
+    res.status(200).json({ 
+      success: true,
+      message: 'Category deleted successfully.' 
+    });
   } catch (error) {
     next(error);
   }

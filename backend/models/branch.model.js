@@ -3,11 +3,18 @@ const mongoose = require("mongoose");
 const BranchSchema = new mongoose.Schema({
   tenant_id: {
     type: mongoose.Schema.Types.ObjectId,
-    //required: true
+    ref: 'Tenant', // If you have a tenant model
+  },
+  branch_code: {
+    type: String,
+    unique: true,
+    uppercase: true,
+    trim: true
   },
   branch_name: {
     type: String,
-    required: true
+    required: true,
+    trim: true
   },
   tax_region: String,
   opening_time: String,
@@ -18,16 +25,40 @@ const BranchSchema = new mongoose.Schema({
     default: "ACTIVE"
   },
   address: {
-    city: String,
+    city: String, 
     state: String,
-    country: String
+    country: String,
+    street: String,
+    zipCode: String
+  },
+  // Audit & Soft Delete Fields
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  isDeleted: {
+    type: Boolean,
+    default: false
+  },
+  deletedAt: {
+    type: Date
+  },
+  deletedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   }
 }, {
   timestamps: true
 });
 
+// Update index to handle soft delete and unique names per tenant
 BranchSchema.index(
-  { tenant_id: 1, branch_name: 1, "address.city": 1, status: 1 },
-  { unique: true }
+  { tenant_id: 1, branch_name: 1, isDeleted: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } }
 );
+
 module.exports = mongoose.model("Branch", BranchSchema);

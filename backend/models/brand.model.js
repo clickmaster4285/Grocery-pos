@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const brandSchema = new mongoose.Schema(
   {
+    //brand code auto generate or manual , brnad origin , brand website ,  brand image , brand status , brand created by , brand updated by , brand created at , brand updated at
     name: {
       type: String,
       required: [true, 'Brand name is required'],

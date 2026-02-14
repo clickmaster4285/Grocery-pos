@@ -10,11 +10,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { CategoryForm } from "./category-form"; // Import the separate form component
+import { CategoryForm } from "./category-form";
 
 const initialFormData = {
+  category_code: "",
   name: "",
   description: "",
+  category_type: "PHYSICAL",
   isActive: true,
 };
 
@@ -22,9 +24,9 @@ const CategoryModal = ({
   isOpen,
   onClose,
   onSave,
-  category, // The category object if in edit mode
-  mode, // "add" or "edit"
-  createCategoryMutation, // Pass these directly to the form
+  category,
+  mode,
+  createCategoryMutation,
   updateCategoryMutation,
 }) => {
   const [formData, setFormData] = useState(initialFormData);
@@ -32,8 +34,10 @@ const CategoryModal = ({
   useEffect(() => {
     if (category && mode === "edit") {
       setFormData({
+        category_code: category.category_code || "",
         name: category.name,
         description: category.description || "",
+        category_type: category.category_type || "PHYSICAL",
         isActive: category.isActive,
       });
     } else {
@@ -47,7 +51,7 @@ const CategoryModal = ({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData, category?._id); // Pass the ID if in edit mode
+    onSave(formData, category?._id);
   };
 
   const title =
@@ -59,16 +63,16 @@ const CategoryModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent >
+      <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogTitle className="text-xl font-bold uppercase tracking-tight text-primary">{title}</DialogTitle>
+          <DialogDescription className="font-medium">{description}</DialogDescription>
         </DialogHeader>
         <CategoryForm
           formData={formData}
           updateFormField={updateFormField}
           handleSubmit={handleSubmit}
-          resetForm={onClose} // Close modal on cancel
+          resetForm={onClose}
           isEditMode={mode === "edit"}
           createCategoryMutation={createCategoryMutation}
           updateCategoryMutation={updateCategoryMutation}

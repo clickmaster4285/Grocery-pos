@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const supplierSchema = new mongoose.Schema(
   {
+    //  supplier id  , tax id, registration number , bank name , account number , account holder name , paymnt terms, 
     name: {
       type: String,
       required: [true, 'Supplier name is required'],
