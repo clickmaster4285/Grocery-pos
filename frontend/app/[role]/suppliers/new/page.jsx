@@ -1,5 +1,5 @@
 import SupplierFormView from '@/components/shared-components/suppliers/supplier-form-view';
 
-export default function EditSupplierPage() {
+export default function NewSupplierPage() {
     return <SupplierFormView />;
 }

@@ -136,10 +136,10 @@ const VariantAttributes = ({ form, variantIndex, supplierOptions, isLoadingSuppl
 const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
   const { user } = useAuth();
   const { data: categoriesData, isLoading: isLoadingCategories } = useGetAllCategories();
-
+  
   const categoryOptions = useMemo(() => {
     if (categoriesData) {
-      return categoriesData?.map(category => ({
+      return categoriesData?.data?.map(category => ({
         label: category.name,
         value: category._id,
       }));
@@ -162,7 +162,7 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
 
   const supplierOptions = useMemo(() => {
     if (suppliersData) {
-      return suppliersData?.map(supplier => ({
+      return suppliersData?.data?.map(supplier => ({
         label: supplier.name,
         value: supplier._id,
       }));

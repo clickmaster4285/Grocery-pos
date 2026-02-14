@@ -1,12 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Truck, Search } from "lucide-react";
+import { Plus, Truck, Search, SlidersHorizontal } from "lucide-react";
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import SuppliersTable from "@/components/shared-components/suppliers/suppliers-table";
-import SupplierModal from "@/components/shared-components/suppliers/supplier-modal";
 import {
     useGetAllSuppliers,
     useDeleteSupplier,
@@ -39,109 +38,97 @@ const Suppliers = () => {
     const { data, isLoading, refetch } = useGetAllSuppliers();
     const deleteSupplierMutation = useDeleteSupplier();
 
-    const suppliers = data ?? [];
+    const suppliers = data?.data ?? [];
 
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
-    const [modalState, setModalState] = useState({ isOpen: false, mode: "add", supplier: null });
     const [supplierToDelete, setSupplierToDelete] = useState(null);
 
     const filteredSuppliers = useMemo(() => {
         return suppliers.filter((supplier) => {
             const matchesSearch =
                 supplier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                supplier.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()) || // Search contact person
-                supplier.email.toLowerCase().includes(searchQuery.toLowerCase()) || // Search email
-                (supplier.address && (
-                    supplier.address.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    supplier.address.state.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    supplier.address.country.toLowerCase().includes(searchQuery.toLowerCase())
-                ));
+                supplier.supplier_code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                supplier.contactPerson?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                supplier.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                supplier.address?.city?.toLowerCase().includes(searchQuery.toLowerCase());
 
             const matchesStatus =
-                statusFilter === "all" ||
-                (statusFilter === "ACTIVE" && supplier.isActive) ||
-                (statusFilter === "INACTIVE" && !supplier.isActive);
+                statusFilter === "all" || supplier.status === statusFilter;
 
             return matchesSearch && matchesStatus;
         });
     }, [suppliers, searchQuery, statusFilter]);
 
-    // Handlers for Supplier Modal
-    const openAddModal = () => {
-        setModalState({ isOpen: true, mode: "add", supplier: null });
-    };
-
-    const openEditModal = (supplier) => {
-        setModalState({ isOpen: true, mode: "edit", supplier: supplier });
-    };
-
-    const closeSupplierModal = () => {
-        setModalState({ isOpen: false, mode: "add", supplier: null });
-        refetch(); // Refetch data after modal closes to show updates
-    };
+    // Navigation Handlers
+    const openAddPage = () => router.push(`/${userPrimaryRole}/suppliers/new`);
+    const openEditPage = (supplier) => router.push(`/${userPrimaryRole}/suppliers/${supplier._id}/edit`);
 
     // Handlers for Delete Confirmation
     const confirmDeleteSupplier = (supplierId) => {
-        setSupplierToDelete(supplierId);
+        const sup = suppliers.find(s => s._id === supplierId);
+        setSupplierToDelete(sup);
     };
 
     const executeDelete = async () => {
         if (!supplierToDelete) return;
-        const toastId = toast.loading('Deleting supplier...');
+        const toastId = toast.loading('Archiving supplier node...');
         try {
-            await deleteSupplierMutation.mutateAsync(supplierToDelete);
-            toast.success('Supplier status updated successfully.', { id: toastId });
+            await deleteSupplierMutation.mutateAsync(supplierToDelete._id);
+            toast.success('Supplier node archived successfully.', { id: toastId });
             setSupplierToDelete(null);
             refetch();
         } catch (err) {
             toast.error('Operation Failed', {
                 id: toastId,
-                description: err.message || 'An unexpected error occurred.',
+                description: err.response?.data?.message || 'An unexpected error occurred.',
             });
         }
     };
 
 
     if (isLoading) {
-        return <div className="p-6">Loading suppliers...</div>;
+        return <div className="p-20 text-center animate-pulse font-semibold text-primary/60 text-lg uppercase tracking-widest italic">Analyzing Supply Network...</div>;
     }
 
     return (
-        <div className="flex">
-            <main className="flex-1">
-                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <main className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-foreground">Suppliers</h1>
-                        <p className="text-sm text-muted-foreground">
-                            Manage your product suppliers
+                        <h1 className="text-3xl font-bold tracking-tight text-foreground">Suppliers</h1>
+                        <p className="text-muted-foreground font-medium mt-1">
+                            Manage and oversee your global supply chain partners.
                         </p>
                     </div>
                     <Button
-                        onClick={openAddModal}
-                        className="gap-2 bg-primary hover:bg-primary/90"
+                        onClick={openAddPage}
+                        className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm"
                     >
                         <Plus className="h-4 w-4" />
-                        Add Supplier
+                        New Supplier
                     </Button>
                 </div>
 
-                <div className="mb-6 flex flex-col gap-4 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex flex-1 items-center gap-4">
-                        <div className="relative flex-1 max-w-sm">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                type="search"
-                                placeholder="Search by name, contact, email or address..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10"
-                            />
-                        </div>
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-center bg-card p-4 rounded-xl border shadow-sm">
+                    <div className="lg:col-span-2 relative">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            type="search"
+                            placeholder="Search by name, code, contact..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10 h-10 border-muted bg-muted/20 focus-visible:bg-background transition-colors"
+                        />
+                    </div>
 
+                    <div className="flex gap-2">
                         <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-37.5">
-                                <SelectValue placeholder="Filter by status" />
+                            <SelectTrigger className="h-10 font-medium bg-muted/20 border-muted">
+                                <div className="flex items-center gap-2">
+                                    <SlidersHorizontal className="h-3.5 w-3.5 opacity-60" />
+                                    <SelectValue placeholder="Status" />
+                                </div>
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Status</SelectItem>
@@ -151,43 +138,42 @@ const Suppliers = () => {
                         </Select>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <Truck className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">
-                            {filteredSuppliers.length} supplier
-                            {filteredSuppliers.length !== 1 ? "s" : ""} found
-                        </span>
+                    <div className="flex justify-end">
+                        <div className="flex items-center gap-2 bg-muted/30 px-4 py-2 rounded-lg border border-border">
+                            <Truck className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-semibold text-foreground">
+                                {filteredSuppliers.length} <span className="text-muted-foreground font-medium">Partners</span>
+                            </span>
+                        </div>
                     </div>
                 </div>
 
                 <SuppliersTable
                     suppliers={filteredSuppliers}
-                    onEdit={openEditModal}
+                    onEdit={openEditPage}
                     onDelete={confirmDeleteSupplier}
                     userPrimaryRole={userPrimaryRole}
                 />
             </main>
 
-            {/* Supplier Modal */}
-            <SupplierModal
-                isOpen={modalState.isOpen}
-                onClose={closeSupplierModal}
-                supplier={modalState.supplier}
-                mode={modalState.mode}
-            />
-
             {/* Delete Confirmation AlertDialog */}
             <AlertDialog open={!!supplierToDelete} onOpenChange={(open) => !open && setSupplierToDelete(null)}>
-                <AlertDialogContent>
+                <AlertDialogContent className="border-none shadow-2xl">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This action will toggle the status of the supplier. You can reactivate it later.
+                        <AlertDialogTitle className="text-xl font-bold text-destructive">Confirm Deletion</AlertDialogTitle>
+                        <AlertDialogDescription className="text-base text-muted-foreground py-2 leading-relaxed">
+                            Are you sure you want to remove <span className="text-foreground font-semibold underline underline-offset-4 decoration-primary/30">{supplierToDelete?.name}</span>? 
+                            This trade partner will be archived and hidden from active procurement cycles.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={executeDelete}>Continue</AlertDialogAction>
+                    <AlertDialogFooter className="pt-4">
+                        <AlertDialogCancel className="font-semibold">Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={executeDelete}
+                            className="bg-destructive hover:bg-destructive/90 text-white font-semibold"
+                        >
+                            Delete Supplier
+                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
