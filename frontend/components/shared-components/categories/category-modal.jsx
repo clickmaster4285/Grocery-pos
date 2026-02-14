@@ -63,7 +63,7 @@ const CategoryModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-2xl bg-white">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold uppercase tracking-tight text-primary">{title}</DialogTitle>
           <DialogDescription className="font-medium">{description}</DialogDescription>

@@ -1,6 +1,26 @@
 const Category = require('../models/category.model');
+const Counter = require('../models/counter.model');
 const mongoose = require('mongoose');
 const { createCategorySchema, updateCategorySchema } = require('../validation/category.validation');
+
+// Helper to generate category code: CAT-[BASE36_SERIAL]
+const generateCategoryCode = async () => {
+    const counter = await Counter.findOneAndUpdate(
+        { id: 'category_code' },
+        [
+            {
+                $set: {
+                    seq: { $add: [{ $ifNull: ["$seq", 0] }, 1] },
+                    lastDate: new Date().toISOString().slice(0, 10).replace(/-/g, '')
+                }
+            }
+        ],
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    const serial = counter.seq.toString(36).toUpperCase().padStart(3, '0');
+    return `CAT-${serial}`;
+};
 
 // Create a new category
 exports.createCategory = async (req, res, next) => {
@@ -20,6 +40,11 @@ exports.createCategory = async (req, res, next) => {
     
     if (existingCategory) {
       return res.status(409).json({ message: 'Category with this name already exists.' });
+    }
+
+    // Force generation if empty or missing
+    if (!value.category_code || value.category_code.trim() === "") {
+      value.category_code = await generateCategoryCode();
     }
 
     const category = await Category.create({
@@ -62,7 +87,7 @@ exports.getCategoryById = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid category ID format.' });
     }
 
-    const category = await Category.findOne({ _id: id, isDeleted: false })
+    const category = await Category.findOne({ _id: id,})
       .populate('createdBy', 'firstName lastName')
       .populate('updatedBy', 'firstName lastName');
 
@@ -105,15 +130,28 @@ exports.updateCategory = async (req, res, next) => {
       }
     }
 
+    // Fetch existing doc to check for missing code
+    const existingDoc = await Category.findOne({ _id: id });
+    if (!existingDoc) {
+      return res.status(404).json({ message: 'Category not found.' });
+    }
+
+    // Logic for code: if incoming is empty/missing AND DB is missing, generate.
+    // If incoming is empty but DB has one, keep DB one.
+    if (!value.category_code || value.category_code.trim() === "") {
+      if (!existingDoc.category_code) {
+        value.category_code = await generateCategoryCode();
+      } else {
+        value.category_code = existingDoc.category_code;
+      }
+    }
+
     const category = await Category.findOneAndUpdate(
-      { _id: id, isDeleted: false },
+      { _id: id},
       { ...value, updatedBy: req.user.id },
       { new: true, runValidators: true }
     );
 
-    if (!category) {
-      return res.status(404).json({ message: 'Category not found.' });
-    }
     res.status(200).json({
       success: true,
       data: category

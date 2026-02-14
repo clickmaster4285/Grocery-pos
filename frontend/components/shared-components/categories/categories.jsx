@@ -54,7 +54,7 @@ const Categories = () => {
 
     // Filter categories based on search and status
     const filteredCategories = useMemo(() => {
-        return categories.filter((category) => {
+        return categories?.data?.filter((category) => {
             const matchesSearch =
                 category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 category.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||

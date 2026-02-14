@@ -220,7 +220,7 @@ const BranchFormPage = () => {
 
             <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 {/* Left: Configuration Form */}
-                <div className="lg:col-span-8 space-y-10">
+                <div className="lg:col-span-8 space-y-4">
                     {/* Identity Section */}
                     <section>
                         <div className="flex items-center gap-2">
@@ -229,7 +229,7 @@ const BranchFormPage = () => {
                         </div>
                         
                         <Card className="border-none shadow-none bg-muted/20 rounded-2xl">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2.5">
                                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Branch Name</Label>
                                     <div className="relative group">
@@ -291,7 +291,7 @@ const BranchFormPage = () => {
                             <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-foreground">Geographical Positioning</h2>
                         </div>
                         
-                        <Card className="border-none shadow-none bg-muted/20 rounded-2xl p-8 space-y-8">
+                        <Card className="border-none shadow-none bg-muted/20 rounded-2xl p-4 space-y-4">
                             <div className="space-y-2.5">
                                 <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Street Deployment</Label>
                                 <div className="relative group">

@@ -43,7 +43,7 @@ const ProductStatsCards = ({
       </Card>
 
       {/* Category Filter Card */}
-      <Card className={`border-2 shadow-sm overflow-hidden transition-all h-36 ${filters.category ? 'border-emerald-500 bg-emerald-50/10' : 'border-emerald-500/10'}`}>
+      <Card className={`border-2 shadow-sm overflow-hidden transition-all h-36 ${filters.category ? 'border-emerald-500 bg-emerald-50/10' : 'border-emerald-500'}`}>
         <CardContent className="p-0 h-full flex flex-col">
           <div className="flex items-center justify-between px-3 pt-2">
             <div className="flex items-center gap-1.5">
@@ -88,7 +88,7 @@ const ProductStatsCards = ({
       </Card>
 
       {/* Brand Filter Card */}
-      <Card className={`border-2 shadow-sm overflow-hidden transition-all h-36 ${filters.brand ? 'border-sky-500 bg-sky-50/10' : 'border-sky-500/10'}`}>
+      <Card className={`border-2 shadow-sm overflow-hidden transition-all h-36 ${filters.brand ? 'border-sky-500 bg-sky-50/10' : 'border-sky-500'}`}>
         <CardContent className="p-0 h-full flex flex-col">
           <div className="flex items-center justify-between px-3 pt-2">
             <div className="flex items-center gap-1.5">

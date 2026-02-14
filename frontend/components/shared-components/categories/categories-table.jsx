@@ -74,14 +74,14 @@ export default function CategoriesTable({ categories,
                         >
                             <td className="px-4 py-4">
                                 <div className="font-mono text-xs font-bold text-primary">
-                                    {category.category_code || "---"}
+                                    {category.category_code || "N/A"}
                                 </div>
                             </td>
                             <td className="px-4 py-4">
                                 <div className="font-bold text-foreground">
                                     {category.name}
                                 </div>
-                                <div className="text-[10px] text-muted-foreground line-clamp-1 max-w-[200px]">
+                                <div className="text-[10px] text-muted-foreground line-clamp-1 max-w-50">
                                     {category.description || "No description"}
                                 </div>
                             </td>

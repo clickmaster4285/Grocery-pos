@@ -110,7 +110,14 @@ exports.updateBranch = async (req, res) => {
     const { id } = req.params;
     let { branch_code } = req.body;
 
-    if (!branch_code) {
+    if (branch_code === "") {
+      const existingBranch = await Branch.findById(id);
+      if (existingBranch && !existingBranch.branch_code) {
+        branch_code = await generateBranchCode();
+      } else if (existingBranch) {
+        branch_code = existingBranch.branch_code;
+      }
+    } else if (!branch_code) {
       const existingBranch = await Branch.findById(id);
       if (existingBranch && !existingBranch.branch_code) {
         branch_code = await generateBranchCode();
