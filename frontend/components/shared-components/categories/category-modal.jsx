@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -55,28 +55,37 @@ const CategoryModal = ({
   };
 
   const title =
-    mode === "add" ? "Add New Category" : "Edit Category";
+    mode === "add" ? "Register Category" : "Configure Category";
   const description =
     mode === "add"
-      ? "Create a new product category."
-      : "Update category details below.";
+      ? "Initialize a new architectural node for product classification."
+      : "Update classification parameters for this category node.";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl bg-white">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold uppercase tracking-tight text-primary">{title}</DialogTitle>
-          <DialogDescription className="font-medium">{description}</DialogDescription>
+      <DialogContent className="max-w-xl bg-card border-border shadow-2xl rounded-2xl overflow-hidden p-0">
+        <DialogHeader className="px-6 py-5 border-b bg-muted/30">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                <Tag className="h-4.5 w-4.5 text-primary" />
+            </div>
+            <div className="space-y-0.5">
+                <DialogTitle className="text-xl font-bold tracking-tight text-foreground">{title}</DialogTitle>
+                <DialogDescription className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{description}</DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
-        <CategoryForm
-          formData={formData}
-          updateFormField={updateFormField}
-          handleSubmit={handleSubmit}
-          resetForm={onClose}
-          isEditMode={mode === "edit"}
-          createCategoryMutation={createCategoryMutation}
-          updateCategoryMutation={updateCategoryMutation}
-        />
+        <div className="p-6">
+            <CategoryForm
+                formData={formData}
+                updateFormField={updateFormField}
+                handleSubmit={handleSubmit}
+                resetForm={onClose}
+                isEditMode={mode === "edit"}
+                createCategoryMutation={createCategoryMutation}
+                updateCategoryMutation={updateCategoryMutation}
+            />
+        </div>
       </DialogContent>
     </Dialog>
   );

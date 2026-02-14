@@ -2,7 +2,12 @@ const mongoose = require('mongoose');
 
 const supplierSchema = new mongoose.Schema(
   {
-    //  supplier id  , tax id, registration number , bank name , account number , account holder name , paymnt terms, 
+    supplier_code: {
+      type: String,
+      unique: true,
+      uppercase: true,
+      trim: true
+    },
     name: {
       type: String,
       required: [true, 'Supplier name is required'],
@@ -25,28 +30,72 @@ const supplierSchema = new mongoose.Schema(
       ],
     },
     phone: {
-      type: String, // Changed to String to handle various formats
+      type: String,
       trim: true,
-      match: [
-        /^(?:\+?[1-9]\d{1,14}|03\d{9})$/,
-        'Please enter a valid phone number',
-      ],
     },
     address: {
       street: String,
       city: String,
       state: String,
-      zip: String,
+      zipCode: String,
       country: String,
     },
-    isActive: {
-      type: Boolean,
-      default: true,
+    // Financial & Tax Info
+    tax_id: {
+      type: String,
+      trim: true
     },
+    registration_number: {
+      type: String,
+      trim: true
+    },
+    bank_details: {
+      bank_name: String,
+      account_number: String,
+      account_holder_name: String,
+      branch_name: String,
+      iban: String
+    },
+    payment_terms: {
+      type: String,
+      enum: ['CASH', 'CREDIT', 'NET_30', 'NET_60', 'DUE_ON_RECEIPT'],
+      default: 'CASH'
+    },
+    status: {
+      type: String,
+      enum: ['ACTIVE', 'INACTIVE'],
+      default: 'ACTIVE'
+    },
+    // Audit & Soft Delete Fields
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false
+    },
+    deletedAt: {
+      type: Date
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
   },
   {
     timestamps: true,
   }
+);
+
+// Index to prevent duplicate names if not deleted
+supplierSchema.index(
+  { name: 1, isDeleted: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } }
 );
 
 module.exports = mongoose.model('Supplier', supplierSchema);

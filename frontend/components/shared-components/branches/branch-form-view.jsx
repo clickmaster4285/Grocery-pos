@@ -154,7 +154,7 @@ const BranchFormPage = () => {
                 toast.success("Branch record successfully updated.", { id: toastId });
             } else {
                 await createBranchMutation.mutateAsync(formData);
-                toast.success("New branch Branch deployed successfully.", { id: toastId });
+                toast.success("New branch has deployed successfully.", { id: toastId });
             }
             router.push(`/${role}/branches`);
         } catch (error) {
@@ -213,7 +213,7 @@ const BranchFormPage = () => {
                     </Button>
                    <Button onClick={handleSubmit} className="bg-primary hover:bg-primary/90 font-semibold text-xs tracking-widest rounded-md shadow-lg shadow-primary/20 gap-2">
                         <Save className="h-4 w-4" />
-                        {isEditMode ? 'Sync Records' : 'Deploy Branch'}
+                        {isEditMode ? 'Sync Records' : 'Create Branch'}
                     </Button>
                 </div>
             </div>

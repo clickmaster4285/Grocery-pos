@@ -25,13 +25,13 @@ const ProductStatsCards = ({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {/* Total Products Card */}
-      <Card className="border-2 border-primary shadow-sm overflow-hidden h-36">
+      <Card className="border-2 border-purple-500 shadow-sm overflow-hidden h-36">
         <CardContent className="p-0 h-full flex">
-          <div className="w-12 bg-primary/5 flex items-center justify-center border-r">
-            <Package className="h-5 w-5 text-primary" />
+          <div className="w-12 bg-purple-500/5 flex items-center justify-center border-r">
+            <Package className="h-5 w-5 text-purple-500" />
           </div>
           <div className="flex-1 p-3 flex flex-col justify-center">
-            <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-0.5">Inventory</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-purple-500 mb-0.5">Inventory</p>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
               <div className="flex items-baseline gap-1.5">
                 <div className="text-2xl font-black leading-none">{stats?.totalProducts || 0}</div>
