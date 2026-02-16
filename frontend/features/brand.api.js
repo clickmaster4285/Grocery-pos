@@ -4,8 +4,15 @@ import api from '@/lib/api';
 const brandAPI = {
   getAllBrands: () => api.get('/brands'),
   getBrandById: (id) => api.get(`/brands/${id}`),
-  createBrand: (brandData) => api.post('/brands', brandData),
-  updateBrand: (id, brandData) => api.put(`/brands/${id}`, brandData),
+  createBrand: (brandData) => {
+    // If brandData is FormData, let axios set the correct Content-Type with boundary
+    const headers = brandData instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {};
+    return api.post('/brands', brandData, { headers });
+  },
+  updateBrand: (id, brandData) => {
+    const headers = brandData instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {};
+    return api.put(`/brands/${id}`, brandData, { headers });
+  },
   deleteBrand: (id) => api.delete(`/brands/${id}`), // Soft delete
 };
 

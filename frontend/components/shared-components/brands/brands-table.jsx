@@ -17,7 +17,7 @@ export default function BrandsTable({ brands,
     userPrimaryRole,
 }) {
     const router = useRouter();
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
     const handleRowClick = (brandId) => {
         router.push(`/${userPrimaryRole}/brands/${brandId}`);
@@ -31,7 +31,9 @@ export default function BrandsTable({ brands,
         });
     };
 
-    return (
+    console.log(brands)
+
+    return (    
         <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
             <table className="w-full border-collapse">
                 <thead>
@@ -76,12 +78,12 @@ export default function BrandsTable({ brands,
                             </td>
                             <td className="px-6 py-5">
                                 <div className="flex items-center gap-4">
-                                    <div className="h-10 w-10 rounded-lg border border-border/50 bg-background flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                                    <div className="h-10 w-10 flex items-center justify-center overflow-hidden shrink-0">
                                         {brand.logo ? (
                                             <img 
-                                                src={`${apiUrl}/${brand.logo}`} 
+                                                src={`${API_URL}/${brand.logo}`} 
                                                 alt={brand.name} 
-                                                className="h-full w-full object-contain p-1"
+                                                className="h-full w-full object-contain"
                                             />
                                         ) : (
                                             <ShieldCheck className="h-5 w-5 text-muted-foreground/30" />
@@ -91,7 +93,7 @@ export default function BrandsTable({ brands,
                                         <div className="font-bold text-foreground text-sm group-hover:text-primary transition-colors">
                                             {brand.name}
                                         </div>
-                                        <div className="text-[11px] text-muted-foreground font-medium mt-0.5 line-clamp-1 max-w-[200px]">
+                                        <div className="text-[11px] text-muted-foreground font-medium mt-0.5 line-clamp-1 max-w-50">
                                             {brand.description || "No descriptive metadata"}
                                         </div>
                                     </div>
@@ -102,7 +104,7 @@ export default function BrandsTable({ brands,
                                     {brand.origin || "Global"}
                                 </div>
                                 {brand.website && (
-                                    <div className="text-[10px] text-primary font-medium truncate max-w-[150px]">
+                                    <div className="text-[10px] text-primary font-medium truncate max-w-37.5">
                                         {brand.website.replace(/^https?:\/\//, '')}
                                     </div>
                                 )}
@@ -174,7 +176,7 @@ export default function BrandsTable({ brands,
                         <ShieldCheck className="h-10 w-10 text-muted-foreground/40" />
                     </div>
                     <p className="text-muted-foreground font-semibold text-lg">No brands registered</p>
-                    <p className="text-sm text-muted-foreground max-w-[250px]">
+                    <p className="text-sm text-muted-foreground max-w-62.5">
                         Start building your product catalog by registering your first brand node.
                     </p>
                 </div>

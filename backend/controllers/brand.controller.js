@@ -69,8 +69,11 @@ exports.createBrand = async (req, res, next) => {
     if (req.file) {
         value.logo = `uploads/brands/${req.file.filename}`;
     } else {
-        // Ensure logo is not an object (prevents CastError)
-        delete value.logo;
+        // If no new file, but logo was passed as something other than a string (e.g. {}),
+        // we remove it to prevent Mongoose CastError.
+        if (value.logo !== undefined && typeof value.logo !== 'string') {
+            delete value.logo;
+        }
     }
 
     const brand = await Brand.create({

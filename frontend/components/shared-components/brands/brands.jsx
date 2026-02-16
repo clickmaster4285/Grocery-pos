@@ -83,11 +83,20 @@ const Brands = () => {
         try {
             // Convert to FormData for file upload support
             const formData = new FormData();
+            
+            // Append all non-file fields first
             Object.keys(brandData).forEach(key => {
-                if (brandData[key] !== null && brandData[key] !== undefined) {
+                if (key !== 'logo' && brandData[key] !== null && brandData[key] !== undefined) {
                     formData.append(key, brandData[key]);
                 }
             });
+
+            // Append logo last if it's a file
+            if (brandData.logo instanceof File) {
+                formData.append('logo', brandData.logo);
+            } else if (typeof brandData.logo === 'string') {
+                formData.append('logo', brandData.logo);
+            }
 
             if (modalState.mode === "add") {
                 await createBrandMutation.mutateAsync(formData);
