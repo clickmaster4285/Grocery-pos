@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, ShieldCheck, Search, Globe, SlidersHorizontal } from "lucide-react";
+import { Plus, ShieldCheck, Search, Globe, SlidersHorizontal, ShieldAlert } from "lucide-react";
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import BrandsTable from "@/components/shared-components/inventory/brands/brands-table";
 import BrandModal from "@/components/shared-components/inventory/brands/brand-modal";
 import {
@@ -36,9 +37,12 @@ import {
 const Brands = () => {
     const router = useRouter();
     const { user } = useAuth();
-    const userPrimaryRole = user?.role?.toLowerCase() || 'customer';
+    const { inventory, currentUserRole } = usePermissions();
+    
+    const canReadBrands = inventory.brands.read;
+    const canCreateBrands = inventory.brands.create;
 
-    const { data, isLoading, refetch } = useGetAllBrands();
+    const { data, isLoading, refetch } = useGetAllBrands({ enabled: canReadBrands });
     const createBrandMutation = useCreateBrand();
     const updateBrandMutation = useUpdateBrand();
     const deleteBrandMutation = useDeleteBrand();
@@ -137,6 +141,15 @@ const Brands = () => {
         }
     };
 
+    if (!canReadBrands) {
+        return (
+            <div className="p-8 text-center bg-background rounded-lg border border-dashed flex flex-col items-center justify-center">
+                <ShieldAlert className="h-12 w-12 text-destructive mb-4 opacity-50" />
+                <h2 className="text-xl font-bold text-destructive mb-2">Access Denied</h2>
+                <p className="text-muted-foreground max-w-sm">You do not have permission to view brand management.</p>
+            </div>
+        );
+    }
 
     if (isLoading) {
         return <div className="p-20 text-center animate-pulse font-semibold text-primary/60 text-lg uppercase tracking-widest italic">Analyzing Brand Network...</div>;
@@ -152,13 +165,15 @@ const Brands = () => {
                             Manage and oversee your product brand portfolio.
                         </p>
                     </div>
-                    <Button
-                        onClick={openAddModal}
-                        className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm"
-                    >
-                        <Plus className="h-4 w-4" />
-                        New Brand
-                    </Button>
+                    {canCreateBrands && (
+                        <Button
+                            onClick={openAddModal}
+                            className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm"
+                        >
+                            <Plus className="h-4 w-4" />
+                            New Brand
+                        </Button>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-center bg-card p-4 rounded-xl border shadow-sm">
@@ -203,7 +218,7 @@ const Brands = () => {
                     brands={filteredBrands}
                     onEdit={openEditModal}
                     onDelete={confirmDeleteBrand}
-                    userPrimaryRole={userPrimaryRole}
+                    userPrimaryRole={currentUserRole}
                 />
             </main>
 

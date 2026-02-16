@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Truck, Search, SlidersHorizontal } from "lucide-react";
+import { Plus, Truck, Search, SlidersHorizontal, ShieldAlert } from "lucide-react";
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import SuppliersTable from "@/components/shared-components/inventory/suppliers/suppliers-table";
 import {
     useGetAllSuppliers,
@@ -33,9 +34,12 @@ import {
 const Suppliers = () => {
     const router = useRouter();
     const { user } = useAuth();
-    const userPrimaryRole = user?.role?.toLowerCase() || 'customer';
+    const { inventory, currentUserRole } = usePermissions();
+    
+    const canReadSuppliers = inventory.suppliers.read;
+    const canCreateSuppliers = inventory.suppliers.create;
 
-    const { data, isLoading, refetch } = useGetAllSuppliers();
+    const { data, isLoading, refetch } = useGetAllSuppliers({ enabled: canReadSuppliers });
     const deleteSupplierMutation = useDeleteSupplier();
 
     const suppliers = data?.data ?? [];
@@ -61,8 +65,8 @@ const Suppliers = () => {
     }, [suppliers, searchQuery, statusFilter]);
 
     // Navigation Handlers
-    const openAddPage = () => router.push(`/${userPrimaryRole}/inventory/suppliers/new`);
-    const openEditPage = (supplier) => router.push(`/${userPrimaryRole}/inventory/suppliers/${supplier._id}/edit`);
+    const openAddPage = () => router.push(`/${currentUserRole}/inventory/suppliers/new`);
+    const openEditPage = (supplier) => router.push(`/${currentUserRole}/inventory/suppliers/${supplier._id}/edit`);
 
     // Handlers for Delete Confirmation
     const confirmDeleteSupplier = (supplierId) => {
@@ -86,6 +90,15 @@ const Suppliers = () => {
         }
     };
 
+    if (!canReadSuppliers) {
+        return (
+            <div className="p-8 text-center bg-background rounded-lg border border-dashed flex flex-col items-center justify-center">
+                <ShieldAlert className="h-12 w-12 text-destructive mb-4 opacity-50" />
+                <h2 className="text-xl font-bold text-destructive mb-2">Access Denied</h2>
+                <p className="text-muted-foreground max-w-sm">You do not have permission to view suppliers.</p>
+            </div>
+        );
+    }
 
     if (isLoading) {
         return <div className="p-20 text-center animate-pulse font-semibold text-primary/60 text-lg uppercase tracking-widest italic">Analyzing Supply Network...</div>;
@@ -101,13 +114,15 @@ const Suppliers = () => {
                             Manage and oversee your global supply chain partners.
                         </p>
                     </div>
-                    <Button
-                        onClick={openAddPage}
-                        className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm"
-                    >
-                        <Plus className="h-4 w-4" />
-                        New Supplier
-                    </Button>
+                    {canCreateSuppliers && (
+                        <Button
+                            onClick={openAddPage}
+                            className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm"
+                        >
+                            <Plus className="h-4 w-4" />
+                            New Supplier
+                        </Button>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-center bg-card p-4 rounded-xl border shadow-sm">
@@ -152,7 +167,7 @@ const Suppliers = () => {
                     suppliers={filteredSuppliers}
                     onEdit={openEditPage}
                     onDelete={confirmDeleteSupplier}
-                    userPrimaryRole={userPrimaryRole}
+                    userPrimaryRole={currentUserRole}
                 />
             </main>
 

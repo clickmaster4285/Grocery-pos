@@ -10,6 +10,7 @@ import {
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from 'next/navigation';
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function CategoriesTable({ categories,
     onEdit,
@@ -17,6 +18,10 @@ export default function CategoriesTable({ categories,
     userPrimaryRole,
 }) {
     const router = useRouter();
+    const { inventory } = usePermissions();
+
+    const canUpdateCategories = inventory.categories.update;
+    const canDeleteCategories = inventory.categories.delete;
 
     const handleRowClick = (categoryId) => {
         router.push(`/${userPrimaryRole}/inventory/categories/${categoryId}`);
@@ -117,39 +122,45 @@ export default function CategoriesTable({ categories,
                                 </div>
                             </td>
                             <td className="px-6 py-5 text-right">
-                                <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-muted-foreground hover:bg-muted rounded-lg"
-                                            >
-                                                <MoreVertical className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
+                                {(canUpdateCategories || canDeleteCategories) && (
+                                    <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-muted-foreground hover:bg-muted rounded-lg"
+                                                >
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
 
-                                        <DropdownMenuContent align="end" className="w-52 p-1.5 rounded-xl shadow-xl border-border/50">
-                                            <DropdownMenuItem
-                                                onClick={() => onEdit(category)}
-                                                className="flex items-center gap-2.5 cursor-pointer py-2 px-3 rounded-lg font-semibold"
-                                            >
-                                                <Pencil className="h-4 w-4 text-primary" />
-                                                <span className="text-sm">Edit Category</span>
-                                            </DropdownMenuItem>
-                                            
-                                            <DropdownMenuSeparator className="my-1.5" />
-                                            
-                                            <DropdownMenuItem
-                                                onClick={() => onDelete(category._id)}
-                                                className="flex items-center gap-2.5 cursor-pointer text-destructive focus:text-destructive py-2 px-3 rounded-lg font-semibold"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                                <span className="text-sm">Delete Category</span>
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </div>
+                                            <DropdownMenuContent align="end" className="w-52 p-1.5 rounded-xl shadow-xl border-border/50">
+                                                {canUpdateCategories && (
+                                                    <DropdownMenuItem
+                                                        onClick={() => onEdit(category)}
+                                                        className="flex items-center gap-2.5 cursor-pointer py-2 px-3 rounded-lg font-semibold"
+                                                    >
+                                                        <Pencil className="h-4 w-4 text-primary" />
+                                                        <span className="text-sm">Edit Category</span>
+                                                    </DropdownMenuItem>
+                                                )}
+                                                
+                                                {canUpdateCategories && canDeleteCategories && <DropdownMenuSeparator className="my-1.5" />}
+                                                
+                                                {canDeleteCategories && (
+                                                    <DropdownMenuItem
+                                                        onClick={() => onDelete(category._id)}
+                                                        className="flex items-center gap-2.5 cursor-pointer text-destructive focus:text-destructive py-2 px-3 rounded-lg font-semibold"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                        <span className="text-sm">Delete Category</span>
+                                                    </DropdownMenuItem>
+                                                )}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                )}
                             </td>
                         </tr>
                     ))}

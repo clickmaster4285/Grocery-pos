@@ -10,7 +10,7 @@ import {
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from 'next/navigation';
-import { Switch } from "@/components/ui/switch";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function SuppliersTable({ suppliers,
     onEdit,
@@ -18,6 +18,10 @@ export default function SuppliersTable({ suppliers,
     userPrimaryRole,
 }) {
     const router = useRouter();
+    const { inventory } = usePermissions();
+
+    const canUpdateSuppliers = inventory.suppliers.update;
+    const canDeleteSuppliers = inventory.suppliers.delete;
 
     const handleRowClick = (supplierId) => {
         router.push(`/${userPrimaryRole}/inventory/suppliers/${supplierId}`);
@@ -124,39 +128,45 @@ export default function SuppliersTable({ suppliers,
                                 </div>
                             </td>
                             <td className="px-6 py-5 text-right">
-                                <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-muted-foreground hover:bg-muted rounded-lg"
-                                            >
-                                                <MoreVertical className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
+                                {(canUpdateSuppliers || canDeleteSuppliers) && (
+                                    <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-muted-foreground hover:bg-muted rounded-lg"
+                                                >
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
 
-                                        <DropdownMenuContent align="end" className="w-52 p-1.5 rounded-xl shadow-xl border-border/50">
-                                            <DropdownMenuItem
-                                                onClick={() => onEdit(supplier)}
-                                                className="flex items-center gap-2.5 cursor-pointer py-2 px-3 rounded-lg font-semibold"
-                                            >
-                                                <Pencil className="h-4 w-4 text-primary" />
-                                                <span className="text-sm">Edit Supplier</span>
-                                            </DropdownMenuItem>
-                                            
-                                            <DropdownMenuSeparator className="my-1.5" />
-                                            
-                                            <DropdownMenuItem
-                                                onClick={() => onDelete(supplier._id)}
-                                                className="flex items-center gap-2.5 cursor-pointer text-destructive focus:text-destructive py-2 px-3 rounded-lg font-semibold"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                                <span className="text-sm">Delete Supplier</span>
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </div>
+                                            <DropdownMenuContent align="end" className="w-52 p-1.5 rounded-xl shadow-xl border-border/50">
+                                                {canUpdateSuppliers && (
+                                                    <DropdownMenuItem
+                                                        onClick={() => onEdit(supplier)}
+                                                        className="flex items-center gap-2.5 cursor-pointer py-2 px-3 rounded-lg font-semibold"
+                                                    >
+                                                        <Pencil className="h-4 w-4 text-primary" />
+                                                        <span className="text-sm">Edit Supplier</span>
+                                                    </DropdownMenuItem>
+                                                )}
+                                                
+                                                {canUpdateSuppliers && canDeleteSuppliers && <DropdownMenuSeparator className="my-1.5" />}
+                                                
+                                                {canDeleteSuppliers && (
+                                                    <DropdownMenuItem
+                                                        onClick={() => onDelete(supplier._id)}
+                                                        className="flex items-center gap-2.5 cursor-pointer text-destructive focus:text-destructive py-2 px-3 rounded-lg font-semibold"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                        <span className="text-sm">Delete Supplier</span>
+                                                    </DropdownMenuItem>
+                                                )}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                )}
                             </td>
                         </tr>
                     ))}

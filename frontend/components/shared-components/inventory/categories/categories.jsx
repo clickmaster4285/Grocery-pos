@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Tag, Search, Layers, SlidersHorizontal, Building2 } from "lucide-react";
+import { Plus, Tag, Search, Layers, SlidersHorizontal, ShieldAlert } from "lucide-react";
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import CategoriesTable from "@/components/shared-components/inventory/categories/categories-table";
 import CategoryModal from "@/components/shared-components/inventory/categories/category-modal";
 import {
@@ -36,9 +37,12 @@ import {
 const Categories = () => {
     const router = useRouter();
     const { user } = useAuth();
-    const userPrimaryRole = user?.role?.toLowerCase() || 'customer';
+    const { inventory, currentUserRole } = usePermissions();
+    
+    const canReadCategories = inventory.categories.read;
+    const canCreateCategories = inventory.categories.create;
 
-    const { data, isLoading, refetch } = useGetAllCategories();
+    const { data, isLoading, refetch } = useGetAllCategories({ enabled: canReadCategories });
     const createCategoryMutation = useCreateCategory();
     const updateCategoryMutation = useUpdateCategory();
     const deleteCategoryMutation = useDeleteCategory();
@@ -128,6 +132,15 @@ const Categories = () => {
         }
     };
 
+    if (!canReadCategories) {
+        return (
+            <div className="p-8 text-center bg-background rounded-lg border border-dashed flex flex-col items-center justify-center">
+                <ShieldAlert className="h-12 w-12 text-destructive mb-4 opacity-50" />
+                <h2 className="text-xl font-bold text-destructive mb-2">Access Denied</h2>
+                <p className="text-muted-foreground max-w-sm">You do not have permission to view categories.</p>
+            </div>
+        );
+    }
 
     if (isLoading) {
         return <div className="p-20 text-center animate-pulse font-semibold text-primary/60 text-lg uppercase tracking-widest italic">Analyzing Category Network...</div>;
@@ -143,13 +156,15 @@ const Categories = () => {
                             Classify and organize your architectural product catalog nodes.
                         </p>
                     </div>
-                    <Button
-                        onClick={openAddModal}
-                        className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm"
-                    >
-                        <Plus className="h-4 w-4" />
-                        New Category
-                    </Button>
+                    {canCreateCategories && (
+                        <Button
+                            onClick={openAddModal}
+                            className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm"
+                        >
+                            <Plus className="h-4 w-4" />
+                            New Category
+                        </Button>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-center bg-card p-4 rounded-xl border shadow-sm">
@@ -209,7 +224,7 @@ const Categories = () => {
                     categories={filteredCategories}
                     onEdit={openEditModal}
                     onDelete={confirmDeleteCategory}
-                    userPrimaryRole={userPrimaryRole}
+                    userPrimaryRole={currentUserRole}
                 />
             </main>
 

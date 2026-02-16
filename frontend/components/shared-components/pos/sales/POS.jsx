@@ -15,15 +15,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Trash2, Plus, Minus, Search, ShoppingCart, CreditCard, Banknote, Landmark, Store, Loader2, Printer } from 'lucide-react';
+import { Trash2, Plus, Minus, Search, ShoppingCart, CreditCard, Banknote, Landmark, Store, Loader2, Printer, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReactToPrint } from 'react-to-print';
 import ReceiptPrint from './ReceiptPrint';
 
 const POS = () => {
   const { user } = useAuth();
-  const { hasRole } = usePermissions();
-  const isAdmin = hasRole('admin');
+  const { pos, isAdmin, branch: branchPerms } = usePermissions();
+  
+  const canCreateSale = pos.transaction.create;
+  const canSelectBranch = isAdmin || branchPerms.read; // Admins or those with branch read perms can switch
+
   const searchInputRef = useRef(null);
   const receiptRef = useRef(null);
   
@@ -34,7 +37,7 @@ const POS = () => {
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   const { data: stock, isLoading: stockLoading, isFetching: stockFetching } = useGetBranchStock(activeBranchId, debouncedSearch);
-  const { data: branches } = useGetAllBranches();
+  const { data: branches } = useGetAllBranches({ enabled: canSelectBranch });
   const createSaleMutation = useCreateSale();
 
   const [cart, setCart] = useState([]);
@@ -143,6 +146,7 @@ const POS = () => {
   const finalTotal = Math.max(0, total - discount);
 
   const handleCheckout = async (shouldPrint = false) => {
+    if (!canCreateSale) return toast.error("You don't have permission to finalize sales");
     if (cart.length === 0) return toast.error("Cart is empty");
     if (!activeBranchId) return toast.error("Please select a branch first");
 
@@ -178,6 +182,17 @@ const POS = () => {
     }
   };
 
+  // Block entire UI if no read access to POS Transaction
+  if (!pos.transaction.read) {
+    return (
+        <div className="p-8 text-center bg-background rounded-lg border border-dashed h-full flex flex-col items-center justify-center">
+            <ShieldAlert className="h-12 w-12 text-destructive mb-4 opacity-50" />
+            <h2 className="text-xl font-bold text-destructive mb-2">Access Denied</h2>
+            <p className="text-muted-foreground max-w-sm">You do not have permission to access the Point of Sale terminal.</p>
+        </div>
+    );
+  }
+
   if (!isAdmin && !user?.branch_id) {
     return (
         <div className="p-8 text-center bg-background rounded-lg border border-dashed h-full flex flex-col items-center justify-center">
@@ -210,7 +225,7 @@ const POS = () => {
             </div>
             <div>
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Active Terminal</p>
-              {isAdmin ? (
+              {canSelectBranch ? (
                 <div className="flex items-center gap-2">
                   <Select value={activeBranchId} onValueChange={handleBranchChange}>
                     <SelectTrigger className="h-8 w-50 font-bold border-none p-0 focus:ring-0">
@@ -465,14 +480,14 @@ const POS = () => {
                         variant="outline"
                         className="h-11 font-bold border-2 border-primary text-primary hover:bg-primary/5 transition-all" 
                         onClick={() => handleCheckout(false)}
-                        disabled={cart.length === 0 || createSaleMutation.isLoading}
+                        disabled={cart.length === 0 || createSaleMutation.isLoading || !canCreateSale}
                     >
                         {createSaleMutation.isLoading ? "..." : "FINALIZE ONLY"}
                     </Button>
                     <Button 
                         className="h-11 font-bold shadow-lg shadow-primary/20 transition-all active:scale-[0.98] gap-2" 
                         onClick={() => handleCheckout(true)}
-                        disabled={cart.length === 0 || createSaleMutation.isLoading}
+                        disabled={cart.length === 0 || createSaleMutation.isLoading || !canCreateSale}
                     >
                         {createSaleMutation.isLoading ? "..." : <><Printer className="h-4 w-4" /> FINALIZE & PRINT</>}
                     </Button>

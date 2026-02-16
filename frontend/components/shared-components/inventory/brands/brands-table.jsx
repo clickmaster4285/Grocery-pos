@@ -10,6 +10,7 @@ import {
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from 'next/navigation';
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function BrandsTable({ brands,
     onEdit,
@@ -17,7 +18,11 @@ export default function BrandsTable({ brands,
     userPrimaryRole,
 }) {
     const router = useRouter();
+    const { inventory } = usePermissions();
     const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+    const canUpdateBrands = inventory.brands.update;
+    const canDeleteBrands = inventory.brands.delete;
 
     const handleRowClick = (brandId) => {
         router.push(`/${userPrimaryRole}/inventory/brands/${brandId}`);
@@ -30,8 +35,6 @@ export default function BrandsTable({ brands,
             day: "numeric",
         });
     };
-
-    console.log(brands)
 
     return (    
         <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
@@ -131,39 +134,45 @@ export default function BrandsTable({ brands,
                                 </div>
                             </td>
                             <td className="px-6 py-5 text-right">
-                                <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-muted-foreground hover:bg-muted rounded-lg"
-                                            >
-                                                <MoreVertical className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
+                                {(canUpdateBrands || canDeleteBrands) && (
+                                    <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-muted-foreground hover:bg-muted rounded-lg"
+                                                >
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
 
-                                        <DropdownMenuContent align="end" className="w-52 p-1.5 rounded-xl shadow-xl border-border/50">
-                                            <DropdownMenuItem
-                                                onClick={() => onEdit(brand)}
-                                                className="flex items-center gap-2.5 cursor-pointer py-2 px-3 rounded-lg font-semibold"
-                                            >
-                                                <Pencil className="h-4 w-4 text-primary" />
-                                                <span className="text-sm">Edit Brand</span>
-                                            </DropdownMenuItem>
-                                            
-                                            <DropdownMenuSeparator className="my-1.5" />
-                                            
-                                            <DropdownMenuItem
-                                                onClick={() => onDelete(brand._id)}
-                                                className="flex items-center gap-2.5 cursor-pointer text-destructive focus:text-destructive py-2 px-3 rounded-lg font-semibold"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                                <span className="text-sm">Delete Brand</span>
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </div>
+                                            <DropdownMenuContent align="end" className="w-52 p-1.5 rounded-xl shadow-xl border-border/50">
+                                                {canUpdateBrands && (
+                                                    <DropdownMenuItem
+                                                        onClick={() => onEdit(brand)}
+                                                        className="flex items-center gap-2.5 cursor-pointer py-2 px-3 rounded-lg font-semibold"
+                                                    >
+                                                        <Pencil className="h-4 w-4 text-primary" />
+                                                        <span className="text-sm">Edit Brand</span>
+                                                    </DropdownMenuItem>
+                                                )}
+                                                
+                                                {canUpdateBrands && canDeleteBrands && <DropdownMenuSeparator className="my-1.5" />}
+                                                
+                                                {canDeleteBrands && (
+                                                    <DropdownMenuItem
+                                                        onClick={() => onDelete(brand._id)}
+                                                        className="flex items-center gap-2.5 cursor-pointer text-destructive focus:text-destructive py-2 px-3 rounded-lg font-semibold"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                        <span className="text-sm">Delete Brand</span>
+                                                    </DropdownMenuItem>
+                                                )}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                )}
                             </td>
                         </tr>
                     ))}
