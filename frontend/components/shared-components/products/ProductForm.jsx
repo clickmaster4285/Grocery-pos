@@ -148,9 +148,10 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
   }, [categoriesData]);
 
   const { data: brandsData, isLoading: isLoadingBrands } = useGetAllBrands();
+
   const brandOptions = useMemo(() => {
     if (brandsData) {
-      return brandsData?.map(brand => ({
+      return brandsData?.data?.map(brand => ({
         label: brand.name,
         value: brand._id,
       }));

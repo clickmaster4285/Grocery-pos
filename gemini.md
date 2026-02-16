@@ -20,12 +20,14 @@ The application follows a **Decoupled Monolith** architecture, utilizing a robus
     }
     ```
 -   **CORS & Security**: Implements `helmet` for HTTP header security and strict CORS policies to allow only authorized frontend origins.
+-   **Local Asset Storage**: Static assets (Brand Logos, Product Images) are stored locally in `backend/uploads/{module_name}` and served via Express static middleware. This ensures data sovereignty, speed, and privacy.
 
 ### 1.2. The Multi-Tier Inventory Model
 We distinguish between "Virtual Catalog" and "Physical Availability."
-1.  **Product Model**: The source of truth for metadata (Brand, Category, Name).
-2.  **Variant Model (Nested)**: The level where physical attributes (Size, Color, Material) and **Warehouse Stock** reside.
-3.  **BranchStock Model**: A flat junction table mapping `BranchID + ProductID + VariantID` to a specific `quantity`. This allows for O(1) lookups during checkout.
+1.  **Product Model**: The source of truth for metadata (Category, Name).
+2.  **Brand Model**: Architectural node for product classification. Features atomic `BRD-[BASE36]` codes and local logo storage.
+3.  **Variant Model (Nested)**: The level where physical attributes (Size, Color, Material) and **Warehouse Stock** reside.
+4.  **BranchStock Model**: A flat junction table mapping `BranchID + ProductID + VariantID` to a specific `quantity`. This allows for O(1) lookups during checkout.
 
 ---
 
@@ -46,13 +48,14 @@ MongoDB standalone instances do not support ACID transactions. To prevent "Ghost
 To generate unique, human-readable, and scalable transaction IDs, we avoid sequential integers which leak business volume data to competitors.
 
 **The Algorithm:**
-1.  **Namespace**: Tracked per day (e.g., `sales-20260213`).
+1.  **Namespace**: Tracked per day (e.g., `sales-20260213`) or per entity (e.g., `brand_code`).
 2.  **Increment**: `Counter.findOneAndUpdate(..., { $inc: { seq: 1 } })`.
 3.  **Encoding**: Convert `seq` to Base-36 string.
     -   *Example*: Sequence `1234` becomes `00YA`.
     -   *Example*: Sequence `1,679,615` becomes `ZZZZ`.
 4.  **Formatting**: `[PREFIX]-[YYYYMMDD]-[BASE36_SEQ]`
     -   *Result*: `SALE-20260213-0F9X`
+    -   *Brand Result*: `BRD-0A1`
 
 ---
 
@@ -145,6 +148,7 @@ This ensures that a cashier at Branch A can never see or modify the sales or sto
 -   [x] Hybrid Search POS with Barcode integration.
 -   [x] Atomic Base-36 Return & Exchange system.
 -   [x] Unified Thermal Printing Engine.
+-   [x] Brand Module with Local Asset Management & Base-36 Codes.
 -   [] we have to add customer management module also.
 -   [] we have to add discount & promotion & copoon code management module also.
 

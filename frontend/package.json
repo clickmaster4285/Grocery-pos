@@ -5,9 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "preview": "next preview",
-    "production": "next build && next preview",
     "start": "next start",
+    "production": "next build && next start",
     "lint": "eslint"
   },
   "dependencies": {

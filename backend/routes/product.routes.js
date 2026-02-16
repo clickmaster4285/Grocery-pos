@@ -3,11 +3,11 @@ const router = express.Router();
 const productController = require('../controllers/product.controller');
 const auth = require('../middleware/auth');
 const checkPermission = require('../middleware/checkPermission');
-const upload = require('../middleware/upload');
+const { productUpload } = require('../middleware/upload');
 
 // Create a new product
 router.post(
-  '/', auth, checkPermission('products:create'), upload,
+  '/', auth, checkPermission('products:create'), productUpload.any(),
   productController.createProduct
 );
 
@@ -30,7 +30,7 @@ router.get(
 
 // Update a product by ID
 router.put(
-  '/:id', auth, checkPermission('products:update'), upload,
+  '/:id', auth, checkPermission('products:update'), productUpload.any(),
   productController.updateProduct
 );
 

@@ -4,6 +4,7 @@ const brandController = require('../controllers/brand.controller');
 const auth = require('../middleware/auth');
 const checkPermission = require('../middleware/checkPermission');
 const { PERMISSIONS_OBJECT } = require('../config/permissions');
+const { brandUpload } = require('../middleware/upload');
 
 // All routes in this file require authentication
 router.use(auth);
@@ -12,6 +13,7 @@ router.use(auth);
 router.post(
   '/',
   checkPermission(PERMISSIONS_OBJECT.BRANDS.CREATE),
+  brandUpload.single('logo'),
   brandController.createBrand
 );
 
@@ -33,6 +35,7 @@ router.get(
 router.put(
   '/:id',
   checkPermission(PERMISSIONS_OBJECT.BRANDS.UPDATE),
+  brandUpload.single('logo'),
   brandController.updateBrand
 );
 
