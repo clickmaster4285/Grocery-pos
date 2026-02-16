@@ -180,7 +180,7 @@ const SupplierFormView = () => {
                 await createSupplierMutation.mutateAsync(formData);
                 toast.success("New supplier node deployed successfully.", { id: toastId });
             }
-            router.push(`/${role}/suppliers`);
+            router.push(`/${role}/inventory/suppliers`);
         } catch (error) {
             toast.error("Operation failed", {
                 id: toastId,

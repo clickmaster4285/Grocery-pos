@@ -39,7 +39,7 @@ const SalesPage = () => {
           <h1 className="text-3xl font-bold tracking-tight">Point of Sale</h1>
           <p className="text-muted-foreground">Manage branch sales and customer billing.</p>
         </div>
-        <Button variant="outline" onClick={() => router.push(`/${role}/sales/history`)}>
+        <Button variant="outline" onClick={() => router.push(`/${role}/pos/sales/history`)}>
           <History className="mr-2 h-4 w-4" /> Sales History
         </Button>
       </div>

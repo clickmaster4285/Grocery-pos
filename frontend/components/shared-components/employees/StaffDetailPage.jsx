@@ -33,10 +33,7 @@ export const StaffDetailPage = () => {
   const { id } = useParams(); 
   const router = useRouter();
   const { user: currentUser } = useAuth();
-  const { canUpdate, canDelete, currentUserRole } = usePermissions();
-
-  const module = 'employee_management';
-  const menu = 'employee_database';
+  const { employee, currentUserRole } = usePermissions();
 
   const { data: staff, isLoading, error, refetch } = useStaff(id);
   const updateStaffMutation = useUpdateStaff();
@@ -137,8 +134,8 @@ export const StaffDetailPage = () => {
 
 
   // Permissions for actions
-  const canEdit = useMemo(() => canUpdate(module, menu), [canUpdate, module, menu]);
-  const canDeleteEmployee = useMemo(() => canDelete(module, menu), [canDelete, module, menu]);
+  const canEdit = employee.database.update;
+  const canDeleteEmployee = employee.database.delete;
 
 
   if (isLoading) {

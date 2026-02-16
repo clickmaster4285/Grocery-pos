@@ -193,7 +193,7 @@ export const columns = [
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => router.push(`/${role}/products/${product._id}`)}>
+              <DropdownMenuItem onClick={() => router.push(`/${role}/inventory/products/${product._id}`)}>
                 <Eye className="mr-2 h-4 w-4" /> View
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => table.options.meta.onEditProduct(product._id)}>

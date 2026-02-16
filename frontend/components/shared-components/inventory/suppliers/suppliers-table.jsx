@@ -20,7 +20,7 @@ export default function SuppliersTable({ suppliers,
     const router = useRouter();
 
     const handleRowClick = (supplierId) => {
-        router.push(`/${userPrimaryRole}/suppliers/${supplierId}`);
+        router.push(`/${userPrimaryRole}/inventory/suppliers/${supplierId}`);
     };
 
     const formatDate = (dateString) => {

@@ -109,7 +109,7 @@ const SalesHistory = () => {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={() => router.push(`/${role}/sales`)}>
+          <Button variant="outline" size="icon" onClick={() => router.push(`/${role}/pos/sales`)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-3xl font-bold tracking-tight text-primary k uppercase italic">Transaction History</h1>
@@ -261,7 +261,7 @@ const SalesHistory = () => {
                             Transaction Control
                           </DropdownMenuLabel>
 
-                          <DropdownMenuItem className="gap-3 cursor-pointer py-3 rounded-xl" onClick={() => router.push(`/${role}/sales/history/${sale._id}`)}>
+                          <DropdownMenuItem className="gap-3 cursor-pointer py-3 rounded-xl" onClick={() => router.push(`/${role}/pos/sales/history/${sale._id}`)}>
                             <div className="bg-blue-100 p-2 rounded-lg">
                               <Eye className="h-4 w-4 text-blue-600" />
                             </div>
@@ -271,7 +271,7 @@ const SalesHistory = () => {
                             </div>
                           </DropdownMenuItem>
 
-                          <DropdownMenuItem className="gap-3 cursor-pointer py-3 rounded-xl" onClick={() => router.push(`/${role}/sales/history/${sale._id}/return`)}>
+                          <DropdownMenuItem className="gap-3 cursor-pointer py-3 rounded-xl" onClick={() => router.push(`/${role}/pos/sales/history/${sale._id}/return`)}>
                             <div className="bg-amber-100 p-2 rounded-lg">
                               <RotateCcw className="h-4 w-4 text-amber-600" />
                             </div>

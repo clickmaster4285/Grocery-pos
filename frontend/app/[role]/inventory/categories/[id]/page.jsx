@@ -76,7 +76,7 @@ const CategoryDetailPage = () => {
         
         <div className="flex items-center gap-3">
             <Button 
-                onClick={() => router.push(`/${role}/categories/${id}/edit`)}
+                onClick={() => router.push(`/${role}/inventory/categories/${id}/edit`)}
                 className="gap-2 font-bold text-[10px] uppercase tracking-widest px-6 h-11 rounded-xl shadow-lg shadow-primary/20"
             >
                 <Pencil className="h-3.5 w-3.5" />

@@ -19,7 +19,7 @@ export default function CategoriesTable({ categories,
     const router = useRouter();
 
     const handleRowClick = (categoryId) => {
-        router.push(`/${userPrimaryRole}/categories/${categoryId}`);
+        router.push(`/${userPrimaryRole}/inventory/categories/${categoryId}`);
     };
 
     const formatDate = (dateString) => {

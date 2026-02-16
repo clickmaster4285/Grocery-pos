@@ -20,7 +20,7 @@ export default function BrandsTable({ brands,
     const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
     const handleRowClick = (brandId) => {
-        router.push(`/${userPrimaryRole}/brands/${brandId}`);
+        router.push(`/${userPrimaryRole}/inventory/brands/${brandId}`);
     };
 
     const formatDate = (dateString) => {

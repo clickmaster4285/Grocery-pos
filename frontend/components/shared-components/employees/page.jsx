@@ -21,15 +21,10 @@ import { ROLES } from "@/constants/roles";
 
 const AllEmployees = () => {
   const router = useRouter();
-  const { canCreate, canRead, canUpdate, canDelete, currentUserRole } = usePermissions();
+  const { employee, currentUserRole } = usePermissions();
   
-  const module = 'employee_management';
-  const menu = 'employee_database';
-
-  const canReadEmployees = canRead(module, menu);
-  const canCreateEmployees = canCreate(module, menu);
-  const canUpdateEmployees = canUpdate(module, menu);
-  const canDeleteEmployees = canDelete(module, menu);
+  const canReadEmployees = employee.database.read;
+  const canCreateEmployees = employee.database.create;
 
   const { data: users = [], isLoading, error, refetch } = useStaffList({
     enabled: canReadEmployees,

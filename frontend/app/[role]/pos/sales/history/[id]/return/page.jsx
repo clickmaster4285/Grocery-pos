@@ -57,7 +57,7 @@ const ProcessReturnPage = () => {
     const handlePrint = useReactToPrint({
         contentRef: receiptRef,
         documentTitle: `ReturnReceipt-${newReturnData?.returnNumber}`,
-        onAfterPrint: () => router.push(`/${role}/sales/history/${id}`)
+        onAfterPrint: () => router.push(`/${role}/pos/sales/history/${id}`)
     });
 
     useEffect(() => {
@@ -128,7 +128,7 @@ const ProcessReturnPage = () => {
                 if (shouldPrint) {
                     setNewReturnData(res.data);
                 } else {
-                    router.push(`/${role}/sales/history/${id}`);
+                    router.push(`/${role}/pos/sales/history/${id}`);
                 }
             }
         });

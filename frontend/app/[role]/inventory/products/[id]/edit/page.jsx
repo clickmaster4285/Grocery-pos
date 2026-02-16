@@ -7,11 +7,13 @@ import { useGetProductById, useUpdateProduct } from '@/features/product.api';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorCard } from '@/components/ui/error-card';
+import { useAuth } from '@/hooks/useAuth';
 
 const EditProductPage = () => {
   const router = useRouter();
   const params = useParams();
   const productId = params.id;
+    const { user: currentUser } = useAuth();
 
   const { data: productData, isLoading, isError, error } = useGetProductById(productId);
   const updateProductMutation = useUpdateProduct();
@@ -20,7 +22,7 @@ const EditProductPage = () => {
     try {
       await updateProductMutation.mutateAsync({ id: productId, ...data });
       toast.success('Product updated successfully!');
-      router.push('../../products');
+      router.push(`/${currentUser.role}/inventory/products`);
     } catch (err) {
       toast.error(err?.message || 'Failed to update product.');
     }

@@ -69,7 +69,7 @@ const ProductDetail = ({ product, role }) => {
     try {
       await deleteProductMutation.mutateAsync(product._id);
       toast.success('Product deleted successfully!');
-      router.push(`/${role}/products`);
+      router.push(`/${role}/inventory/products`);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to delete product.');
     }
@@ -146,7 +146,7 @@ const ProductDetail = ({ product, role }) => {
             )}
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline" size="sm" onClick={() => router.push(`/${role}/products/${product._id}/edit`)}>
+            <Button variant="outline" size="sm" onClick={() => router.push(`/${role}/inventory/products/${product._id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit
             </Button>
             <AlertDialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>

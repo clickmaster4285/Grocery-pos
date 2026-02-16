@@ -53,7 +53,7 @@ const SaleDetailPage = () => {
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <Button variant="outline" size="icon" onClick={() => router.push(`/${role}/sales/history`)}>
+                    <Button variant="outline" size="icon" onClick={() => router.push(`/${role}/pos/sales/history`)}>
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <div>
@@ -62,7 +62,7 @@ const SaleDetailPage = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" className="font-bold gap-2" onClick={() => router.push(`/${role}/sales/history/${id}/return`)}>
+                    <Button variant="outline" className="font-bold gap-2" onClick={() => router.push(`/${role}/pos/sales/history/${id}/return`)}>
                         <RotateCcw className="h-4 w-4" /> Process Return
                     </Button>
                     <Button className="font-black gap-2 shadow-lg shadow-primary/20" onClick={handlePrint}>

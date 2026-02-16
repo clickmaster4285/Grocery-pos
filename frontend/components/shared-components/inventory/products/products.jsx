@@ -31,11 +31,11 @@ const ProductsPage = ({ role }) => {
   const { data: stats, isLoading: statsLoading } = useGetProductStats();
 
   const handleCreateProduct = () => {
-    router.push(`/${role}/products/create`);
+    router.push(`/${role}/inventory/products/create`);
   };
 
   const handleEditProduct = (productId) => {
-    router.push(`/${role}/products/${productId}/edit`);
+    router.push(`/${role}/inventory/products/${productId}/edit`);
   };
 
   return (

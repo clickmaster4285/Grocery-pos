@@ -61,8 +61,8 @@ const Suppliers = () => {
     }, [suppliers, searchQuery, statusFilter]);
 
     // Navigation Handlers
-    const openAddPage = () => router.push(`/${userPrimaryRole}/suppliers/new`);
-    const openEditPage = (supplier) => router.push(`/${userPrimaryRole}/suppliers/${supplier._id}/edit`);
+    const openAddPage = () => router.push(`/${userPrimaryRole}/inventory/suppliers/new`);
+    const openEditPage = (supplier) => router.push(`/${userPrimaryRole}/inventory/suppliers/${supplier._id}/edit`);
 
     // Handlers for Delete Confirmation
     const confirmDeleteSupplier = (supplierId) => {

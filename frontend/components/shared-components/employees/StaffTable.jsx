@@ -26,10 +26,10 @@ export const StaffTable = ({
   getRoleLabel,
 }) => {
   const router = useRouter();
-  const { canUpdate, canDelete, currentUserRole } = usePermissions();
+  const { employee, currentUserRole } = usePermissions();
   
-  const canUpdateStaff = canUpdate('employee_management', 'employee_database');
-  const canDeleteStaff = canDelete('employee_management', 'employee_database');
+  const canUpdateStaff = employee.database.update;
+  const canDeleteStaff = employee.database.delete;
 
   return (
     <div className="rounded-md border">

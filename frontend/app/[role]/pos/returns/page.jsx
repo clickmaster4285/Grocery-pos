@@ -260,7 +260,7 @@ const ReturnsManagementPage = () => {
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem
                                                         className="gap-3 cursor-pointer py-3 rounded-xl"
-                                                        onClick={() => router.push(`/${role}/sales/history/${rtn.originalSale?._id}`)}
+                                                        onClick={() => router.push(`/${role}/pos/sales/history/${rtn.originalSale?._id}`)}
                                                     >
                                                         <div className="bg-blue-100 p-2 rounded-lg">
                                                             <History className="h-4 w-4 text-blue-600" />
