@@ -15,12 +15,12 @@ import { useRouter, useParams } from 'next/navigation';
 
 const StockManagement = () => {
   const [activeTab, setActiveTab] = useState('current-stock');
-  const { can } = usePermissions();
+  const { inventory } = usePermissions(); // Use new hierarchical structure
   const router = useRouter();
   const { role } = useParams();
 
-  const canReadStock = can('stock:read');
-  const canCreateTransfer = can('stock:create');
+  const canReadStock = inventory.stock.read;
+  const canCreateTransfer = inventory.stock.create;
 
   const { data: transfers } = useGetTransfers();
   const { data: products } = useGetAllProducts({ page: 1, limit: 1000 });
@@ -52,7 +52,7 @@ const StockManagement = () => {
           <p className="text-muted-foreground">Monitor and transfer inventory across your business locations.</p>
         </div>
         {canCreateTransfer && (
-          <Button onClick={() => router.push(`/${role}/stock/create`)}>
+          <Button onClick={() => router.push(`/${role}/inventory/stock/create`)}>
             <Plus className="mr-2 h-4 w-4" /> New Transfer
           </Button>
         )}

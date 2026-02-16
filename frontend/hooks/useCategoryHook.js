@@ -1,7 +1,7 @@
 // frontend/hooks/useCategoryHook.js
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { useAuth } from './useAuth'; // Re-introduce useAuth
+import { usePermissions } from './usePermissions';
 import {
   useCreateCategory,
   useUpdateCategory,
@@ -9,15 +9,13 @@ import {
   useDeleteCategory,
 } from '@/features/category.api';
 
-// This hook will now be used by the modal/form directly
-// It handles its own internal state and mutations
 export const useCategoryHook = (initialCategoryData = null) => {
-  const { user: currentUser } = useAuth(); // Get current user for permissions
+  const { inventory } = usePermissions();
   const isEditMode = !!initialCategoryData?._id;
 
   const createCategoryMutation = useCreateCategory();
   const updateCategoryMutation = useUpdateCategory();
-  const deleteCategoryMutation = useDeleteCategory(); // Keep for potential direct use if needed
+  const deleteCategoryMutation = useDeleteCategory();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -25,7 +23,6 @@ export const useCategoryHook = (initialCategoryData = null) => {
     isActive: true,
   });
 
-  // Populate form data when initialCategoryData changes (e.g., when opening edit modal)
   useEffect(() => {
     if (initialCategoryData) {
       setFormData({
@@ -47,14 +44,13 @@ export const useCategoryHook = (initialCategoryData = null) => {
   }, []);
 
   const handleSave = useCallback(async (onSuccessCallback) => {
-    const requiredPermission = isEditMode ? 'categories:update' : 'categories:create';
+    const hasPermission = isEditMode ? inventory.categories.update : inventory.categories.create;
     
-    // Frontend permission check
-    if (currentUser && !currentUser.permissions.includes(requiredPermission)) {
+    if (!hasPermission) {
       toast.error('Permission Denied', {
         description: `You do not have permission to ${isEditMode ? 'update' : 'create'} categories.`,
       });
-      return; // Prevent saving
+      return;
     }
 
     const toastId = toast.loading(isEditMode ? 'Saving category...' : 'Creating category...');
@@ -67,15 +63,15 @@ export const useCategoryHook = (initialCategoryData = null) => {
         await createCategoryMutation.mutateAsync(formData);
         toast.success('Category created successfully.', { id: toastId });
       }
-      onSuccessCallback(); // Call success callback from parent (e.g., close modal)
+      onSuccessCallback();
     } catch (err) {
       toast.error('Operation Failed', {
         id: toastId,
         description: err.message || 'An unexpected error occurred.',
       });
-      throw err; // Re-throw to allow parent to handle if needed
+      throw err;
     }
-  }, [isEditMode, formData, initialCategoryData, createCategoryMutation, updateCategoryMutation, currentUser]);
+  }, [isEditMode, formData, initialCategoryData, createCategoryMutation, updateCategoryMutation, inventory.categories]);
 
   return {
     formData,
@@ -83,7 +79,7 @@ export const useCategoryHook = (initialCategoryData = null) => {
     handleSave,
     createCategoryMutation,
     updateCategoryMutation,
-    deleteCategoryMutation, // Still expose delete mutation
+    deleteCategoryMutation,
     isEditMode,
   };
 };

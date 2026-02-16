@@ -1,7 +1,7 @@
 // frontend/hooks/useSupplierHook.js
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { useAuth } from './useAuth'; // Get current user for permissions
+import { usePermissions } from './usePermissions';
 import {
   useCreateSupplier,
   useUpdateSupplier,
@@ -9,15 +9,13 @@ import {
   useDeleteSupplier,
 } from '@/features/supplier.api';
 
-// This hook will now be used by the modal/form directly
-// It handles its own internal state and mutations
 export const useSupplierHook = (initialSupplierData = null) => {
-  const { user: currentUser } = useAuth(); // Get current user for permissions
+  const { inventory } = usePermissions();
   const isEditMode = !!initialSupplierData?._id;
 
   const createSupplierMutation = useCreateSupplier();
   const updateSupplierMutation = useUpdateSupplier();
-  const deleteSupplierMutation = useDeleteSupplier(); // Keep for potential direct use if needed
+  const deleteSupplierMutation = useDeleteSupplier();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -34,7 +32,6 @@ export const useSupplierHook = (initialSupplierData = null) => {
     isActive: true,
   });
 
-  // Populate form data when initialSupplierData changes (e.g., when opening edit modal)
   useEffect(() => {
     if (initialSupplierData) {
       setFormData({
@@ -74,22 +71,19 @@ export const useSupplierHook = (initialSupplierData = null) => {
   }, []);
 
   const handleSave = useCallback(async (onSuccessCallback) => {
-    const requiredPermission = isEditMode ? 'suppliers:update' : 'suppliers:create';
+    const hasPermission = isEditMode ? inventory.suppliers.update : inventory.suppliers.create;
     
-    // Frontend permission check
-    if (currentUser && !currentUser.permissions.includes(requiredPermission)) {
+    if (!hasPermission) {
       toast.error('Permission Denied', {
         description: `You do not have permission to ${isEditMode ? 'update' : 'create'} suppliers.`,
       });
-      return; // Prevent saving
+      return;
     }
 
     const toastId = toast.loading(isEditMode ? 'Saving supplier...' : 'Creating supplier...');
 
     try {
       const dataToSubmit = { ...formData };
-      
-      // Preprocess address object: remove if all fields are empty
       const isAddressEmpty = Object.values(dataToSubmit.address).every(value => !value);
       if (isAddressEmpty) {
         delete dataToSubmit.address;
@@ -102,15 +96,15 @@ export const useSupplierHook = (initialSupplierData = null) => {
         await createSupplierMutation.mutateAsync(dataToSubmit);
         toast.success('Supplier created successfully.', { id: toastId });
       }
-      onSuccessCallback(); // Call success callback from parent (e.g., close modal)
+      onSuccessCallback();
     } catch (err) {
       toast.error('Operation Failed', {
         id: toastId,
         description: err.message || 'An unexpected error occurred.',
       });
-      throw err; // Re-throw to allow parent to handle if needed
+      throw err;
     }
-  }, [isEditMode, formData, initialSupplierData, createSupplierMutation, updateSupplierMutation, currentUser]);
+  }, [isEditMode, formData, initialSupplierData, createSupplierMutation, updateSupplierMutation, inventory.suppliers]);
 
   return {
     formData,
@@ -118,7 +112,7 @@ export const useSupplierHook = (initialSupplierData = null) => {
     handleSave,
     createSupplierMutation,
     updateSupplierMutation,
-    deleteSupplierMutation, // Still expose delete mutation
+    deleteSupplierMutation,
     isEditMode,
   };
 };

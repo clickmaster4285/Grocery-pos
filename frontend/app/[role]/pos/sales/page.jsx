@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button';
 import { useRouter, useParams } from 'next/navigation';
 
 const SalesPage = () => {
-  const { can } = usePermissions();
+  const { pos } = usePermissions();
   const router = useRouter();
   const { role } = useParams();
 
-  if (!can('sales:create')) {
+  // New hierarchical check
+  if (!pos.transaction.create) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <Card className="w-full max-w-md text-center p-6">
