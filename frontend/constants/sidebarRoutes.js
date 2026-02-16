@@ -73,21 +73,21 @@ export const MENU_METADATA = {
   'main_dashboard': { path: '/dashboard', icon: LayoutDashboard },
 
   // Module: Point of Sale
-  'transaction': { path: '/sales', icon: ShoppingCart },
+  'transaction': { path: '/pos/sales', icon: ShoppingCart },
   // 'payment_processing': { path: '/pos/payment', icon: CreditCard },
-  'customer_information': { path: '/customers', icon: Users },
-  'discounts_promotions': { path: '/promotions', icon: Percent },
+  'customer_information': { path: '/poscustomers', icon: Users },
+  'discounts_promotions': { path: '/pos/promotions', icon: Percent },
   'special_items': { path: '/pos/special', icon: Star },
-  'returns_exchanges': { path: '/returns', icon: RotateCcw },
+  'returns_exchanges': { path: '/pos/returns', icon: RotateCcw },
   'receipt_management': { path: '/pos/receipts', icon: Receipt },
 
   // Module: Inventory
-  'product_database': { path: '/products', icon: Package },
-  'stock_management': { path: '/stock', icon: Boxes },
+  'product_database': { path: '/inventory/products', icon: Package },
+  'stock_management': { path: '/inventory/stock', icon: Boxes },
   'purchase_orders': { path: '/inventory/po', icon: ClipboardList },
-  'vendor_management': { path: '/suppliers', icon: Truck },
-  'categories_departments': { path: '/categories', icon: Tags },
-  'brands': { path: '/brands', icon: Building2 },
+  'vendor_management': { path: '/inventory/suppliers', icon: Truck },
+  'categories_departments': { path: '/inventory/categories', icon: Tags },
+  'brands': { path: '/inventory/brands', icon: Building2 },
 
   // Module: Branch 
   'branch_management': { path: '/branches', icon: List },

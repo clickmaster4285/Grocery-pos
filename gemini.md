@@ -111,14 +111,21 @@ The `ReceiptPrint` components use specific `@media print` CSS:
 
 ---
 
-## 6. Security Protocol
+## 6. Security & Access Control
 
-### 6.1. Role-Based Access Control (RBAC)
-Permissions are stored as an array of strings in the User model (e.g., `["products:create", "sales:read"]`).
--   **Backend Middleware**: `checkPermission('sales:create')` verifies the JWT payload before executing the controller.
--   **Frontend HOC**: `usePermissions()` hook hides/shows UI elements based on the same payload.
+### 6.1. Hierarchical Permission System (HPS)
+The system uses a granular, three-tiered permission string format: `module:menu:action`.
+*   **Format**: `[module_slug]:[menu_slug]:[action]`
+*   **Example**: `inventory_management:product_database:create`
+*   **Actions**: Standardized as `create`, `read`, `update`, `delete`.
 
-### 6.2. Data Isolation (Branch Locking)
+### 6.2. Backend-Driven Sidebar (BDS)
+To ensure UI integrity and minimize maintenance, the sidebar is dynamically generated from the user's authorized modules.
+1.  **Source of Truth**: The backend `availableModules` utility groups flat permissions into a nested `Module -> Menus` hierarchy during the login/auth phase.
+2.  **Frontend Mapping**: The `DynamicSidebar` component iterates through this hierarchy and uses `MENU_METADATA` (in `frontend/constants/sidebarRoutes.js`) to resolve slugs into icons and internal paths.
+3.  **Automatic Synchronization**: Adding a menu in the `SYSTEM_HIERARCHY` on the backend automatically populates the frontend sidebar once a path is mapped in metadata.
+
+### 6.3. Data Isolation (Branch Locking)
 Multi-tenancy is enforced at the query level.
 ```javascript
 // Example Middleware Logic
@@ -132,11 +139,35 @@ This ensures that a cashier at Branch A can never see or modify the sales or sto
 
 ## 7. Operational Standards & Directory Structure
 
--   `backend/controllers/`: Business logic and orchestration.
--   `backend/models/`: Schema definitions and atomic hooks.
--   `frontend/features/`: Data fetching hooks and API abstractions.
--   `frontend/components/shared-components/`: Reusable, complex business UI (POS, History).
+-   `backend/config/permissions.js`: Central definition of `SYSTEM_HIERARCHY`.
+-   `backend/utils/getModules.js`: Logic for grouping flat permissions into nested modules.
+-   `frontend/app/[role]/inventory/`: Sub-pages for Brands, Categories, Products, Stock, and Suppliers.
+-   `frontend/app/[role]/pos/`: Sub-pages for Sales and Returns.
+-   `frontend/app/[role]/employees/`: Comprehensive staff management module.
+-   `frontend/components/shared-components/`: Reusable business UI, now organized modularly (e.g., `/inventory`, `/pos`, `/employees`).
 -   `frontend/components/ui/`: Atomic, design-system components (Shadcn).
+
+---
+
+## 8. Development Roadmap
+
+### ✅ Phase 1-5: The Core (Completed)
+-   [x] Multi-variant Product Engine with price tracking.
+-   [x] Sequential Inter-branch stock transfers.
+-   [x] Hybrid Search POS with Barcode integration.
+-   [x] Atomic Base-36 Return & Exchange system.
+-   [x] Unified Thermal Printing Engine.
+-   [x] Brand Module with Local Asset Management & Base-36 Codes.
+-   [x] **Granular Hierarchical Permission System (`module:menu:action`)**.
+-   [x] **Modular Directory Refactoring** (Inventory, POS, Employees).
+-   [x] **Backend-Driven Dynamic Sidebar**.
+
+### 🚀 Phase 6: Management & Intelligence (Next)
+-   **Dynamic Dashboards**: Real-time sales vs. target tracking.
+-   **Profit/Loss Engine**: Automated margin analysis (Selling Price - Buying Price).
+-   **Discount & Promotion Module**: Coupon code management and automated discounts.
+-   **Customer Management Module**: Advanced CRM and customer history.
+-   **EOD Automated Email**: Summarized end-of-day reports for branch owners.
 
 ---
 
