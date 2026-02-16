@@ -140,20 +140,6 @@ This ensures that a cashier at Branch A can never see or modify the sales or sto
 
 ---
 
-## 8. Development Roadmap
-
-### ✅ Phase 1-5: The Core (Completed)
--   [x] Multi-variant Product Engine with price tracking.
--   [x] Sequential Inter-branch stock transfers.
--   [x] Hybrid Search POS with Barcode integration.
--   [x] Atomic Base-36 Return & Exchange system.
--   [x] Unified Thermal Printing Engine.
--   [x] Brand Module with Local Asset Management & Base-36 Codes.
--   [] we have to add customer management module also.
--   [] we have to add discount & promotion & copoon code management module also.
-
-### 🚀 Phase 6: Management & Intelligence (Next)
--   **Dynamic Dashboards**: Real-time sales vs. target tracking.
--   **Profit/Loss Engine**: Automated margin analysis (Selling Price - Buying Price).
--   **Loss Audit Trail**: Detailed reporting on "Damaged" vs "Expired" returns.
--   **EOD Automated Email**: Summarized end-of-day reports for branch owners.
+## 9. Project Documents
+- [SuperMarket POS Comprehensive Guide (PDF)](./documents/SuperMarketPOS.pdf)
+- [System Modules & Menus Overview (Markdown)](./documents/main_modules_and_menus.md)

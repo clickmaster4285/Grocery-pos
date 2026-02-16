@@ -1,23 +1,44 @@
-const { PERMISSIONS } = require('../config/permissions');
+const { PERMISSIONS, SYSTEM_HIERARCHY } = require('../config/permissions');
 
+/**
+ * Transforms a flat list of user permission strings into a structured hierarchy.
+ * Returns an array of Modules, each containing an array of Menus they have access to.
+ */
 const getModulesFromPermissions = (userPermissions) => {
-    // Get unique module names that the user has permissions for
-    const accessibleModuleNames = [...new Set(
-        PERMISSIONS
-            .filter(p => userPermissions.includes(p.id))
-            .map(p => p.module)
-    )];
+    const structuredModules = [];
 
-    // Structure the modules with their associated permissions
-    const structuredModules = accessibleModuleNames.map(moduleName => {
-        const modulePermissions = PERMISSIONS
-            .filter(p => p.module === moduleName && userPermissions.includes(p.id))
-            .map(p => p.id); // Get the full permission ID (e.g., 'users:create')
+    SYSTEM_HIERARCHY.forEach(moduleDef => {
+        const moduleSlug = moduleDef.module.toLowerCase().replace(/ & /g, '_').replace(/ /g, '_').replace(/-/g, '_');
+        const accessibleMenus = [];
 
-        return {
-            moduleName: moduleName,
-            permissions: modulePermissions,
-        };
+        moduleDef.menus.forEach(menuName => {
+            const menuSlug = menuName.toLowerCase().replace(/ & /g, '_').replace(/ /g, '_').replace(/-/g, '_');
+            
+            // Check if user has ANY permission for this specific menu
+            // We filter the global PERMISSIONS list to find matches for this menu
+            const menuPermissions = PERMISSIONS.filter(p => 
+                p.module === moduleDef.module && 
+                p.menu === menuName && 
+                userPermissions.includes(p.id)
+            ).map(p => p.id);
+
+            if (menuPermissions.length > 0) {
+                accessibleMenus.push({
+                    menuName: menuName,
+                    menuSlug: menuSlug,
+                    permissions: menuPermissions
+                });
+            }
+        });
+
+        if (accessibleMenus.length > 0) {
+            structuredModules.push({
+                moduleName: moduleDef.module,
+                moduleSlug: moduleSlug,
+                icon: moduleDef.icons || 'LayoutDashboard', // Use the icon from SYSTEM_HIERARCHY
+                menus: accessibleMenus
+            });
+        }
     });
 
     return structuredModules;

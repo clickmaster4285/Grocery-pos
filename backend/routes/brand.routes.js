@@ -6,13 +6,16 @@ const checkPermission = require('../middleware/checkPermission');
 const { PERMISSIONS_OBJECT } = require('../config/permissions');
 const { brandUpload } = require('../middleware/upload');
 
+// Local constant for easier permission management
+const BrandPermissions = PERMISSIONS_OBJECT.INVENTORY.BRANDS;
+
 // All routes in this file require authentication
 router.use(auth);
 
 // Create a new brand
 router.post(
   '/',
-  checkPermission(PERMISSIONS_OBJECT.BRANDS.CREATE),
+  checkPermission([BrandPermissions.CREATE]),
   brandUpload.single('logo'),
   brandController.createBrand
 );
@@ -20,21 +23,21 @@ router.post(
 // Get all brands
 router.get(
   '/',
-  checkPermission(PERMISSIONS_OBJECT.BRANDS.READ),
+  checkPermission([BrandPermissions.READ]),
   brandController.getAllBrands
 );
 
 // Get a single brand by ID
 router.get(
   '/:id',
-  checkPermission(PERMISSIONS_OBJECT.BRANDS.READ),
+  checkPermission([BrandPermissions.READ]),
   brandController.getBrandById
 );
 
 // Update a brand by ID
 router.put(
   '/:id',
-  checkPermission(PERMISSIONS_OBJECT.BRANDS.UPDATE),
+  checkPermission([BrandPermissions.UPDATE]),
   brandUpload.single('logo'),
   brandController.updateBrand
 );
@@ -42,7 +45,7 @@ router.put(
 // Soft delete a brand by ID
 router.delete(
   '/:id',
-  checkPermission(PERMISSIONS_OBJECT.BRANDS.DELETE),
+  checkPermission([BrandPermissions.DELETE]),
   brandController.deleteBrand
 );
 

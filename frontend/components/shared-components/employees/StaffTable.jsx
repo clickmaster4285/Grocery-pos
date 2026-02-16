@@ -15,6 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { MoreVertical, Edit, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { formatPhoneNumberForDisplay } from "@/utils/formatters";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export const StaffTable = ({
   users,
@@ -23,11 +24,12 @@ export const StaffTable = ({
   getStatusBadge,
   getStatusVariant,
   getRoleLabel,
-  canUpdateStaff, 
-  canDeleteStaff, 
-  currentUserRole, 
 }) => {
   const router = useRouter();
+  const { canUpdate, canDelete, currentUserRole } = usePermissions();
+  
+  const canUpdateStaff = canUpdate('employee_management', 'employee_database');
+  const canDeleteStaff = canDelete('employee_management', 'employee_database');
 
   return (
     <div className="rounded-md border">
@@ -45,7 +47,7 @@ export const StaffTable = ({
         </TableHeader>
         <TableBody>
           {users.map((user) => (
-            <TableRow key={user._id} className="cursor-pointer" onClick={() => router.push(`/${currentUserRole}/users/${user._id}`)}>
+            <TableRow key={user._id} className="cursor-pointer" onClick={() => router.push(`/${currentUserRole}/employees/${user._id}`)}>
               <TableCell>
                 <UserAvatar user={user} size="sm" />
               </TableCell>

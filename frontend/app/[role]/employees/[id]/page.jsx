@@ -18,41 +18,48 @@ import { UserAvatar } from '@/components/ui/UserAvatar';
 import { Separator } from '@/components/ui/separator';
 import { formatPhoneNumberForDisplay } from '@/utils/formatters';
 import { useAuth } from "@/hooks/useAuth"
-import StaffDetailSkeleton from '@/components/shared-components/users/StaffDetailSkeleton';
+import { usePermissions } from "@/hooks/usePermissions";
+import StaffDetailSkeleton from '@/components/shared-components/employees/StaffDetailSkeleton';
 
-const StaffDetailPage = () => {
+const EmployeeDetailPage = () => {
   const router = useRouter();
   const params = useParams();
   const { id } = params;
-  const { user: currentUser, role } = useAuth();
+  const { user: currentUser } = useAuth();
+  const { canRead, canUpdate, currentUserRole } = usePermissions();
+
+  const module = 'employee_management';
+  const menu = 'employee_database';
 
   const { data: user, isLoading, error } = useGetUserById(id);
-  const { data: allPermissionsData, isLoading: permissionsLoading } = useGetPermissions(); // Renamed to allPermissionsData
+  const { data: allPermissionsData, isLoading: permissionsLoading } = useGetPermissions();
 
   // Transform allPermissionsData into the format expected by the rendering logic
   const transformedAllPermissions = useMemo(() => {
     if (!allPermissionsData || allPermissionsData.length === 0) {
       return [];
     }
-    return allPermissionsData.map(module => ({
-      ...module,
-      permissions: module.permissions.map(pId => ({
-        key: pId,
-        label: pId.split(':')[1].replace(/([A-Z])/g, ' $1').trim(), // Extract label from permission ID
-      })),
+    return allPermissionsData.map(moduleDef => ({
+      ...moduleDef,
+      permissions: moduleDef.permissions.map(pId => {
+        const parts = pId.split(':');
+        return {
+          key: pId,
+          label: parts[2].charAt(0).toUpperCase() + parts[2].slice(1), // e.g., "Create"
+          menuSlug: parts[1],
+        };
+      }),
     }));
   }, [allPermissionsData]);
 
-  // Extract unique permission types (Create, Read, Update, Delete, View) from transformed data
-  const uniquePermissionTypes = useMemo(() => {
-    return [...new Set(transformedAllPermissions.flatMap(module => module.permissions.map(p => p.label)))].sort();
-  }, [transformedAllPermissions]);
+  // Extract unique permission types (Create, Read, Update, Delete) from transformed data
+  const uniquePermissionTypes = ['Create', 'Read', 'Update', 'Delete'];
   
   useEffect(() => {
     if (error) {
-      router.push(`/${role}/users`);
+      router.push(`/${currentUserRole}/employees`);
     }
-  }, [error, router, role]);
+  }, [error, router, currentUserRole]);
 
   if (isLoading || permissionsLoading) {
     return <StaffDetailSkeleton />;
@@ -60,16 +67,15 @@ const StaffDetailPage = () => {
 
   if (!user) {
     return (
-      <div className="p-6 text-center text-red-500">User not found or an error occurred.</div>
+      <div className="p-6 text-center text-red-500">Employee not found or an error occurred.</div>
     );
   }
 
   // Determine permissions for rendering UI elements
-  const canUpdateStaff = currentUser?.permissions?.includes('users:update');
-  const canDeleteStaff = currentUser?.permissions?.includes('users:delete'); 
-  const canViewStaff = currentUser?.permissions?.includes('users:read'); 
+  const canUpdateEmployee = canUpdate(module, menu);
+  const canViewEmployee = canRead(module, menu);
 
-  if (!canViewStaff) {
+  if (!canViewEmployee) {
     router.push('/unauthorized');
     return null;
   }
@@ -78,20 +84,18 @@ const StaffDetailPage = () => {
   const getStatusVariant = (isActive) => (isActive ? 'success' : 'destructive');
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold capitalize">{`${user.firstName} ${user.lastName}`}</h1>
-        {canUpdateStaff && (
-          <Button onClick={() => router.push(`/${currentUser.role}/users/${user._id}/edit`)}>Edit User</Button>
+        <h1 className="text-3xl font-bold capitalize">{`${user.firstName} ${user.lastName? user.lastName:""}`}</h1>
+        {canUpdateEmployee && (
+          <Button onClick={() => router.push(`/${currentUserRole}/employees/${user._id}/edit`)}>Edit Employee</Button>
         )}
       </div>
 
-      {user?._id !== currentUser?._id && (
-        <Button variant="outline" onClick={() => router.back()} className="mb-4">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Go Back
-        </Button>
-      )}
+      <Button variant="outline" onClick={() => router.push(`/${currentUserRole}/employees`)} className="mb-4">
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Back to List
+      </Button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: User Info */}
@@ -99,7 +103,7 @@ const StaffDetailPage = () => {
           <Card>
             <CardHeader className="p-6">
               <UserAvatar user={user} size="xl" className="ring-4 ring-primary mb-4" />
-              <CardTitle className="text-2xl capitalize">{`${user.firstName} ${user.lastName}`}</CardTitle>
+              <CardTitle className="text-2xl capitalize">{`${user.firstName} ${user.lastName? user.lastName:""}`}</CardTitle>
               <p className="text-lg font-semibold text-muted-foreground capitalize">{user.role}</p>
               {user?.branch_id && (
                 <p className="text-sm font-semibold text-primary">
@@ -155,40 +159,49 @@ const StaffDetailPage = () => {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Permissions</CardTitle>
+              <CardTitle>Permissions Grid</CardTitle>
             </CardHeader>
             <CardContent>
               {transformedAllPermissions && transformedAllPermissions.length > 0 ? (
-                <div className="rounded-md border overflow-hidden">
+                <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-38">Module</TableHead>
+                        <TableHead className="min-w-50">Menu / Section</TableHead>
                         {uniquePermissionTypes.map((type) => (
                           <TableHead key={type} className="text-center">{type}</TableHead>
                         ))}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {transformedAllPermissions.map((module) => (
-                        <TableRow key={module.moduleName}>
-                          <TableCell className="font-medium capitalize">{module.moduleName}</TableCell>
-                          {uniquePermissionTypes.map((type) => {
-                            const hasPermissionInModule = module.permissions.some(p => p.label === type);
-                            const userHasPermission = user.permissions.includes(`${module.moduleName.toLowerCase()}:${type.toLowerCase()}`);
-
-                            return (
-                              <TableCell key={type} className="text-center">
-                                {hasPermissionInModule && userHasPermission ? (
-                                  <Check className="h-5 w-5 text-green-500 mx-auto" />
-                                ) : (
-                                  <X className="h-5 w-5 text-red-500 mx-auto" />
-                                )}
-                              </TableCell>
-                            );
-                          })}
+                      {transformedAllPermissions.map((moduleDef) => (
+                        <TableRow key={moduleDef.moduleName} className="bg-muted/30 font-semibold">
+                          <TableCell colSpan={uniquePermissionTypes.length + 1}>{moduleDef.moduleName}</TableCell>
                         </TableRow>
                       ))}
+                      {transformedAllPermissions.flatMap(moduleDef => {
+                        // Group permissions by menu for this module
+                        const menus = [...new Set(moduleDef.permissions.map(p => p.menuSlug))];
+                        return menus.map(menuSlug => (
+                          <TableRow key={`${moduleDef.moduleName}-${menuSlug}`}>
+                            <TableCell className="pl-8 capitalize">{menuSlug.replace(/_/g, ' ')}</TableCell>
+                            {uniquePermissionTypes.map(type => {
+                              const pId = `${moduleDef.moduleName.toLowerCase().replace(/ & /g, '_').replace(/ /g, '_').replace(/-/g, '_')}:${menuSlug}:${type.toLowerCase()}`;
+                              const userHasPermission = user.permissions.includes(pId);
+                              
+                              return (
+                                <TableCell key={type} className="text-center">
+                                  {userHasPermission ? (
+                                    <Check className="h-4 w-4 text-green-500 mx-auto" />
+                                  ) : (
+                                    <X className="h-4 w-4 text-muted-foreground/30 mx-auto" />
+                                  )}
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        ));
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -207,4 +220,4 @@ const StaffDetailPage = () => {
   );
 };
 
-export default StaffDetailPage;
+export default EmployeeDetailPage;

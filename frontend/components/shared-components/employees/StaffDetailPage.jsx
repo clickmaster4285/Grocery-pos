@@ -1,15 +1,15 @@
-// frontend/components/shared-components/staff/StaffDetailPage.jsx
+// frontend/components/shared-components/employees/StaffDetailPage.jsx
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Mail, Phone, Edit, Trash2, CheckCircle, XCircle, ChevronLeft } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StaffForm } from './StaffForm';
 import { UserAvatar } from '@/components/ui/UserAvatar';
@@ -17,7 +17,7 @@ import { formatPhoneNumberForDisplay } from '@/utils/formatters';
 
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
-import { useStaff, useUpdateStaff, useDeleteStaff } from '@/hooks/useStaff';
+import { useStaff, useUpdateStaff, useDeleteStaff } from '@/features/users.api';
 import { ROLES } from '@/constants/roles';
 
 
@@ -33,7 +33,10 @@ export const StaffDetailPage = () => {
   const { id } = useParams(); 
   const router = useRouter();
   const { user: currentUser } = useAuth();
-  const { can } = usePermissions();
+  const { canUpdate, canDelete, currentUserRole } = usePermissions();
+
+  const module = 'employee_management';
+  const menu = 'employee_database';
 
   const { data: staff, isLoading, error, refetch } = useStaff(id);
   const updateStaffMutation = useUpdateStaff();
@@ -77,10 +80,10 @@ export const StaffDetailPage = () => {
 
   const handleEditSubmit = useCallback(async (e) => {
     e.preventDefault();
-    const toastId = toast.loading('Updating staff member...');
+    const toastId = toast.loading('Updating employee...');
 
     // Basic validation
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.role) {
+    if (!formData.firstName || !formData.email || !formData.role) {
       toast.error('Validation Error', {
         id: toastId,
         description: 'Please fill in all required fields.',
@@ -104,11 +107,11 @@ export const StaffDetailPage = () => {
 
     try {
       await updateStaffMutation.mutateAsync({ id: staff._id, userData });
-      toast.success('Staff member updated successfully.', { id: toastId });
+      toast.success('Employee updated successfully.', { id: toastId });
       setIsEditDialogOpen(false);
       refetch(); // Refetch staff data to show updated details
     } catch (err) {
-      toast.error('Failed to update staff member.', {
+      toast.error('Failed to update employee.', {
         id: toastId,
         description: err.message || 'An unexpected error occurred.',
       });
@@ -118,24 +121,24 @@ export const StaffDetailPage = () => {
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!staff || !currentUser || !currentUser._id) return;
-    const toastId = toast.loading('Deleting staff member...');
+    const toastId = toast.loading('Deleting employee...');
     try {
       await deleteStaffMutation.mutateAsync(staff._id);
-      toast.success('Staff member deleted successfully.', { id: toastId });
+      toast.success('Employee deleted successfully.', { id: toastId });
       setIsDeleteDialogOpen(false);
-      router.back(); // Go back to staff list after deletion
+      router.push(`/${currentUserRole}/employees`); // Go back to staff list after deletion
     } catch (err) {
-      toast.error('Failed to delete staff member.', {
+      toast.error('Failed to delete employee.', {
         id: toastId,
         description: err.message || 'An unexpected error occurred.',
       });
     }
-  }, [staff, currentUser, deleteStaffMutation, router]);
+  }, [staff, currentUser, deleteStaffMutation, router, currentUserRole]);
 
 
   // Permissions for actions
-  const canEdit = useMemo(() => can('users:update'), [can]);
-  const canDelete = useMemo(() => can('users:delete'), [can]);
+  const canEdit = useMemo(() => canUpdate(module, menu), [canUpdate, module, menu]);
+  const canDeleteEmployee = useMemo(() => canDelete(module, menu), [canDelete, module, menu]);
 
 
   if (isLoading) {
@@ -150,22 +153,22 @@ export const StaffDetailPage = () => {
   if (error) {
     return (
       <div className="p-6 text-red-500">
-        Error loading staff details: {error.message}
+        Error loading employee details: {error.message}
       </div>
     );
   }
 
   if (!staff) {
     return (
-      <div className="p-6 text-muted-foreground">Staff member not found.</div>
+      <div className="p-6 text-muted-foreground">Employee not found.</div>
     );
   }
 
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <Button variant="ghost" onClick={() => router.back()} className="gap-2">
-          <ChevronLeft className="h-4 w-4" /> Back to Staff List
+        <Button variant="ghost" onClick={() => router.push(`/${currentUserRole}/employees`)} className="gap-2">
+          <ChevronLeft className="h-4 w-4" /> Back to Employee List
         </Button>
         <div className="flex gap-2">
           {canEdit && (
@@ -173,7 +176,7 @@ export const StaffDetailPage = () => {
               <Edit className="h-4 w-4" /> Edit
             </Button>
           )}
-          {canDelete && (
+          {canDeleteEmployee && (
             <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)} className="gap-2">
               <Trash2 className="h-4 w-4" /> Delete
             </Button>
@@ -186,7 +189,7 @@ export const StaffDetailPage = () => {
           <div className="flex items-center gap-4">
             <UserAvatar user={staff} size="xl" className="ring-2 ring-primary/50" />
             <div>
-              <CardTitle className="text-2xl font-bold">{staff.firstName} {staff.lastName}</CardTitle>
+              <CardTitle className="text-2xl font-bold">{staff.firstName} {staff.lastName? staff.lastName:""}</CardTitle>
               <Badge
                 variant={getStatusVariant(staff)}
                 className="mt-1 capitalize"
@@ -199,7 +202,7 @@ export const StaffDetailPage = () => {
         </CardHeader>
         <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           <div>
-            <p className="text-sm font-medium text-muted-foreground">User ID</p>
+            <p className="text-sm font-medium text-muted-foreground">Employee ID</p>
             <p className="text-base">{staff.userId}</p>
           </div>
           <div>
@@ -249,7 +252,7 @@ export const StaffDetailPage = () => {
               {staff.permissions && staff.permissions.length > 0 ? (
                 staff.permissions.map(p => (
                   <Badge key={p} variant="secondary" className="capitalize">
-                    {p.replace(/([A-Z])/g, ' $1').trim().replace(/:/g, ' - ')}
+                    {p.replace(/_/g, ' ').replace(/:/g, ' - ')}
                   </Badge>
                 ))
               ) : (
@@ -284,7 +287,6 @@ export const StaffDetailPage = () => {
               }
             }}
             editingUser={staff}
-            createUserMutation={createStaffMutation} 
             updateUserMutation={updateStaffMutation}
             ROLES={ROLES}
           />

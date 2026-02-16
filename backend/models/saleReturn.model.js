@@ -82,6 +82,5 @@ const saleReturnSchema = new mongoose.Schema({
 
 // Index for fast lookups
 saleReturnSchema.index({ originalSale: 1 });
-saleReturnSchema.index({ returnNumber: 1 });
 
 module.exports = mongoose.model('SaleReturn', saleReturnSchema);

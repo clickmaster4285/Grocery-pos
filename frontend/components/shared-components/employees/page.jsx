@@ -16,25 +16,32 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StaffTable } from "./StaffTable";
 import { StatsCard } from "./StatsCard";
 import { useStaffList, useDeleteStaff } from "@/features/users.api";
-import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { ROLES } from "@/constants/roles";
 
-const AllUsers = () => {
+const AllEmployees = () => {
   const router = useRouter();
-  const { user: currentUser } = useAuth();
-  const canReadStaff = currentUser?.permissions?.includes('users:read');
+  const { canCreate, canRead, canUpdate, canDelete, currentUserRole } = usePermissions();
+  
+  const module = 'employee_management';
+  const menu = 'employee_database';
+
+  const canReadEmployees = canRead(module, menu);
+  const canCreateEmployees = canCreate(module, menu);
+  const canUpdateEmployees = canUpdate(module, menu);
+  const canDeleteEmployees = canDelete(module, menu);
 
   const { data: users = [], isLoading, error, refetch } = useStaffList({
-    enabled: canReadStaff,
+    enabled: canReadEmployees,
   });
 
-  const deleteStaffMutation = useDeleteStaff(); 
+  const deleteEmployeeMutation = useDeleteStaff(); 
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
+  const [employeeToDelete, setEmployeeToDelete] = useState(null);
 
-  const filteredUsers = useMemo(() => {
-    if (!users || !canReadStaff) return [];
+  const filteredEmployees = useMemo(() => {
+    if (!users || !canReadEmployees) return [];
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
     return users.filter(user =>
       user.firstName?.toLowerCase().includes(lowerCaseSearchTerm) ||
@@ -43,82 +50,69 @@ const AllUsers = () => {
       user.phone?.includes(lowerCaseSearchTerm) ||
       user.role?.toLowerCase().includes(lowerCaseSearchTerm)
     );
-  }, [users, searchTerm]);
+  }, [users, searchTerm, canReadEmployees]);
 
   const stats = useMemo(() => {
-    if (!users || !canReadStaff) return [];
+    if (!users || !canReadEmployees) return [];
     const activeUsers = users.filter(user => user.isActive).length;
     const inactiveUsers = users.filter(user => !user.isActive).length;
     return [
-      { label: 'Total Staff', value: users.length, bg: 'bg-sky-100', iconColor: 'text-sky-600', Icon: Users, border: 'border-sky-500' },
-      { label: 'Active Staff', value: activeUsers, bg: 'bg-green-100', iconColor: 'text-green-600', Icon: UserCheck, border: 'border-green-500' },
-      { label: 'Inactive Staff', value: inactiveUsers, bg: 'bg-red-100', iconColor: 'text-red-600', Icon: XCircle, border: 'border-red-500' },
+      { label: 'Total Employees', value: users.length, bg: 'bg-sky-100', iconColor: 'text-sky-600', Icon: Users, border: 'border-sky-500' },
+      { label: 'Active Employees', value: activeUsers, bg: 'bg-green-100', iconColor: 'text-green-600', Icon: UserCheck, border: 'border-green-500' },
+      { label: 'Inactive Employees', value: inactiveUsers, bg: 'bg-red-100', iconColor: 'text-red-600', Icon: XCircle, border: 'border-red-500' },
     ];
-  }, [users]);
+  }, [users, canReadEmployees]);
 
-  const confirmDelete = useCallback((user) => {
-    setUserToDelete(user);
+  const confirmDelete = useCallback((employee) => {
+    setEmployeeToDelete(employee);
     setDeleteConfirmOpen(true);
   }, []);
 
   const handleDelete = useCallback(async () => {
-    if (!userToDelete || !currentUser || !currentUser._id) return;
-    const toastId = toast.loading('Deleting staff...');
+    if (!employeeToDelete || !employeeToDelete._id) return;
+    const toastId = toast.loading('Deleting employee...');
     try {
-      await deleteStaffMutation.mutateAsync(userToDelete._id); // Pass only id
-      toast.success('Staff deleted successfully.', { id: toastId });
+      await deleteEmployeeMutation.mutateAsync(employeeToDelete._id);
+      toast.success('Employee deleted successfully.', { id: toastId });
       setDeleteConfirmOpen(false);
-      setUserToDelete(null);
+      setEmployeeToDelete(null);
     } catch (err) {
-      toast.error('Failed to delete staff.', {
+      toast.error('Failed to delete employee.', {
         id: toastId,
         description: err.message || 'An unexpected error occurred.',
       });
     }
-  }, [userToDelete, currentUser, deleteStaffMutation]);
+  }, [employeeToDelete, deleteEmployeeMutation]);
 
   const getStatusBadge = useCallback((user) => (user.isActive ? 'Active' : 'Inactive'), []);
   const getStatusVariant = useCallback((user) => (user.isActive ? 'success' : 'destructive'), []);
   const getRoleLabel = useCallback((roleValue) => {
     const role = ROLES.find(r => r.value === roleValue);
     return role ? role.label : roleValue;
-  }, [ROLES]);
+  }, []);
 
+  if (isLoading) return <LoadingSkeleton />;
 
-  // Determine permissions for rendering UI elements
-  const canCreateStaff = currentUser?.permissions?.includes('users:create');
-  const canUpdateStaff = currentUser?.permissions?.includes('users:update');
-  const canDeleteStaff = currentUser?.permissions?.includes('users:delete');
-
-  // Loading state
-  if (isLoading) {
-    return <LoadingSkeleton />;
-  }
-
-  // Error state
   if (error) {
     return (
       <div className="p-6 flex flex-col items-center justify-center space-y-4">
         <div className="text-red-500 text-center">
           <XCircle className="h-12 w-12 mx-auto mb-2" />
-          <p className="text-lg font-medium">Error loading users</p>
+          <p className="text-lg font-medium">Error loading employees</p>
           <p className="text-sm text-muted-foreground">{error.message}</p>
         </div>
-        <Button onClick={() => refetch()}>
-          Retry
-        </Button>
+        <Button onClick={() => refetch()}>Retry</Button>
       </div>
     );
   }
 
-
-
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <Header onAddStaff={() => router.push(`/${currentUser?.role}/users/create`)} canCreateStaff={canCreateStaff} />
+      <Header 
+        onAddEmployee={() => router.push(`/${currentUserRole}/employees/create`)} 
+        canCreateEmployees={canCreateEmployees} 
+      />
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {stats.map((stat, index) => (
           <StatsCard
@@ -133,57 +127,52 @@ const AllUsers = () => {
         ))}
       </div>
 
-      {/* Search and Filters */}
       <SearchBar
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
-        filteredCount={filteredUsers.length}
+        filteredCount={filteredEmployees.length}
         totalCount={users.length}
       />
 
-      {/* User Cards or Empty State */}
-      {canReadStaff ? (
-        <UserList
-          users={filteredUsers}
-          onEdit={(user) => router.push(`/${currentUser?.role}/users/${user._id}/edit`)}
+      {canReadEmployees ? (
+        <EmployeeList
+          employees={filteredEmployees}
+          onEdit={(user) => router.push(`/${currentUserRole}/employees/${user._id}/edit`)}
           onDelete={confirmDelete}
           getStatusBadge={getStatusBadge}
           getStatusVariant={getStatusVariant}
           getRoleLabel={getRoleLabel}
           searchTerm={searchTerm}
-          onAddStaff={() => router.push(`/${currentUser?.role}/users/create`)}
-          canCreateStaff={canCreateStaff}
-          canUpdateStaff={canUpdateStaff}
-          canDeleteStaff={canDeleteStaff}
-          currentUserRole={currentUser?.role}
+          onAddEmployee={() => router.push(`/${currentUserRole}/employees/create`)}
+          canCreateEmployees={canCreateEmployees}
+          currentUserRole={currentUserRole}
         />
       ) : (
         <PermissionErrorState />
       )}
 
-      {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
-        userToDelete={userToDelete}
+        employeeToDelete={employeeToDelete}
         onDelete={handleDelete}
-        isLoading={deleteStaffMutation.isLoading}
+        isLoading={deleteEmployeeMutation.isLoading}
       />
     </div>
   );
 };
 
 // Helper Components
-const Header = ({ onAddStaff, resetForm, canCreateStaff }) => (
+const Header = ({ onAddEmployee, canCreateEmployees }) => (
   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div>
-      <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Staff Management</h1>
+      <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Employee Management</h1>
       <p className="text-muted-foreground">Manage all staff members and their permissions</p>
     </div>
 
-    {canCreateStaff && (
-      <Button onClick={onAddStaff} className="gap-2">
-        <UserPlus className="h-4 w-4" /> Add New Staff
+    {canCreateEmployees && (
+      <Button onClick={onAddEmployee} className="gap-2">
+        <UserPlus className="h-4 w-4" /> Add New Employee
       </Button>
     )}
   </div>
@@ -202,65 +191,59 @@ const SearchBar = ({ searchTerm, setSearchTerm, filteredCount, totalCount }) => 
     </div>
 
     <div className="text-sm text-muted-foreground">
-      Showing {filteredCount} of {totalCount} staff members
+      Showing {filteredCount} of {totalCount} employees
     </div>
   </div>
 );
 
-const UserList = ({
-  users,
+const EmployeeList = ({
+  employees,
   onEdit,
   onDelete,
   getStatusBadge,
   getStatusVariant,
   getRoleLabel,
   searchTerm,
-  onAddStaff,
-  canCreateStaff,
-  canUpdateStaff, 
-  canDeleteStaff,
-  currentUserRole,
+  onAddEmployee,
+  canCreateEmployees,
 }) => {
-  if (users.length === 0) {
+  if (employees.length === 0) {
     return (
       <EmptyState
         hasSearchTerm={!!searchTerm}
-        onAddStaff={onAddStaff}
-        canCreateStaff={canCreateStaff}
+        onAddEmployee={onAddEmployee}
+        canCreateEmployees={canCreateEmployees}
       />
     );
   }
 
   return (
     <StaffTable
-      users={users}
+      users={employees}
       onEdit={onEdit}
       onDelete={onDelete}
       getStatusBadge={getStatusBadge}
       getStatusVariant={getStatusVariant}
       getRoleLabel={getRoleLabel}
-      canUpdateStaff={canUpdateStaff} 
-      canDeleteStaff={canDeleteStaff}
-      currentUserRole={currentUserRole}
     />
   );
 };
 
-const EmptyState = ({ hasSearchTerm, onAddStaff, canCreateStaff }) => (
+const EmptyState = ({ hasSearchTerm, onAddEmployee, canCreateEmployees }) => (
   <div className="border-2 border-dashed rounded-lg p-8 text-center">
     <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
     <h3 className="text-lg font-medium mb-2">
-      {hasSearchTerm ? "No matching staff found" : "No staff members yet"}
+      {hasSearchTerm ? "No matching employees found" : "No employees yet"}
     </h3>
     <p className="text-muted-foreground mb-4">
       {hasSearchTerm
         ? "Try adjusting your search terms"
-        : "Get started by adding your first staff member"
+        : "Get started by adding your first employee"
       }
     </p>
-    {!hasSearchTerm && canCreateStaff && (
-      <Button onClick={onAddStaff} className="gap-2">
-        <UserPlus className="h-4 w-4" /> Add First Staff
+    {!hasSearchTerm && canCreateEmployees && (
+      <Button onClick={onAddEmployee} className="gap-2">
+        <UserPlus className="h-4 w-4" /> Add First Employee
       </Button>
     )}
   </div>
@@ -271,38 +254,27 @@ const PermissionErrorState = () => (
     <XCircle className="h-12 w-12 text-red-500 mx-auto" />
     <h3 className="text-xl font-semibold text-red-600">Access Denied</h3>
     <p className="text-muted-foreground">
-      You do not have permission to view staff members.
+      You do not have permission to view employees.
       <br />
       Please contact your administrator for assistance.
     </p>
   </div>
 );
 
-const DeleteConfirmationDialog = ({ open, onOpenChange, userToDelete, onDelete, isLoading }) => (
+const DeleteConfirmationDialog = ({ open, onOpenChange, employeeToDelete, onDelete, isLoading }) => (
   <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="sm:max-w-107">
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Delete Staff Member</h2>
+        <h2 className="text-lg font-semibold">Delete Employee</h2>
         <p className="text-muted-foreground">
           Are you sure you want to delete{" "}
-          <span className="font-semibold text-foreground">{userToDelete?.name}</span>?
+          <span className="font-semibold text-foreground">{employeeToDelete?.firstName} {employeeToDelete?.lastName}</span>?
           This action cannot be undone.
         </p>
         <div className="flex gap-2 justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={onDelete}
-            disabled={isLoading}
-          >
-            {isLoading ? "Deleting..." : "Delete Staff"}
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button type="button" variant="destructive" onClick={onDelete} disabled={isLoading}>
+            {isLoading ? "Deleting..." : "Delete Employee"}
           </Button>
         </div>
       </div>
@@ -319,21 +291,14 @@ const LoadingSkeleton = () => (
       </div>
       <Skeleton className="h-10 w-32" />
     </div>
-
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {[1, 2, 3].map(i => (
-        <Skeleton key={i} className="h-32 rounded-lg" />
-      ))}
+      {[1, 2, 3].map(i => <Skeleton key={i} className="h-32 rounded-lg" />)}
     </div>
-
     <Skeleton className="h-10 w-full" />
-
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {[1, 2, 3, 4, 5, 6].map(i => (
-        <Skeleton key={i} className="h-64 rounded-lg" />
-      ))}
+      {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-64 rounded-lg" />)}
     </div>
   </div>
 );
 
-export default AllUsers;
+export default AllEmployees;
