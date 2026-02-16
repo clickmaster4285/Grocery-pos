@@ -3,9 +3,13 @@ const router = express.Router();
 const stockTransferController = require('../controllers/stockTransfer.controller');
 const auth = require('../middleware/auth');
 const checkPermission = require('../middleware/checkPermission');
+const { PERMISSIONS_OBJECT } = require('../config/permissions');
 
-router.post('/', auth, checkPermission('stock:create'), stockTransferController.createTransfer);
-router.get('/', auth, checkPermission('stock:read'), stockTransferController.getTransfers);
-router.get('/branch/:branchId', auth, checkPermission('stock:read'), stockTransferController.getBranchStock);
+// Local constant for easier permission management
+const StockPermissions = PERMISSIONS_OBJECT.INVENTORY.STOCK_MANAGEMENT;
+
+router.post('/', auth, checkPermission([StockPermissions.CREATE]), stockTransferController.createTransfer);
+router.get('/', auth, checkPermission([StockPermissions.READ]), stockTransferController.getTransfers);
+router.get('/branch/:branchId', auth, checkPermission([StockPermissions.READ]), stockTransferController.getBranchStock);
 
 module.exports = router;

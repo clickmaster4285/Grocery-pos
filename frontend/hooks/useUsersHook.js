@@ -11,6 +11,9 @@ export const useUsersHook = (userId = null) => {
     const params = useParams();
     const { user: currentUser } = useAuth(); // Current logged-in user
 
+    const module = 'employee_management';
+    const menu = 'employee_database';
+
     const isEditMode = !!userId;
 
     // Fetching user data for edit mode
@@ -33,7 +36,7 @@ export const useUsersHook = (userId = null) => {
         isActive: true,
     });
 
-    // Populate form data for edit mode or initialize with all permissions for create mode
+    // Populate form data for edit mode or initialize with empty permissions for create mode
     useEffect(() => {
         if (isEditMode && userData) {
             setFormData({
@@ -46,17 +49,8 @@ export const useUsersHook = (userId = null) => {
                 isActive: userData.isActive,
                 password: '', // Password is not pre-filled for security
             });
-        } else if (!isEditMode && allPermissions.length > 0) {
-            // For create mode, initialize permissions with all available permissions
-            const flattenedPermissions = allPermissions.flatMap(module =>
-                module.permissions.map(p => p)
-            );
-            setFormData((prev) => ({
-                ...prev,
-                permissions: flattenedPermissions,
-            }));
         }
-    }, [isEditMode, userData, allPermissions]);
+    }, [isEditMode, userData]);
 
     // Check permissions for the current user
     const hasPermission = useCallback((permissionKey) => {
@@ -65,7 +59,10 @@ export const useUsersHook = (userId = null) => {
 
     // Redirect if current user doesn't have create/update permission
     useEffect(() => {
-        const requiredPermission = isEditMode ? 'users:update' : 'users:create';
+        const requiredPermission = isEditMode 
+            ? `${module}:${menu}:update` 
+            : `${module}:${menu}:create`;
+            
         if (currentUser && !currentUser.permissions.includes(requiredPermission)) {
             router.push(`/${params.role}/forbidden`);
         }
@@ -77,7 +74,7 @@ export const useUsersHook = (userId = null) => {
 
     const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
-        const toastId = toast.loading(isEditMode ? 'Saving user...' : 'Creating user...');
+        const toastId = toast.loading(isEditMode ? 'Saving employee...' : 'Creating employee...');
 
         const dataToSubmit = { ...formData };
         if (!dataToSubmit.password) {
@@ -86,7 +83,7 @@ export const useUsersHook = (userId = null) => {
         if (!isEditMode && !dataToSubmit.password) {
             toast.error('Validation Error', {
                 id: toastId,
-                description: 'Password is required for new users.',
+                description: 'Password is required for new employees.',
             });
             return;
         }
@@ -94,12 +91,12 @@ export const useUsersHook = (userId = null) => {
         try {
             if (isEditMode) {
                 await updateUserMutation.mutateAsync({ id: userId, userData: dataToSubmit });
-                toast.success('User updated successfully.', { id: toastId });
+                toast.success('Employee updated successfully.', { id: toastId });
             } else {
                 await createUserMutation.mutateAsync(dataToSubmit);
-                toast.success('User created successfully.', { id: toastId });
+                toast.success('Employee created successfully.', { id: toastId });
             }
-            router.push(`/${params.role}/users`);
+            router.push(`/${params.role}/employees`);
         } catch (err) {
             toast.error('Operation Failed', {
                 id: toastId,
@@ -109,8 +106,8 @@ export const useUsersHook = (userId = null) => {
     }, [isEditMode, formData, userId, router, params.role, createUserMutation, updateUserMutation]);
 
     const resetForm = useCallback(() => {
-        router.back();
-    }, [router]);
+        router.push(`/${params.role}/employees`);
+    }, [router, params.role]);
 
     // Transformed permissions for StaffForm display
     const transformedAllPermissions = useMemo(() => {
@@ -118,26 +115,29 @@ export const useUsersHook = (userId = null) => {
             return [];
         }
 
-        const filteredModules = allPermissions.map(module => {
-            const filteredPermissions = module.permissions.filter(pId => {
+        return allPermissions.map(moduleDef => {
+            const filteredPermissions = moduleDef.permissions.filter(pId => {
                 // If current user is admin, show all permissions
-                if (currentUser?.role === 'admin') {
-                    return true;
-                }
+                if (currentUser?.role === 'admin') return true;
                 // Otherwise, only show permissions the current user has
                 return currentUser?.permissions?.includes(pId);
             });
 
             return {
-                ...module,
-                permissions: filteredPermissions.map(pId => ({
-                    key: pId,
-                    label: pId.split(':')[1].replace(/([A-Z])/g, ' $1').trim(),
-                })),
+                ...moduleDef,
+                permissions: filteredPermissions.map(pId => {
+                    const parts = pId.split(':');
+                    // Format label as "Action (Menu)" e.g. "Create (Product Database)"
+                    const action = parts[2];
+                    const menuName = parts[1].replace(/_/g, ' ');
+                    
+                    return {
+                        key: pId,
+                        label: `${action.charAt(0).toUpperCase() + action.slice(1)} - ${menuName}`,
+                    };
+                }),
             };
-        }).filter(module => module.permissions.length > 0); // Only include modules that have permissions after filtering
-
-        return filteredModules;
+        }).filter(m => m.permissions.length > 0);
     }, [allPermissions, currentUser]);
 
 

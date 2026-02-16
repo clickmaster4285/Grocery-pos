@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Check, ChevronsUpDown, PlusCircle } from "lucide-react"
+import Fuse from "fuse.js"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -18,11 +19,38 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { Input } from "@/components/ui/input"
 
-export function ComboBox({ items, value, onValueChange, placeholder, searchPlaceholder, emptyPlaceholder, custom }) {
+export function ComboBox({ 
+  items, 
+  value, 
+  onValueChange, 
+  placeholder, 
+  searchPlaceholder, 
+  emptyPlaceholder, 
+  custom, 
+  disabled 
+}) {
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState("")
+
+  const fuse = React.useMemo(() => new Fuse(items, {
+    keys: ["label"],
+    threshold: 0.3,
+    distance: 100,
+    minMatchCharLength: 1,
+  }), [items])
+
+  const filteredItems = React.useMemo(() => {
+    if (!inputValue) return items
+    // If exact match found using normal filter, prioritize it
+    const exactMatches = items.filter(item => 
+      item.label.toLowerCase().includes(inputValue.toLowerCase())
+    )
+    if (exactMatches.length > 0) return exactMatches
+
+    // Otherwise use fuzzy search
+    return fuse.search(inputValue).map(result => result.item)
+  }, [fuse, inputValue, items])
 
   const handleAddCustom = () => {
     if (inputValue) {
@@ -38,6 +66,7 @@ export function ComboBox({ items, value, onValueChange, placeholder, searchPlace
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          disabled={disabled}
           className="w-full justify-between bg-white"
         >
           {value
@@ -47,14 +76,16 @@ export function ComboBox({ items, value, onValueChange, placeholder, searchPlace
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
-        <Command>
+        <Command shouldFilter={false}>
           <CommandInput
             placeholder={searchPlaceholder}
             value={inputValue}
             onValueChange={setInputValue}
           />
           <CommandList>
-            <CommandEmpty>{emptyPlaceholder}</CommandEmpty>
+            {filteredItems.length === 0 && (
+              <div className="py-6 text-center text-sm">{emptyPlaceholder}</div>
+            )}
             <CommandGroup>
               {custom && inputValue && !items.some(item => item.label.toLowerCase() === inputValue.toLowerCase()) && (
                 <CommandItem
@@ -65,7 +96,7 @@ export function ComboBox({ items, value, onValueChange, placeholder, searchPlace
                   Create "{inputValue}"
                 </CommandItem>
               )}
-              {items.map((item) => (
+              {filteredItems.map((item) => (
                 <CommandItem
                   key={item.value}
                   value={item.value}

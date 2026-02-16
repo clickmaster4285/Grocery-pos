@@ -80,7 +80,6 @@ const saleSchema = new mongoose.Schema({
 });
 
 // Index for faster searching by bill number and date
-saleSchema.index({ billNumber: 1 });
 saleSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('Sale', saleSchema);

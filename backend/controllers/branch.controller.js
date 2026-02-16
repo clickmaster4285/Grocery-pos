@@ -1,9 +1,40 @@
 const mongoose = require("mongoose");
 const Branch = require("../models/branch.model");
+const Counter = require("../models/counter.model");
+
+// Helper to generate branch code: BR-[BASE36_SERIAL]
+const generateBranchCode = async () => {
+    const counter = await Counter.findOneAndUpdate(
+        { id: 'branch_code' },
+        [
+            {
+                $set: {
+                    seq: { $add: [{ $ifNull: ["$seq", 0] }, 1] },
+                    lastDate: new Date().toISOString().slice(0, 10).replace(/-/g, '')
+                }
+            }
+        ],
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    const serial = counter.seq.toString(36).toUpperCase().padStart(3, '0');
+    return `BR-${serial}`;
+};
 
 exports.createBranch = async (req, res) => {
   try {
-    const branch = await Branch.create(req.body);
+    let { branch_code } = req.body;
+    
+    if (!branch_code) {
+      branch_code = await generateBranchCode();
+    }
+
+    const branch = await Branch.create({
+      ...req.body,
+      branch_code,
+      createdBy: req.user.id,
+      updatedBy: req.user.id
+    });
 
     res.status(201).json({
       success: true,
@@ -20,7 +51,8 @@ exports.createBranch = async (req, res) => {
 
 exports.getAllBranches = async (req, res) => {
   try {
-    const branches = await Branch.find()
+    const branches = await Branch.find({ isDeleted: { $ne: true } })
+      .populate('createdBy', 'firstName lastName')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -49,8 +81,10 @@ exports.getBranchById = async (req, res) => {
 
     const branch = await Branch.findOne({
       _id: id,
-      // status: { $ne: "INACTIVE" }
-    });
+      isDeleted: { $ne: true }
+    })
+    .populate('createdBy', 'firstName lastName')
+    .populate('updatedBy', 'firstName lastName');
 
     if (!branch) {
       return res.status(404).json({
@@ -74,17 +108,32 @@ exports.getBranchById = async (req, res) => {
 exports.updateBranch = async (req, res) => {
   try {
     const { id } = req.params;
+    let { branch_code } = req.body;
+
+    if (branch_code === "") {
+      const existingBranch = await Branch.findById(id);
+      if (existingBranch && !existingBranch.branch_code) {
+        branch_code = await generateBranchCode();
+      } else if (existingBranch) {
+        branch_code = existingBranch.branch_code;
+      }
+    } else if (!branch_code) {
+      const existingBranch = await Branch.findById(id);
+      if (existingBranch && !existingBranch.branch_code) {
+        branch_code = await generateBranchCode();
+      }
+    }
 
     const branch = await Branch.findOneAndUpdate(
-      { _id: id, status: { $ne: "INACTIVE" } },
-      req.body,
+      { _id: id, isDeleted: { $ne: true } },
+      { ...req.body, branch_code, updatedBy: req.user.id },
       { new: true, runValidators: true }
     );
 
     if (!branch) {
       return res.status(404).json({
         success: false,
-        message: "Branch not found or inactive"
+        message: "Branch not found"
       });
     }
 
@@ -101,34 +150,35 @@ exports.updateBranch = async (req, res) => {
   }
 };
 
-exports.toggleBranchStatus = async (req, res) => {
+exports.deleteBranch = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const branch = await Branch.findById(id);
+    const branch = await Branch.findOneAndUpdate(
+      { _id: id, isDeleted: { $ne: true } },
+      { 
+        isDeleted: true,
+        deletedAt: Date.now(),
+        deletedBy: req.user.id
+      },
+      { new: true }
+    );
 
     if (!branch) {
       return res.status(404).json({
         success: false,
-        message: "Branch not found",
+        message: "Branch not found or already deleted"
       });
     }
 
-    // 🔁 TOGGLE STATUS
-    const newStatus = branch.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-
-    branch.status = newStatus;
-    await branch.save();
-
     res.status(200).json({
       success: true,
-      message: `Branch ${newStatus === "ACTIVE" ? "activated" : "deactivated"} successfully`,
-      data: branch,
+      message: "Branch deleted successfully"
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message
     });
   }
 };

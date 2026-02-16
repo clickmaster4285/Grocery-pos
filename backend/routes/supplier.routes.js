@@ -5,41 +5,44 @@ const auth = require('../middleware/auth');
 const checkPermission = require('../middleware/checkPermission');
 const { PERMISSIONS_OBJECT } = require('../config/permissions');
 
+// Local constant for easier permission management
+const VendorPermissions = PERMISSIONS_OBJECT.INVENTORY.VENDOR_MANAGEMENT;
+
 // All routes in this file require authentication
 router.use(auth);
 
 // Create a new supplier
 router.post(
   '/',
-  checkPermission(PERMISSIONS_OBJECT.SUPPLIERS.CREATE),
+  checkPermission([VendorPermissions.CREATE]),
   supplierController.createSupplier
 );
 
 // Get all suppliers
 router.get(
   '/',
-  checkPermission(PERMISSIONS_OBJECT.SUPPLIERS.READ),
+  checkPermission([VendorPermissions.READ]),
   supplierController.getAllSuppliers
 );
 
 // Get a single supplier by ID
 router.get(
   '/:id',
-  checkPermission(PERMISSIONS_OBJECT.SUPPLIERS.READ),
+  checkPermission([VendorPermissions.READ]),
   supplierController.getSupplierById
 );
 
 // Update a supplier by ID
 router.put(
   '/:id',
-  checkPermission(PERMISSIONS_OBJECT.SUPPLIERS.UPDATE),
+  checkPermission([VendorPermissions.UPDATE]),
   supplierController.updateSupplier
 );
 
 // Soft delete a supplier by ID
 router.delete(
   '/:id',
-  checkPermission(PERMISSIONS_OBJECT.SUPPLIERS.DELETE),
+  checkPermission([VendorPermissions.DELETE]),
   supplierController.deleteSupplier
 );
 

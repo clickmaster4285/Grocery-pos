@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Building2, Search } from "lucide-react";
-import { toast } from 'sonner'; // Import toast
-import { useAuth } from '@/hooks/useAuth'; // Import useAuth
+import { Plus, Building2, Search, SlidersHorizontal } from "lucide-react";
+import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 import BranchesTable from "@/components/shared-components/branches/branches-table";
-import BranchModal from "@/components/shared-components/branches/branch-modal";
-import DeleteConfirmationModal from "@/components/shared-components/branches/delete-confirmation-modal";
+import StatusToggleModal from "@/components/shared-components/branches/delete-confirmation-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useRouter } from "next/navigation";
 import {
    Select,
    SelectContent,
@@ -18,34 +18,43 @@ import {
 } from "@/components/ui/select";
 import {
    useGetAllBranches,
-   useCreateBranch,
    useUpdateBranch,
-   useToggleBranchStatus,
+   useDeleteBranch,
 } from "@/features/branch.api.js";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Branches = () => {
-   const { data, isLoading } = useGetAllBranches();
-   const createBranchMutation = useCreateBranch();
+   const router = useRouter();
+   const { data, isLoading, refetch } = useGetAllBranches();
    const updateBranchMutation = useUpdateBranch();
-   const toggleStatusMutation = useToggleBranchStatus();
-   const { user } = useAuth(); // Get user from useAuth
-   const userPrimaryRole = user?.role?.toLowerCase() || 'customer'; // Determine userPrimaryRole
+   const deleteBranchMutation = useDeleteBranch();
+   const { user } = useAuth();
+   const userPrimaryRole = user?.role?.toLowerCase() || 'customer';
 
    const branches = data?.data ?? [];
 
    const [searchQuery, setSearchQuery] = useState("");
    const [statusFilter, setStatusFilter] = useState("all");
-   const [modalState, setModalState] = useState({ isOpen: false, mode: "add", branch: null });
    const [toggleModal, setToggleModal] = useState({ isOpen: false, branch: null });
+   const [branchToDelete, setBranchToDelete] = useState(null);
 
 
-   // Filter branches based on search and status
    const filteredBranches = useMemo(() => {
       return branches.filter((branch) => {
          const matchesSearch =
             branch.branch_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            branch.address.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            branch.address.state.toLowerCase().includes(searchQuery.toLowerCase());
+            branch.address?.city?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            branch.address?.state?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            branch.branch_code?.toLowerCase().includes(searchQuery.toLowerCase());
 
          const matchesStatus =
             statusFilter === "all" || branch.status === statusFilter;
@@ -55,118 +64,91 @@ const Branches = () => {
    }, [branches, searchQuery, statusFilter]);
 
 
-   // Modal handlers
-   const openAddModal = () => {
-      setModalState({ isOpen: true, mode: "add", branch: null });
-   };
+   const openAddModal = () => router.push(`/${userPrimaryRole}/branches/new`);
+   const openEditModal = (branch) => router.push(`/${userPrimaryRole}/branches/${branch._id}/edit`);
+   const openToggleModal = (branch) => setToggleModal({ isOpen: true, branch });
+   const closeToggleModal = () => setToggleModal({ isOpen: false, branch: null });
+   const openDeleteConfirm = (branch) => setBranchToDelete(branch);
 
-   const openViewModal = (branch) => {
-      setModalState({ isOpen: true, mode: "view", branch });
-   };
-
-   const openEditModal = (branch) => {
-      setModalState({ isOpen: true, mode: "edit", branch });
-   };
-
-   const closeModal = () => {
-      setModalState({ isOpen: false, mode: "add", branch: null });
-   };
-
-   const openToggleModal = (branch) => {
-      setToggleModal({ isOpen: true, branch });
-   };
-
-   const closeToggleModal = () => {
-      setToggleModal({ isOpen: false, branch: null });
-   };
-
-   // CRUD operations
-   const handleSaveBranch = async (formData) => { // Made async
+   const handleConfirmStatusChange = async () => {
+      if (!toggleModal.branch) return;
+      const toastId = toast.loading('Updating status...');
       try {
-         if (modalState.mode === "add") {
-            await createBranchMutation.mutateAsync(formData); // Use mutateAsync
-            toast.success("Branch created successfully.");
-         }
-
-         if (modalState.mode === "edit" && modalState.branch) {
-            await updateBranchMutation.mutateAsync({ // Use mutateAsync
-               id: modalState.branch._id,
-               branchData: formData,
-            });
-            toast.success("Branch updated successfully.");
-         }
-         closeModal(); // Close modal only on success
+         const newStatus = toggleModal.branch.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+         await updateBranchMutation.mutateAsync({
+            id: toggleModal.branch._id,
+            branchData: { status: newStatus }
+         });
+         toast.success("Branch status updated.", { id: toastId });
+         closeToggleModal();
+         refetch();
       } catch (error) {
-         console.error("Failed to save branch:", error);
-         toast.error("Failed to save branch.", {
+         toast.error("Update failed", {
+            id: toastId,
             description: error?.response?.data?.message || "An unexpected error occurred.",
          });
       }
    };
 
-
-   const handleConfirmStatusChange = () => {
-      if (!toggleModal.branch) return;
-
-      toggleStatusMutation.mutate(toggleModal.branch._id, {
-         onSuccess: () => {
-            setToggleModal({ isOpen: false, branch: null });
-            toast.success("Branch status updated successfully.");
-         },
-         onError: (error) => {
-            console.error("Failed to update branch status:", error);
-            toast.error("Failed to update branch status.", {
+   const handleExecuteDelete = async () => {
+       if (!branchToDelete) return;
+       const toastId = toast.loading('Deleting branch...');
+       try {
+           await deleteBranchMutation.mutateAsync(branchToDelete._id);
+           toast.success("Branch deleted successfully.", { id: toastId });
+           setBranchToDelete(null);
+           refetch();
+       } catch (error) {
+           toast.error("Deletion failed", {
+               id: toastId,
                description: error?.response?.data?.message || "An unexpected error occurred.",
-            });
-         }
-      });
+           });
+       }
    };
 
 
    if (isLoading) {
-      return <div className="p-6">Loading branches...</div>;
+      return <div className="p-20 text-center animate-pulse font-semibold text-primary/60 text-lg uppercase tracking-widest italic">Loading Branch Network...</div>;
    }
 
    return (
-      <div className="flex">
-         {/* Page Content */}
-         <main className="flex-1">
-            {/* Page Header */}
-            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="space-y-8 animate-in fade-in duration-500">
+         <main className="space-y-6">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                <div>
-                  <h1 className="text-2xl font-bold text-foreground">Branches</h1>
-                  <p className="text-sm text-muted-foreground">
-                     Manage all your store branches and locations
+                  <h1 className="text-3xl font-bold tracking-tight text-foreground">Branches</h1>
+                  <p className="text-muted-foreground font-medium mt-1">
+                     Oversee and manage your physical storefronts and logistics hubs.
                   </p>
                </div>
                <Button
                   onClick={openAddModal}
-                  className="gap-2 bg-primary hover:bg-primary/90"
+                  className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm"
                >
                   <Plus className="h-4 w-4" />
-                  Add Branch
+                  New Branch
                </Button>
             </div>
 
-            {/* Filters */}
-            <div className="mb-6 flex flex-col gap-4 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-               <div className="flex flex-1 items-center gap-4">
-                  {/* Search */}
-                  <div className="relative flex-1 max-w-sm">
-                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                     <Input
-                        type="search"
-                        placeholder="Search by name, city, or state..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10"
-                     />
-                  </div>
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-center bg-card p-4 rounded-xl border shadow-sm">
+               <div className="lg:col-span-2 relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                     type="search"
+                     placeholder="Search by code, name, or city..."
+                     value={searchQuery}
+                     onChange={(e) => setSearchQuery(e.target.value)}
+                     className="pl-10 h-10 border-muted bg-muted/20 focus-visible:bg-background transition-colors"
+                  />
+               </div>
 
-                  {/* Status Filter */}
+               <div className="flex gap-2">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                     <SelectTrigger className="w-37.5">
-                        <SelectValue placeholder="Filter by status" />
+                     <SelectTrigger className="h-10 font-medium bg-muted/20 border-muted">
+                        <div className="flex items-center gap-2">
+                           <SlidersHorizontal className="h-3.5 w-3.5 opacity-60" />
+                           <SelectValue placeholder="Status" />
+                        </div>
                      </SelectTrigger>
                      <SelectContent>
                         <SelectItem value="all">All Status</SelectItem>
@@ -176,42 +158,52 @@ const Branches = () => {
                   </Select>
                </div>
 
-               {/* Results count */}
-               <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                     {filteredBranches.length} branch
-                     {filteredBranches.length !== 1 ? "es" : ""} found
-                  </span>
+               <div className="flex justify-end">
+                  <div className="flex items-center gap-2 bg-muted/30 px-4 py-2 rounded-lg border border-border">
+                     <Building2 className="h-4 w-4 text-muted-foreground" />
+                     <span className="text-sm font-semibold text-foreground">
+                        {filteredBranches.length} <span className="text-muted-foreground font-medium">Locations</span>
+                     </span>
+                  </div>
                </div>
             </div>
 
-            {/* Table */}
             <BranchesTable
                branches={filteredBranches}
-               onView={openViewModal}
                onEdit={openEditModal}
                onToggleStatus={openToggleModal}
+               onDelete={openDeleteConfirm}
                userPrimaryRole={userPrimaryRole}
             />
          </main>
 
-
-         {/* Modals */}
-         <BranchModal
-            isOpen={modalState.isOpen}
-            onClose={closeModal}
-            onSave={handleSaveBranch}
-            branch={modalState.branch}
-            mode={modalState.mode}
-         />
-
-         <DeleteConfirmationModal
+         <StatusToggleModal
             isOpen={toggleModal.isOpen}
             onClose={closeToggleModal}
             onConfirm={handleConfirmStatusChange}
             branch={toggleModal.branch}
          />
+
+         <AlertDialog open={!!branchToDelete} onOpenChange={(open) => !open && setBranchToDelete(null)}>
+            <AlertDialogContent className="border-none shadow-2xl">
+                <AlertDialogHeader>
+                    <AlertDialogTitle className="text-xl font-bold text-destructive">Confirm Deletion</AlertDialogTitle>
+                    <AlertDialogDescription className="text-base text-muted-foreground py-2 leading-relaxed">
+                        Are you sure you want to remove <span className="text-foreground font-semibold underline underline-offset-4 decoration-primary/30">{branchToDelete?.branch_name}</span>? 
+                        This location will be archived and hidden from all active operations.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="pt-4">
+                    <AlertDialogCancel className="font-semibold">Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                        onClick={handleExecuteDelete}
+                        className="bg-destructive hover:bg-destructive/90 text-white font-semibold"
+                    >
+                        Delete Branch
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+         </AlertDialog>
       </div>
    );
 };

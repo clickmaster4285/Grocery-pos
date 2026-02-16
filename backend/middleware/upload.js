@@ -2,21 +2,21 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const uploadStorage = multer.diskStorage({
+// Dynamic storage engine
+const getStorage = (subfolder) => multer.diskStorage({
   destination: (req, file, cb) => {
-    // For now, upload to a generic temp directory.
-    // The controller will be responsible for moving files to their final product/variant specific location.
-    const uploadPath = path.join(__dirname, '../uploads/temp');
+    const uploadPath = path.join(__dirname, `../uploads/${subfolder}`);
     fs.mkdirSync(uploadPath, { recursive: true });
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname)}`);
   },
 });
 
 const fileFilter = (req, file, cb) => {
-  const filetypes = /jpeg|jpg|png|gif|webp/; // Added webp for modern web
+  const filetypes = /jpeg|jpg|png|gif|webp/;
   const mimetype = filetypes.test(file.mimetype);
   const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
 
@@ -26,10 +26,20 @@ const fileFilter = (req, file, cb) => {
   cb(new Error('Only images (JPEG, JPG, PNG, GIF, WebP) are allowed!'));
 };
 
-const upload = multer({
-  storage: uploadStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB file size limit
+// Specific uploaders
+const productUpload = multer({
+  storage: getStorage('temp'),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for products
   fileFilter: fileFilter,
-}).any(); // Use .any() to handle all files with dynamic field names
+});
 
-module.exports = upload;
+const brandUpload = multer({
+  storage: getStorage('brands'),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit for logos
+  fileFilter: fileFilter,
+});
+
+module.exports = {
+  productUpload,
+  brandUpload
+};
