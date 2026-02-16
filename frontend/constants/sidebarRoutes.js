@@ -73,15 +73,15 @@ export const MENU_METADATA = {
   'main_dashboard': { path: '/dashboard', icon: LayoutDashboard },
 
   // Module: Point of Sale
-  'transaction_screen': { path: '/sales', icon: ShoppingCart },
-  'payment_processing': { path: '/pos/payment', icon: CreditCard },
+  'transaction': { path: '/sales', icon: ShoppingCart },
+  // 'payment_processing': { path: '/pos/payment', icon: CreditCard },
   'customer_information': { path: '/customers', icon: Users },
   'discounts_promotions': { path: '/promotions', icon: Percent },
   'special_items': { path: '/pos/special', icon: Star },
   'returns_exchanges': { path: '/returns', icon: RotateCcw },
   'receipt_management': { path: '/pos/receipts', icon: Receipt },
 
-  // Module: Inventory Management
+  // Module: Inventory
   'product_database': { path: '/products', icon: Package },
   'stock_management': { path: '/stock', icon: Boxes },
   'purchase_orders': { path: '/inventory/po', icon: ClipboardList },
@@ -89,18 +89,16 @@ export const MENU_METADATA = {
   'categories_departments': { path: '/categories', icon: Tags },
   'brands': { path: '/brands', icon: Building2 },
 
-  // Module: Branch Management
-  'branch_list': { path: '/branches', icon: List },
-  'store_locator': { path: '/branches/map', icon: MapPin },
-  'branch_performance': { path: '/branches/stats', icon: TrendingUp },
+  // Module: Branch 
+  'branch_management': { path: '/branches', icon: List },
 
-  // Module: Customer Management
+  // Module: Customer
   'customer_database': { path: '/customers', icon: UserPlus },
   'loyalty_program': { path: '/customers/loyalty', icon: Award },
   'customer_groups': { path: '/customers/groups', icon: Users },
   'customer_communications': { path: '/customers/comms', icon: Globe },
 
-  // Module: Employee Management
+  // Module: Employee
   'employee_database': { path: '/employees', icon: UserCircle },
   'shift_management': { path: '/employees/shifts', icon: Calendar },
   'payroll_integration': { path: '/employees/payroll', icon: Wallet },

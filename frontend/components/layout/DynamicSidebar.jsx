@@ -16,9 +16,6 @@ import {
 import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 
-/**
- * SidebarGroup: Renders a Module from the backend structure
- */
 function SidebarGroup({ module, isCollapsed, pathname, userPrimaryRole }) {
   const [isOpen, setIsOpen] = useState(false);
   
@@ -144,6 +141,8 @@ export default function DynamicSidebar() {
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
   if (!user || !user.availableModules) return null;
+
+  console.log(user.availableModules);
 
   return (
     <>
