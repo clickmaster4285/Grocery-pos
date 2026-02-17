@@ -20,11 +20,11 @@ const createUser = async (req, res, next) => {
       role = 'general_staff', 
       permissions = [], 
       branch_id,
-      // New fields
       hireDate,
       designation,
       department,
       employmentStatus,
+      shift,
       salary,
       address,
       emergencyContact
@@ -83,14 +83,21 @@ const createUser = async (req, res, next) => {
       role,
       permissions: hasSystemAccess ? permissions : [],
       branch_id,
-      // New Fields
-      hireDate: hireDate || Date.now(),
-      designation,
-      department,
-      employmentStatus: employmentStatus || 'ACTIVE',
+      // Employment
+      employment: {
+        hireDate: hireDate || Date.now(),
+        designation,
+        department,
+        status: employmentStatus || 'ACTIVE',
+      },
+      shift,
       salary,
       address,
-      emergencyContact
+      emergencyContact,
+      // Initialize Histories
+      salaryHistory: salary ? [{ ...salary, updatedBy: req.user?._id }] : [],
+      designationHistory: (designation || department) ? [{ designation, department, updatedBy: req.user?._id }] : [],
+      shiftHistory: shift ? [{ ...shift, updatedBy: req.user?._id }] : []
     };
 
     const user = await User.create(userData);
@@ -111,7 +118,6 @@ const getAllUsers = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    // Execute queries in parallel for better performance
     const [users, total] = await Promise.all([
       User.find({ isDeleted: false, role: { $ne: 'admin' } })
         .populate('branch_id', 'branch_name')
@@ -156,41 +162,71 @@ const updateUser = async (req, res, next) => {
   try {
     const { userId, ...updateFields } = req.body;
 
-    // Fetch the user being updated to check their role
     const targetUser = await User.findById(req.params.id);
-
     if (!targetUser) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Security check: Prevent non-admin users from editing admin profiles
+    // Security Checks
     if (req.user.role !== 'admin' && targetUser.role === 'admin') {
-      return res.status(403).json({ message: 'Forbidden: You do not have permission to edit an admin user.' });
+      return res.status(403).json({ message: 'Forbidden: Cannot edit admin.' });
     }
-
-    // Security check: Only an admin can set a user's role to 'admin'
     if (updateFields.role === 'admin' && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Forbidden: Only an admin can assign the "admin" role.' });
+      return res.status(403).json({ message: 'Forbidden: Only admin can assign admin role.' });
     }
 
-    // Hash password if it's being updated
-    if (updateFields.password) {
-      updateFields.password = await hashPassword(updateFields.password);
+    // --- AUTO-HISTORY LOGIC ---
+    
+    // 1. Salary Change Detection
+    if (updateFields.salary && 
+       (updateFields.salary.baseAmount !== targetUser.salary?.baseAmount || 
+        updateFields.salary.payType !== targetUser.salary?.payType)) {
+      updateFields.$push = updateFields.$push || {};
+      updateFields.$push.salaryHistory = {
+        baseAmount: targetUser.salary?.baseAmount,
+        payType: targetUser.salary?.payType,
+        effectiveDate: new Date(),
+        updatedBy: req.user._id
+      };
     }
 
-    // Hash PIN if it's being updated
-    if (updateFields.pin) {
-      updateFields.pin = await hashPassword(updateFields.pin.toString());
+    // 2. Designation/Dept Change Detection
+    if (updateFields.employment && 
+       (updateFields.employment.designation !== targetUser.employment?.designation || 
+        updateFields.employment.department !== targetUser.employment?.department)) {
+      updateFields.$push = updateFields.$push || {};
+      updateFields.$push.designationHistory = {
+        designation: targetUser.employment?.designation,
+        department: targetUser.employment?.department,
+        effectiveDate: new Date(),
+        updatedBy: req.user._id
+      };
     }
+
+    // 3. Shift Change Detection
+    if (updateFields.shift && 
+       (updateFields.shift.startTime !== targetUser.shift?.startTime || 
+        updateFields.shift.endTime !== targetUser.shift?.endTime)) {
+      updateFields.$push = updateFields.$push || {};
+      updateFields.$push.shiftHistory = {
+        startTime: targetUser.shift?.startTime,
+        endTime: targetUser.shift?.endTime,
+        workDays: targetUser.shift?.workDays,
+        effectiveDate: new Date(),
+        updatedBy: req.user._id
+      };
+    }
+
+    // Hash credentials if updated
+    if (updateFields.password) updateFields.password = await hashPassword(updateFields.password);
+    if (updateFields.pin) updateFields.pin = await hashPassword(updateFields.pin.toString());
 
     if (updateFields.branch_id) {
       if (!mongoose.Types.ObjectId.isValid(updateFields.branch_id)) {
-        return res.status(400).json({ message: 'Invalid branch ID format' });
+        return res.status(400).json({ message: 'Invalid branch ID' });
       }
       const branchExists = await Branch.findOne({ _id: updateFields.branch_id, status: 'ACTIVE' });
-      if (!branchExists) {
-        return res.status(400).json({ message: 'Branch not found or is inactive' });
-      }
+      if (!branchExists) return res.status(400).json({ message: 'Invalid branch' });
     }
 
     const user = await User.findOneAndUpdate(
@@ -199,9 +235,6 @@ const updateUser = async (req, res, next) => {
       { new: true, runValidators: true }
     ).select('-password');
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
     res.status(200).json(user);
   } catch (error) {
     next(error);
@@ -221,9 +254,7 @@ const deleteUser = async (req, res, next) => {
       { new: true }
     ).select('-password');
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ message: 'User not found' });
     res.status(200).json({ message: 'User deleted successfully' });
   } catch (error) {
     next(error);
@@ -232,18 +263,13 @@ const deleteUser = async (req, res, next) => {
 
 const getPermissions = (req, res, next) => {
   try {
-    // Group all available permissions by module
     const allModulesStructured = PERMISSIONS.reduce((acc, perm) => {
       if (!acc[perm.module]) {
-        acc[perm.module] = {
-          moduleName: perm.module,
-          permissions: [],
-        };
+        acc[perm.module] = { moduleName: perm.module, permissions: [] };
       }
       acc[perm.module].permissions.push(perm.id);
       return acc;
     }, {});
-
     res.status(200).json(Object.values(allModulesStructured));
   } catch (error) {
     next(error);

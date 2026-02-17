@@ -67,25 +67,34 @@ const userSchema = new mongoose.Schema(
     },
 
     // Employment Details
-    hireDate: {
-      type: Date,
-      default: Date.now,
+    employment: {
+      hireDate: {
+        type: Date,
+        default: Date.now,
+      },
+      terminationDate: {
+        type: Date,
+      },
+      designation: {
+        type: String,
+        trim: true,
+      },
+      department: {
+        type: String,
+        trim: true,
+      },
+      status: {
+        type: String,
+        enum: ['ACTIVE', 'INACTIVE', 'ON_LEAVE', 'TERMINATED'],
+        default: 'ACTIVE',
+      },
     },
-    terminationDate: {
-      type: Date,
-    },
-    designation: {
-      type: String,
-      trim: true,
-    },
-    department: {
-      type: String,
-      trim: true,
-    },
-    employmentStatus: {
-      type: String,
-      enum: ['ACTIVE', 'INACTIVE', 'ON_LEAVE', 'TERMINATED'],
-      default: 'ACTIVE',
+
+    // Current Shift Configuration
+    shift: {
+      startTime: String, // e.g. "09:00"
+      endTime: String,   // e.g. "17:00"
+      workDays: [String], // e.g. ["Monday", "Tuesday"]
     },
 
     // Financial / Salary Management
@@ -111,12 +120,40 @@ const userSchema = new mongoose.Schema(
       }
     },
 
+    // Historical Records
+    salaryHistory: [
+      {
+        baseAmount: Number,
+        payType: String,
+        effectiveDate: { type: Date, default: Date.now },
+        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+      }
+    ],
+    designationHistory: [
+      {
+        designation: String,
+        department: String,
+        effectiveDate: { type: Date, default: Date.now },
+        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+      }
+    ],
+    shiftHistory: [
+      {
+        startTime: String,
+        endTime: String,
+        workDays: [String],
+        effectiveDate: { type: Date, default: Date.now },
+        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+      }
+    ],
+
     // Personal & Emergency
     address: {
       street: String,
       city: String,
       state: String,
       zip: String,
+      country: String,
     },
     emergencyContact: {
       name: String,

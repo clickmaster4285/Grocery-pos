@@ -22,8 +22,16 @@ The database now supports two distinct categories of employees:
 - **Data**: Minimal profile (Name, Phone, Employee ID). **Email is optional**.
 - **Attendance**: Uses a **PIN Code** for Time Clock.
 
-### 2.2. Scheduling & Attendance
-- **Shift Management**: Managers can assign shifts to both System Users and General Staff.
+### 2.2. Career & Financial History (Active State vs. Audit Trail)
+To optimize performance while maintaining full accountability, the system uses a dual-layer tracking architecture:
+
+-   **Active State (Current Fields)**: Fields like `salary`, `employment`, and `shift` store the user's *present* configuration. This ensures O(1) access for critical operations like POS transactions, payroll generation, and dashboard displays.
+-   **Audit Trail (History Arrays)**: Arrays like `salaryHistory`, `designationHistory`, and `shiftHistory` store chronological snapshots of every change. 
+    -   **Creation**: When an employee is registered, the first entry is automatically mirrored in the history.
+    -   **Updates**: If a manager updates an employee's salary or title, the backend automatically "pushes" the previous value into the history array before applying the update. This provides a permanent record of raises, promotions, and schedule changes.
+
+### 2.3. Scheduling & Attendance
+- **Shift Management**: Current configuration includes `startTime`, `endTime`, and `workDays`. Managers can assign shifts to both System Users and General Staff.
 - **Time Clock**:
     - **System Users**: Clock in via dashboard.
     - **General Staff**: Clock in via PIN/Badge at a shared terminal.

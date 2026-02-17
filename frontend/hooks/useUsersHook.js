@@ -32,11 +32,19 @@ export const useUsersHook = (userId = null) => {
         isTwoFactorEnabled: false,
         permissions: [],
         isActive: true,
-        // Employment
-        hireDate: new Date().toISOString().split('T')[0],
-        designation: '',
-        department: '',
-        employmentStatus: 'ACTIVE',
+        // Refactored Employment Structure
+        employment: {
+            hireDate: new Date().toISOString().split('T')[0],
+            designation: '',
+            department: '',
+            status: 'ACTIVE',
+        },
+        // New Shift Structure
+        shift: {
+            startTime: '09:00',
+            endTime: '17:00',
+            workDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        },
         // Financial
         salary: {
             baseAmount: 0,
@@ -53,6 +61,7 @@ export const useUsersHook = (userId = null) => {
             city: '',
             state: '',
             zip: '',
+            country: '',
         },
         emergencyContact: {
             name: '',
@@ -74,10 +83,17 @@ export const useUsersHook = (userId = null) => {
                 isTwoFactorEnabled: userData.isTwoFactorEnabled || false,
                 permissions: userData.permissions || [],
                 isActive: userData.isActive ?? true,
-                hireDate: userData.hireDate ? new Date(userData.hireDate).toISOString().split('T')[0] : '',
-                designation: userData.designation || '',
-                department: userData.department || '',
-                employmentStatus: userData.employmentStatus || 'ACTIVE',
+                employment: {
+                    hireDate: userData.employment?.hireDate ? new Date(userData.employment.hireDate).toISOString().split('T')[0] : '',
+                    designation: userData.employment?.designation || '',
+                    department: userData.employment?.department || '',
+                    status: userData.employment?.status || 'ACTIVE',
+                },
+                shift: {
+                    startTime: userData.shift?.startTime || '09:00',
+                    endTime: userData.shift?.endTime || '17:00',
+                    workDays: userData.shift?.workDays || [],
+                },
                 salary: {
                     baseAmount: userData.salary?.baseAmount || 0,
                     payType: userData.salary?.payType || 'SALARY',
@@ -93,6 +109,7 @@ export const useUsersHook = (userId = null) => {
                     city: userData.address?.city || '',
                     state: userData.address?.state || '',
                     zip: userData.address?.zip || '',
+                    country: userData.address?.country || '',
                 },
                 emergencyContact: {
                     name: userData.emergencyContact?.name || '',
@@ -122,7 +139,6 @@ export const useUsersHook = (userId = null) => {
                 return { ...prev, [path]: value };
             }
             
-            // Shallow clone for nested updates (supports up to 3 levels)
             const newState = { ...prev };
             let current = newState;
             for (let i = 0; i < keys.length - 1; i++) {
@@ -135,24 +151,12 @@ export const useUsersHook = (userId = null) => {
     }, []);
 
     const handleSubmit = useCallback(async (e) => {
-        e.preventDefault();
+        if (e && e.preventDefault) e.preventDefault();
         const toastId = toast.loading(isEditMode ? 'Saving employee...' : 'Creating employee...');
 
         const dataToSubmit = { ...formData };
         
-        // Validation & Cleanup
-        if (!isEditMode) {
-            if (!dataToSubmit.pin) {
-                toast.error('Validation Error', { id: toastId, description: 'PIN is required.' });
-                return;
-            }
-            if (dataToSubmit.hasSystemAccess && (!dataToSubmit.email || !dataToSubmit.password)) {
-                toast.error('Validation Error', { id: toastId, description: 'Email/Password required for system access.' });
-                return;
-            }
-        }
-
-        // Remove empty strings for security fields if in edit mode and they weren't changed
+        // Remove empty strings for security fields
         if (isEditMode) {
             if (!dataToSubmit.password) delete dataToSubmit.password;
             if (!dataToSubmit.pin) delete dataToSubmit.pin;
