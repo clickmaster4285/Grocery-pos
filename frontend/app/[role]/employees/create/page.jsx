@@ -8,7 +8,7 @@ import { useGetAllBranches } from '@/features/branch.api';
 
 const EmployeeCreatePage = () => {
   const {
-    formData, 
+    formData,
     isUserLoading,
     permissionsLoading,
     transformedAllPermissions,
@@ -18,25 +18,25 @@ const EmployeeCreatePage = () => {
     createUserMutation,
     updateUserMutation,
     isEditMode,
-    currentUser, 
-  } = useUsersHook(); 
+    currentUser,
+  } = useUsersHook();
 
   const { data: branchesData, isLoading: branchesLoading } = useGetAllBranches();
   const branches = branchesData?.data || [];
 
   if (isUserLoading || branchesLoading) {
-    return <div>Loading...</div>; 
+    return <div>Loading...</div>;
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className='bg-white p-2 rounded-md'>
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Add New Employee</h1>
         <p className="text-muted-foreground">
           Fill in the details below to create a new employee account.
         </p>
       </div>
-      
+
       <StaffForm
         formData={formData}
         updateFormField={updateFormField}

@@ -22,7 +22,7 @@ const EmployeeEditPage = () => {
     createUserMutation,
     updateUserMutation,
     isEditMode,
-  } = useUsersHook(id); 
+  } = useUsersHook(id);
 
   const { data: branchesData, isLoading: branchesLoading } = useGetAllBranches();
   const branches = branchesData?.data || [];
@@ -32,23 +32,23 @@ const EmployeeEditPage = () => {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className='bg-white p-2 rounded-md'>
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Edit Employee</h1>
         <p className="text-muted-foreground">
           Update the employee's details and permissions below.
         </p>
       </div>
-      
+
       <StaffForm
         formData={formData}
         updateFormField={updateFormField}
         handleSubmit={handleSubmit}
         resetForm={resetForm}
-        editingUser={isEditMode ? { id } : null} 
+        editingUser={isEditMode ? { id } : null}
         createUserMutation={createUserMutation}
         updateUserMutation={updateUserMutation}
-        allPermissions={transformedAllPermissions} 
+        allPermissions={transformedAllPermissions}
         permissionsLoading={permissionsLoading}
         ROLES={ROLES}
         branches={branches}

@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { StaffForm } from './StaffForm';
+import { StaffForm } from './create/StaffForm';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { formatPhoneNumberForDisplay } from '@/utils/formatters';
 
@@ -30,7 +30,7 @@ const getStatusBadge = (user) => (user.isActive ? 'Active' : 'Inactive');
 const getStatusVariant = (user) => (user.isActive ? 'success' : 'destructive');
 
 export const StaffDetailPage = () => {
-  const { id } = useParams(); 
+  const { id } = useParams();
   const router = useRouter();
   const { user: currentUser } = useAuth();
   const { employee, currentUserRole } = usePermissions();
@@ -186,7 +186,7 @@ export const StaffDetailPage = () => {
           <div className="flex items-center gap-4">
             <UserAvatar user={staff} size="xl" className="ring-2 ring-primary/50" />
             <div>
-              <CardTitle className="text-2xl font-bold">{staff.firstName} {staff.lastName? staff.lastName:""}</CardTitle>
+              <CardTitle className="text-2xl font-bold">{staff.firstName} {staff.lastName ? staff.lastName : ""}</CardTitle>
               <Badge
                 variant={getStatusVariant(staff)}
                 className="mt-1 capitalize"

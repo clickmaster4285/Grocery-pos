@@ -8,10 +8,42 @@ const { PERMISSIONS } = require('../config/permissions');
 
 const createUser = async (req, res, next) => {
   try {
-    const { firstName, lastName, phone, email, password, role = 'customer', permissions = [], branch_id } = req.body;
+    const { 
+      firstName, 
+      lastName, 
+      phone, 
+      email, 
+      password, 
+      pin,
+      hasSystemAccess = false,
+      isTwoFactorEnabled = false,
+      role = 'general_staff', 
+      permissions = [], 
+      branch_id,
+      // New fields
+      hireDate,
+      designation,
+      department,
+      employmentStatus,
+      salary,
+      address,
+      emergencyContact
+    } = req.body;
 
-    if (!firstName || !email || !password) {
-      return res.status(400).json({ message: 'Please provide all required fields' });
+    // Base validation
+    if (!firstName) {
+      return res.status(400).json({ message: 'First name is required' });
+    }
+
+    if (!pin) {
+      return res.status(400).json({ message: 'PIN is required for all staff members' });
+    }
+
+    // Conditional validation for system access
+    if (hasSystemAccess) {
+      if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password are required for system access' });
+      }
     }
 
     if (branch_id) {
@@ -24,42 +56,48 @@ const createUser = async (req, res, next) => {
       }
     }
 
-    const existingUser = await User.findOne({ email, isDeleted: false });
-    if (existingUser) {
-      return res.status(409).json({ message: 'User with this email already exists' });
+    // Email check (if provided)
+    if (email) {
+      const existingUser = await User.findOne({ email, isDeleted: false });
+      if (existingUser) {
+        return res.status(409).json({ message: 'User with this email already exists' });
+      }
     }
 
     const userId = generateUserId({ firstName, lastName, role });
-    const hashedPassword = await hashPassword(password);
+    
+    // Security: Hash both password and PIN
+    const hashedPassword = password ? await hashPassword(password) : undefined;
+    const hashedPin = await hashPassword(pin.toString());
 
     const userData = {
       userId,
       firstName,
       lastName,
-      email,
+      email: email || undefined,
       phone,
+      hasSystemAccess,
       password: hashedPassword,
+      pin: hashedPin,
+      isTwoFactorEnabled,
       role,
-      permissions,
+      permissions: hasSystemAccess ? permissions : [],
       branch_id,
+      // New Fields
+      hireDate: hireDate || Date.now(),
+      designation,
+      department,
+      employmentStatus: employmentStatus || 'ACTIVE',
+      salary,
+      address,
+      emergencyContact
     };
 
-    const token = generateToken({
-      userId: userData.userId,
-      role: userData.role,
-      permissions: userData.permissions,
-    });
-
-    const user = await User.create({
-      token,
-      ...userData
-    });
+    const user = await User.create(userData);
 
     const userResponse = user.toObject();
     delete userResponse.password;
-    userResponse.role = user.role;
-    userResponse.permissions = user.permissions;
-    userResponse.token = token;
+    delete userResponse.pin;
 
     res.status(201).json(userResponse);
   } catch (error) {
@@ -100,7 +138,11 @@ const getAllUsers = async (req, res, next) => {
 
 const getUserById = async (req, res, next) => {
   try {
-    const user = await User.findOne({ _id: req.params.id, isDeleted: false }).populate('branch_id', 'branch_name').populate('deletedBy', 'firstName lastName').select('-password');
+    const user = await User.findOne({ _id: req.params.id, isDeleted: false })
+      .populate('branch_id', 'branch_name')
+      .populate('deletedBy', 'firstName lastName')
+      .select('-password');
+      
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -131,18 +173,16 @@ const updateUser = async (req, res, next) => {
       return res.status(403).json({ message: 'Forbidden: Only an admin can assign the "admin" role.' });
     }
 
-    // Basic validation for role and permissions
-    if (updateFields.role && typeof updateFields.role !== 'string') {
-      return res.status(400).json({ message: 'Role must be a string.' });
-    }
-    
     // Hash password if it's being updated
     if (updateFields.password) {
       updateFields.password = await hashPassword(updateFields.password);
     }
 
-    if (updateFields.permissions && (!Array.isArray(updateFields.permissions) || !updateFields.permissions.every(p => typeof p === 'string'))) {
+    // Hash PIN if it's being updated
+    if (updateFields.pin) {
+      updateFields.pin = await hashPassword(updateFields.pin.toString());
     }
+
     if (updateFields.branch_id) {
       if (!mongoose.Types.ObjectId.isValid(updateFields.branch_id)) {
         return res.status(400).json({ message: 'Invalid branch ID format' });
@@ -155,7 +195,7 @@ const updateUser = async (req, res, next) => {
 
     const user = await User.findOneAndUpdate(
       { _id: req.params.id, isDeleted: false },
-      updateFields, // Use the filtered updateFields
+      updateFields,
       { new: true, runValidators: true }
     ).select('-password');
 
