@@ -142,8 +142,6 @@ export default function DynamicSidebar() {
 
   if (!user || !user.availableModules) return null;
 
-  console.log(user.availableModules);
-
   return (
     <>
       <div className={cn('shrink-0 transition-all duration-300', isCollapsed ? 'w-16' : 'w-64')} />

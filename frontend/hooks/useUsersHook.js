@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuth } from './useAuth';
+import { usePermissions } from './usePermissions';
 import { useGetPermissions, useCreateUser, useUpdateUser, useGetUserById } from '@/features/users.api';
 import { ROLES } from '@/constants/roles';
 
@@ -10,9 +11,7 @@ export const useUsersHook = (userId = null) => {
     const router = useRouter();
     const params = useParams();
     const { user: currentUser } = useAuth(); // Current logged-in user
-
-    const module = 'employee_management';
-    const menu = 'employee_database';
+    const { employee, isAdmin, can } = usePermissions();
 
     const isEditMode = !!userId;
 
@@ -52,21 +51,17 @@ export const useUsersHook = (userId = null) => {
         }
     }, [isEditMode, userData]);
 
-    // Check permissions for the current user
-    const hasPermission = useCallback((permissionKey) => {
-        return currentUser?.permissions?.includes(permissionKey);
-    }, [currentUser]);
-
     // Redirect if current user doesn't have create/update permission
     useEffect(() => {
-        const requiredPermission = isEditMode 
-            ? `${module}:${menu}:update` 
-            : `${module}:${menu}:create`;
+        if (isAdmin) return;
+
+        const hasAccess = isEditMode ? employee.database.update : employee.database.create;
             
-        if (currentUser && !currentUser.permissions.includes(requiredPermission)) {
-            router.push(`/${params.role}/forbidden`);
+        if (currentUser && !hasAccess) {
+            console.error('Permission denied for Employee Database:', isEditMode ? 'update' : 'create');
+            router.push(`/forbidden`);
         }
-    }, [currentUser, isEditMode, router, params.role]);
+    }, [currentUser, isEditMode, router, employee.database, isAdmin]);
 
     const updateFormField = useCallback((field, value) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
@@ -118,9 +113,9 @@ export const useUsersHook = (userId = null) => {
         return allPermissions.map(moduleDef => {
             const filteredPermissions = moduleDef.permissions.filter(pId => {
                 // If current user is admin, show all permissions
-                if (currentUser?.role === 'admin') return true;
+                if (isAdmin) return true;
                 // Otherwise, only show permissions the current user has
-                return currentUser?.permissions?.includes(pId);
+                return can(pId);
             });
 
             return {
@@ -138,7 +133,7 @@ export const useUsersHook = (userId = null) => {
                 }),
             };
         }).filter(m => m.permissions.length > 0);
-    }, [allPermissions, currentUser]);
+    }, [allPermissions, isAdmin, can]);
 
 
     return {
