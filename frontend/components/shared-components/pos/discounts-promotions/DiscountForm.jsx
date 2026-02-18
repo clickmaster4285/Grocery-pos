@@ -27,11 +27,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ComboBox } from '@/components/ui/combobox';
-import { Tag, Calendar, Clock, Percent, Users, Store, Package, Info, Plus, X, Layers } from 'lucide-react';
+import { Tag, Calendar, Clock, Percent, Users, Store, Package, Info, Plus, X, Layers, CheckCircle2 } from 'lucide-react';
 import { useGetAllCategories } from '@/features/category.api';
+import { useGetAllBrands } from '@/features/brand.api';
 import { useGetAllProducts } from '@/features/product.api';
 import { useGetAllBranches } from '@/features/branch.api';
 import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/utils';
 
 const discountFormSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -40,6 +42,7 @@ const discountFormSchema = z.object({
   isGlobal: z.boolean().default(false),
   applicableBranches: z.array(z.string()).default([]),
   qualifyingCategories: z.array(z.string()).default([]),
+  qualifyingBrands: z.array(z.string()).default([]),
   qualifyingProducts: z.array(z.string()).default([]),
   qualifyingVariants: z.array(z.string()).default([]),
   qualifyingCustomerGroups: z.array(z.string()).default([]),
@@ -73,7 +76,7 @@ const CUSTOMER_GROUPS = [
   "Regular", "Silver", "Gold", "Platinum", "Staff"
 ];
 
-const VariantSelector = ({ products, selectedProductIds, selectedVariantIds, onToggleVariant }) => {
+const VariantSelector = ({ products, selectedProductIds, selectedVariantIds, onToggleVariant, onToggleAllVariants }) => {
   const selectedProductsWithVariants = useMemo(() => {
     return products?.filter(p => selectedProductIds.includes(p._id)) || [];
   }, [products, selectedProductIds]);
@@ -81,39 +84,71 @@ const VariantSelector = ({ products, selectedProductIds, selectedVariantIds, onT
   if (selectedProductsWithVariants.length === 0) return null;
 
   return (
-    <div className="space-y-4 border-t pt-4 mt-4">
-      <div className="flex items-center gap-2 text-sm font-bold text-primary">
-        <Layers size={16} />
-        <span>Granular Variant Control (Optional)</span>
+    <div className="space-y-4 border-t pt-6 mt-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm font-bold text-primary">
+          <Layers size={18} className="text-primary" />
+          <span>Granular Variant Selection</span>
+        </div>
+        <Badge variant="outline" className="text-[10px] uppercase font-bold text-muted-foreground bg-background">
+          {selectedVariantIds.length} Selected
+        </Badge>
       </div>
-      <p className="text-[10px] text-muted-foreground">
-        If no variants are selected for a product, the discount applies to ALL variants of that product.
-      </p>
       
-      <div className="space-y-4">
-        {selectedProductsWithVariants.map(product => (
-          <div key={product._id} className="bg-secondary/10 p-3 rounded-lg border border-secondary/20">
-            <p className="text-xs font-bold mb-2 flex items-center gap-2">
-              <Package size={12} /> {product.productName}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {product.variants?.map(variant => {
-                const attrString = variant.attributes?.map(a => a.value).join(' / ') || 'Standard';
-                const isSelected = selectedVariantIds.includes(variant._id);
-                return (
-                  <Badge 
-                    key={variant._id} 
-                    variant={isSelected ? "default" : "outline"}
-                    className="cursor-pointer transition-all hover:scale-105"
-                    onClick={() => onToggleVariant(variant._id)}
-                  >
-                    {attrString} (SKU: {variant.sku})
-                  </Badge>
-                );
-              })}
+      <div className="grid grid-cols-1 gap-4 mt-2">
+        {selectedProductsWithVariants.map(product => {
+          const productVariantIds = product.variants?.map(v => v._id) || [];
+          const allSelected = productVariantIds.length > 0 && productVariantIds.every(id => selectedVariantIds.includes(id));
+
+          return (
+            <div key={product._id} className="bg-card rounded-xl border border-muted shadow-sm overflow-hidden transition-all hover:shadow-md">
+              <div className="bg-muted/30 px-4 py-2 border-b flex items-center justify-between">
+                <span className="text-xs font-bold flex items-center gap-2">
+                  <Package size={14} className="text-primary" /> {product.productName}
+                </span>
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => onToggleAllVariants(productVariantIds, !allSelected)}
+                  className="h-7 px-3 text-[10px] font-bold uppercase hover:bg-primary/10 transition-all"
+                >
+                  {allSelected ? 'Deselect All' : 'Select All'}
+                </Button>
+              </div>
+              <div className="p-4 flex flex-wrap gap-2">
+                {product.variants?.map(variant => {
+                  const attrString = variant.attributes?.map(a => a.value).join(' / ') || 'Standard';
+                  const isSelected = selectedVariantIds.includes(variant._id);
+                  return (
+                    <button
+                      type="button"
+                      key={variant._id}
+                      onClick={() => onToggleVariant(variant._id)}
+                      className={cn(
+                        "flex flex-col items-start gap-1 px-3 py-2 rounded-lg border text-left transition-all",
+                        isSelected 
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm" 
+                          : "bg-background hover:bg-muted border-input hover:border-primary/40"
+                      )}
+                    >
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <span className="text-[11px] font-bold leading-none uppercase">{attrString}</span>
+                        {isSelected && <CheckCircle2 size={10} strokeWidth={4} />}
+                      </div>
+                      <span className={cn(
+                        "text-[9px] font-mono opacity-70",
+                        isSelected ? "text-primary-foreground" : "text-muted-foreground"
+                      )}>
+                        {variant.sku}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -124,6 +159,7 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
   const isAdmin = user?.role === 'admin';
 
   const { data: categoriesData } = useGetAllCategories();
+  const { data: brandsData } = useGetAllBrands();
   const { data: productsData } = useGetAllProducts({ limit: 100 });
   const { data: branchesData } = useGetAllBranches();
 
@@ -131,12 +167,16 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
     categoriesData?.data?.map(c => ({ label: c.name, value: c._id })) || [], 
   [categoriesData]);
 
+  const brandOptions = useMemo(() => 
+    brandsData?.data?.map(b => ({ label: b.name, value: b._id })) || [], 
+  [brandsData]);
+
   const productOptions = useMemo(() => 
     productsData?.products?.map(p => ({ label: p.productName, value: p._id })) || [], 
   [productsData]);
 
   const branchOptions = useMemo(() => 
-    branchesData?.data?.map(b => ({ label: b.name, value: b._id })) || [], 
+    branchesData?.data?.map(b => ({ label: b.branch_name, value: b._id })) || [], 
   [branchesData]);
 
   const form = useForm({
@@ -147,6 +187,7 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
       endDate: initialData.endDate ? new Date(initialData.endDate).toISOString().split('T')[0] : '',
       // MAP POPULATED OBJECTS TO IDs
       qualifyingCategories: initialData.qualifyingCategories?.map(c => c._id || c) || [],
+      qualifyingBrands: initialData.qualifyingBrands?.map(b => b._id || b) || [],
       qualifyingProducts: initialData.qualifyingProducts?.map(p => p._id || p) || [],
       applicableBranches: initialData.applicableBranches?.map(b => b._id || b) || [],
       qualifyingVariants: initialData.qualifyingVariants || [],
@@ -159,6 +200,7 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
       isGlobal: isAdmin, 
       applicableBranches: !isAdmin ? [user?.branch_id] : [],
       qualifyingCategories: [],
+      qualifyingBrands: [],
       qualifyingProducts: [],
       qualifyingVariants: [],
       qualifyingCustomerGroups: [],
@@ -180,14 +222,16 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
   useEffect(() => {
     if (isEditing && initialData) {
       console.log('Source of data (initialData from API):', initialData);
-      console.log('Form Mapped Values:', form.getValues());
     }
-  }, [isEditing, initialData, form]);
+  }, [isEditing, initialData]);
 
   const watchType = form.watch('type');
   const watchIsGlobal = form.watch('isGlobal');
   const watchProducts = form.watch('qualifyingProducts');
   const watchVariants = form.watch('qualifyingVariants');
+  const watchCategories = form.watch('qualifyingCategories');
+  const watchBrands = form.watch('qualifyingBrands');
+  const watchBranches = form.watch('applicableBranches');
 
   const handleToggleVariant = (variantId) => {
     const current = form.getValues('qualifyingVariants');
@@ -195,6 +239,16 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
       form.setValue('qualifyingVariants', current.filter(id => id !== variantId));
     } else {
       form.setValue('qualifyingVariants', [...current, variantId]);
+    }
+  };
+
+  const handleToggleAllVariants = (variantIds, select) => {
+    const current = form.getValues('qualifyingVariants');
+    if (select) {
+      const uniqueNewIds = [...new Set([...current, ...variantIds])];
+      form.setValue('qualifyingVariants', uniqueNewIds);
+    } else {
+      form.setValue('qualifyingVariants', current.filter(id => !variantIds.includes(id)));
     }
   };
 
@@ -208,7 +262,7 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8 pb-20">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
@@ -426,32 +480,76 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
                   Targeting & Scope
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-8">
+                {/* REFINED CATEGORY GUI with ComboBox */}
                 <div className="space-y-4">
-                  <FormLabel>Applies to Categories</FormLabel>
-                  <div className="flex flex-wrap gap-2">
-                    {categoryOptions.map(opt => (
-                      <div key={opt.value} className="flex items-center space-x-2 bg-secondary/30 px-3 py-1 rounded-full border">
-                        <Checkbox 
-                          id={`cat-${opt.value}`}
-                          checked={form.watch('qualifyingCategories').includes(opt.value)}
-                          onCheckedChange={(checked) => {
-                            const current = form.getValues('qualifyingCategories');
-                            form.setValue('qualifyingCategories', 
-                              checked ? [...current, opt.value] : current.filter(v => v !== opt.value)
-                            );
-                          }}
-                        />
-                        <label htmlFor={`cat-${opt.value}`} className="text-sm font-medium leading-none cursor-pointer">
-                          {opt.label}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
+                  <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Applies to Categories</FormLabel>
+                  <ComboBox
+                    items={categoryOptions}
+                    placeholder="Search and add categories..."
+                    onValueChange={(val) => {
+                      const current = form.getValues('qualifyingCategories');
+                      if (val && !current.includes(val)) {
+                        form.setValue('qualifyingCategories', [...current, val]);
+                      }
+                    }}
+                  />
+                  
+                  {watchCategories.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {watchCategories.map(cid => {
+                        const c = categoryOptions.find(opt => opt.value === cid);
+                        return (
+                          <Badge key={cid} variant="secondary" className="flex items-center gap-1 py-1 px-3">
+                            {c?.label || 'Unknown Category'}
+                            <X 
+                              size={14} 
+                              className="cursor-pointer hover:text-destructive" 
+                              onClick={() => form.setValue('qualifyingCategories', watchCategories.filter(v => v !== cid))}
+                            />
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-4 border-t pt-4">
-                  <FormLabel>Applies to Specific Products</FormLabel>
+                {/* REFINED BRAND GUI with ComboBox */}
+                <div className="space-y-4 border-t pt-6">
+                  <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Applies to Brands</FormLabel>
+                  <ComboBox
+                    items={brandOptions}
+                    placeholder="Search and add brands..."
+                    onValueChange={(val) => {
+                      const current = form.getValues('qualifyingBrands');
+                      if (val && !current.includes(val)) {
+                        form.setValue('qualifyingBrands', [...current, val]);
+                      }
+                    }}
+                  />
+                  
+                  {watchBrands.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {watchBrands.map(bid => {
+                        const b = brandOptions.find(opt => opt.value === bid);
+                        return (
+                          <Badge key={bid} variant="secondary" className="flex items-center gap-1 py-1 px-3">
+                            {b?.label || 'Unknown Brand'}
+                            <X 
+                              size={14} 
+                              className="cursor-pointer hover:text-destructive" 
+                              onClick={() => form.setValue('qualifyingBrands', watchBrands.filter(v => v !== bid))}
+                            />
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* REFINED PRODUCT GUI */}
+                <div className="space-y-4 border-t pt-6">
+                  <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Applies to Specific Products</FormLabel>
                   <ComboBox
                     items={productOptions}
                     placeholder="Search and add products..."
@@ -462,31 +560,52 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
                       }
                     }}
                   />
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {form.watch('qualifyingProducts').map(pid => {
-                      const p = productOptions.find(opt => opt.value === pid);
-                      return (
-                        <Badge key={pid} variant="secondary" className="gap-1 px-3 py-1">
-                          {p?.label || 'Unknown Product'}
-                          <X size={14} className="cursor-pointer hover:text-destructive" onClick={() => {
-                            const product = productsData?.products?.find(prod => prod._id === pid);
-                            if (product?.variants) {
-                              const vids = product.variants.map(v => v._id);
-                              form.setValue('qualifyingVariants', form.getValues('qualifyingVariants').filter(id => !vids.includes(id)));
-                            }
-                            form.setValue('qualifyingProducts', form.getValues('qualifyingProducts').filter(v => v !== pid));
-                          }} />
-                        </Badge>
-                      );
-                    })}
-                  </div>
+                  
+                  {watchProducts.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                      {watchProducts.map(pid => {
+                        const p = productOptions.find(opt => opt.value === pid);
+                        const product = productsData?.products?.find(prod => prod._id === pid);
+                        const variantCount = product?.variants?.length || 0;
+                        const selectedInProduct = product?.variants?.filter(v => watchVariants.includes(v._id)).length || 0;
+
+                        return (
+                          <div key={pid} className="flex items-center justify-between p-3 bg-secondary/30 border-2 border-transparent hover:border-primary/20 rounded-xl group transition-all">
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold truncate max-w-37.5">{p?.label || 'Unknown Product'}</span>
+                              <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">
+                                {selectedInProduct || 'ALL'} / {variantCount} Variants
+                              </span>
+                            </div>
+                            <Button 
+                              type="button"
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-7 w-7 rounded-full text-muted-foreground hover:text-destructive transition-colors"
+                              onClick={() => {
+                                if (product?.variants) {
+                                  const vids = product.variants.map(v => v._id);
+                                  form.setValue('qualifyingVariants', form.getValues('qualifyingVariants').filter(id => !vids.includes(id)));
+                                }
+                                form.setValue('qualifyingProducts', form.getValues('qualifyingProducts').filter(v => v !== pid));
+                              }}
+                            >
+                              <X size={14} />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
+                {/* REFINED VARIANT GUI */}
                 <VariantSelector 
                   products={productsData?.products}
                   selectedProductIds={watchProducts}
                   selectedVariantIds={watchVariants}
                   onToggleVariant={handleToggleVariant}
+                  onToggleAllVariants={handleToggleAllVariants}
                 />
               </CardContent>
             </Card>
@@ -584,23 +703,34 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
                 {(isAdmin && !watchIsGlobal) && (
                   <div className="space-y-3">
                     <FormLabel>Specific Branches</FormLabel>
-                    <div className="flex flex-wrap gap-2">
-                      {branchOptions.map(opt => (
-                        <div key={opt.value} className="flex items-center space-x-2 bg-secondary/30 px-2 py-1 rounded-md border text-xs">
-                          <Checkbox 
-                            id={`br-${opt.value}`}
-                            checked={form.watch('applicableBranches').includes(opt.value)}
-                            onCheckedChange={(checked) => {
-                              const current = form.getValues('applicableBranches');
-                              form.setValue('applicableBranches', 
-                                checked ? [...current, opt.value] : current.filter(v => v !== opt.value)
-                              );
-                            }}
-                          />
-                          <label htmlFor={`br-${opt.value}`} className="cursor-pointer">{opt.label}</label>
-                        </div>
-                      ))}
-                    </div>
+                    <ComboBox
+                      items={branchOptions}
+                      placeholder="Search and add branches..."
+                      onValueChange={(val) => {
+                        const current = form.getValues('applicableBranches');
+                        if (val && !current.includes(val)) {
+                          form.setValue('applicableBranches', [...current, val]);
+                        }
+                      }}
+                    />
+                    
+                    {watchBranches.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {watchBranches.map(bid => {
+                          const b = branchOptions.find(opt => opt.value === bid);
+                          return (
+                            <Badge key={bid} variant="secondary" className="flex items-center gap-1 py-1 px-3">
+                              {b?.label || 'Unknown Branch'}
+                              <X 
+                                size={14} 
+                                className="cursor-pointer hover:text-destructive" 
+                                onClick={() => form.setValue('applicableBranches', watchBranches.filter(v => v !== bid))}
+                              />
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
 
