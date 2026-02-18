@@ -75,8 +75,8 @@ export const MENU_METADATA = {
   // Module: Point of Sale
   'transaction': { path: '/pos/sales', icon: ShoppingCart },
   // 'payment_processing': { path: '/pos/payment', icon: CreditCard },
-  'customer_information': { path: '/poscustomers', icon: Users },
-  'discounts_promotions': { path: '/pos/promotions', icon: Percent },
+  'customer_information': { path: '/pos/customers', icon: Users },
+  'discounts_promotions': { path: '/pos/discounts-promotions', icon: Percent },
   'special_items': { path: '/pos/special', icon: Star },
   'returns_exchanges': { path: '/pos/returns', icon: RotateCcw },
   'receipt_management': { path: '/pos/receipts', icon: Receipt },

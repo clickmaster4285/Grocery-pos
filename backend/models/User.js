@@ -47,7 +47,7 @@ const userSchema = new mongoose.Schema(
     },
     pin: {
       type: String,
-      required: [true, 'PIN is required for attendance tracking'],
+      // required: [true, 'PIN is required for attendance tracking'], it is not required for now because we also got some gereral staff
       select: false,
     },
     isTwoFactorEnabled: {
