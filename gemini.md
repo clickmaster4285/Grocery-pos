@@ -135,6 +135,14 @@ if (!req.user.isAdmin) {
 ```
 This ensures that a cashier at Branch A can never see or modify the sales or stock of Branch B.
 
+### 6.4. Stateless Auth with Stateful Permissions (JWT Strategy)
+To optimize performance and ensure real-time security, the system employs a "Hybrid Token" strategy.
+-   **Lightweight JWT**: The JSON Web Token contains only the essential identification markers: `userId` and `role`. It **excludes** permissions and `availableModules`.
+-   **Why Exclude Permissions from Token?**:
+    1.  **Instant Revocation**: If an administrator changes an employee's permissions, the change takes effect on their *next* API request. If permissions were in the token, the user would retain old access until they logged out.
+    2.  **Payload Efficiency**: Storing structured module trees in a JWT significantly increases header size, slowing down every network request.
+-   **The Rehydration Pattern**: The `auth` middleware fetches the user from the database and recalculates `availableModules` (via `getModulesFromPermissions`) for every request, injecting the fresh data into `req.user`.
+
 ---
 
 ## 7. Operational Standards & Directory Structure

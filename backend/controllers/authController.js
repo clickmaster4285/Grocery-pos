@@ -31,8 +31,8 @@ const login = async (req, res, next) => {
     const token = generateToken({
       userId: user.userId,
       role: user.role,
-      permissions: userPermissions,
-      availableModules: availableModules, // Add structured modules to JWT
+      // permissions: userPermissions,
+      // availableModules: availableModules, // Add structured modules to JWT
     });
 
     res.json({
