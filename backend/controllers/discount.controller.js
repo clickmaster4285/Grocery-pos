@@ -5,6 +5,11 @@ const createDiscount = async (req, res, next) => {
   try {
     const discountData = { ...req.body };
 
+    // Avoid duplicate key error for empty couponCode
+    if (discountData.couponCode === '' || discountData.couponCode === undefined) {
+      delete discountData.couponCode;
+    }
+
     // Role-based security enforcement
     if (req.user.role !== 'admin') {
       discountData.isGlobal = false;
@@ -121,6 +126,11 @@ const getDiscountById = async (req, res, next) => {
 const updateDiscount = async (req, res, next) => {
   try {
     const discountData = { ...req.body };
+
+    // Avoid duplicate key error for empty couponCode
+    if (discountData.couponCode === '' || discountData.couponCode === undefined) {
+      discountData.couponCode = null;
+    }
 
     // Safety fetch to check ownership
     const existing = await DiscountPromotion.findById(req.params.id);

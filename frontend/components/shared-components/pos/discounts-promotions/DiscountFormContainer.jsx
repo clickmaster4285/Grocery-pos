@@ -3,8 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useDiscountHook } from '@/hooks/useDiscountHook';
-import DiscountForm from './DiscountForm';
-import { Card, CardContent } from '@/components/ui/card';
+import MultiStepDiscountForm from './create/MultiStepDiscountForm';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const DiscountFormContainer = ({ id, role }) => {
@@ -43,7 +42,7 @@ const DiscountFormContainer = ({ id, role }) => {
   }
 
   return (
-    <DiscountForm
+    <MultiStepDiscountForm
       initialData={getDiscountByIdQuery.data?.data}
       onSubmit={handleSubmit}
       isLoading={createDiscountMutation.isPending || updateDiscountMutation.isPending}
