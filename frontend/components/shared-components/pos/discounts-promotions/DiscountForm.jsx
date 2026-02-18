@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -27,11 +27,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ComboBox } from '@/components/ui/combobox';
-import { Tag, Calendar, Clock, Percent, Users, Store, Package, Info, Plus, X } from 'lucide-react';
+import { Tag, Calendar, Clock, Percent, Users, Store, Package, Info, Plus, X, Layers } from 'lucide-react';
 import { useGetAllCategories } from '@/features/category.api';
 import { useGetAllProducts } from '@/features/product.api';
 import { useGetAllBranches } from '@/features/branch.api';
-import MultiSelect from '@/components/ui/multi-select'; // Assuming a multi-select component exists or I'll use Checkboxes
+import { useAuth } from '@/hooks/useAuth';
 
 const discountFormSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -41,6 +41,7 @@ const discountFormSchema = z.object({
   applicableBranches: z.array(z.string()).default([]),
   qualifyingCategories: z.array(z.string()).default([]),
   qualifyingProducts: z.array(z.string()).default([]),
+  qualifyingVariants: z.array(z.string()).default([]),
   qualifyingCustomerGroups: z.array(z.string()).default([]),
   discountDescription: z.string().optional(),
   amountType: z.enum(['Fixed', 'Percentage', 'Set Price']),
@@ -72,7 +73,56 @@ const CUSTOMER_GROUPS = [
   "Regular", "Silver", "Gold", "Platinum", "Staff"
 ];
 
+const VariantSelector = ({ products, selectedProductIds, selectedVariantIds, onToggleVariant }) => {
+  const selectedProductsWithVariants = useMemo(() => {
+    return products?.filter(p => selectedProductIds.includes(p._id)) || [];
+  }, [products, selectedProductIds]);
+
+  if (selectedProductsWithVariants.length === 0) return null;
+
+  return (
+    <div className="space-y-4 border-t pt-4 mt-4">
+      <div className="flex items-center gap-2 text-sm font-bold text-primary">
+        <Layers size={16} />
+        <span>Granular Variant Control (Optional)</span>
+      </div>
+      <p className="text-[10px] text-muted-foreground">
+        If no variants are selected for a product, the discount applies to ALL variants of that product.
+      </p>
+      
+      <div className="space-y-4">
+        {selectedProductsWithVariants.map(product => (
+          <div key={product._id} className="bg-secondary/10 p-3 rounded-lg border border-secondary/20">
+            <p className="text-xs font-bold mb-2 flex items-center gap-2">
+              <Package size={12} /> {product.productName}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {product.variants?.map(variant => {
+                const attrString = variant.attributes?.map(a => a.value).join(' / ') || 'Standard';
+                const isSelected = selectedVariantIds.includes(variant._id);
+                return (
+                  <Badge 
+                    key={variant._id} 
+                    variant={isSelected ? "default" : "outline"}
+                    className="cursor-pointer transition-all hover:scale-105"
+                    onClick={() => onToggleVariant(variant._id)}
+                  >
+                    {attrString} (SKU: {variant.sku})
+                  </Badge>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
   const { data: categoriesData } = useGetAllCategories();
   const { data: productsData } = useGetAllProducts({ limit: 100 });
   const { data: branchesData } = useGetAllBranches();
@@ -95,14 +145,22 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
       ...initialData,
       startDate: initialData.startDate ? new Date(initialData.startDate).toISOString().split('T')[0] : '',
       endDate: initialData.endDate ? new Date(initialData.endDate).toISOString().split('T')[0] : '',
+      // MAP POPULATED OBJECTS TO IDs
+      qualifyingCategories: initialData.qualifyingCategories?.map(c => c._id || c) || [],
+      qualifyingProducts: initialData.qualifyingProducts?.map(p => p._id || p) || [],
+      applicableBranches: initialData.applicableBranches?.map(b => b._id || b) || [],
+      qualifyingVariants: initialData.qualifyingVariants || [],
+      applicableDays: initialData.applicableDays || [],
+      qualifyingCustomerGroups: initialData.qualifyingCustomerGroups || [],
     } : {
       name: '',
       type: 'Discount',
       couponCode: '',
-      isGlobal: true,
-      applicableBranches: [],
+      isGlobal: isAdmin, 
+      applicableBranches: !isAdmin ? [user?.branch_id] : [],
       qualifyingCategories: [],
       qualifyingProducts: [],
+      qualifyingVariants: [],
       qualifyingCustomerGroups: [],
       discountDescription: '',
       amountType: 'Percentage',
@@ -119,16 +177,38 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
     },
   });
 
+  useEffect(() => {
+    if (isEditing && initialData) {
+      console.log('Source of data (initialData from API):', initialData);
+      console.log('Form Mapped Values:', form.getValues());
+    }
+  }, [isEditing, initialData, form]);
+
   const watchType = form.watch('type');
   const watchIsGlobal = form.watch('isGlobal');
+  const watchProducts = form.watch('qualifyingProducts');
+  const watchVariants = form.watch('qualifyingVariants');
+
+  const handleToggleVariant = (variantId) => {
+    const current = form.getValues('qualifyingVariants');
+    if (current.includes(variantId)) {
+      form.setValue('qualifyingVariants', current.filter(id => id !== variantId));
+    } else {
+      form.setValue('qualifyingVariants', [...current, variantId]);
+    }
+  };
 
   const handleSubmit = (data) => {
+    if (!isAdmin) {
+      data.isGlobal = false;
+      data.applicableBranches = [user?.branch_id];
+    }
     onSubmit(data);
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8 pb-20">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
@@ -149,7 +229,6 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Basic Config */}
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
@@ -335,9 +414,6 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
                         </FormItem>
                       )}
                     />
-                    <p className="col-span-2 text-xs text-muted-foreground italic">
-                      Example: Buy 2 Get 1 = Buy: 2, Get: 1. The 'Get' items will be discounted by the 'Value' above.
-                    </p>
                   </div>
                 )}
               </CardContent>
@@ -366,7 +442,7 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
                             );
                           }}
                         />
-                        <label htmlFor={`cat-${opt.value}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                        <label htmlFor={`cat-${opt.value}`} className="text-sm font-medium leading-none cursor-pointer">
                           {opt.label}
                         </label>
                       </div>
@@ -393,6 +469,11 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
                         <Badge key={pid} variant="secondary" className="gap-1 px-3 py-1">
                           {p?.label || 'Unknown Product'}
                           <X size={14} className="cursor-pointer hover:text-destructive" onClick={() => {
+                            const product = productsData?.products?.find(prod => prod._id === pid);
+                            if (product?.variants) {
+                              const vids = product.variants.map(v => v._id);
+                              form.setValue('qualifyingVariants', form.getValues('qualifyingVariants').filter(id => !vids.includes(id)));
+                            }
                             form.setValue('qualifyingProducts', form.getValues('qualifyingProducts').filter(v => v !== pid));
                           }} />
                         </Badge>
@@ -400,17 +481,23 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
                     })}
                   </div>
                 </div>
+
+                <VariantSelector 
+                  products={productsData?.products}
+                  selectedProductIds={watchProducts}
+                  selectedVariantIds={watchVariants}
+                  onToggleVariant={handleToggleVariant}
+                />
               </CardContent>
             </Card>
           </div>
 
-          {/* Right Column - Rules & Availability */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-primary" />
-                  Availability & Scheduling
+                  Availability
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -461,92 +548,7 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
                       </div>
                     ))}
                   </div>
-                  <p className="text-[10px] text-muted-foreground italic">None selected means all days.</p>
                 </div>
-
-                <div className="grid grid-cols-2 gap-2 border-t pt-4">
-                   <FormField
-                    control={form.control}
-                    name="startTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">Start Time</FormLabel>
-                        <FormControl>
-                          <Input type="time" {...field} value={field.value || ''} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="endTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">End Time</FormLabel>
-                        <FormControl>
-                          <Input type="time" {...field} value={field.value || ''} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
-                  Audience & Limits
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <FormLabel>Customer Tiers</FormLabel>
-                  <div className="grid grid-cols-2 gap-2">
-                    {CUSTOMER_GROUPS.map(group => (
-                      <div key={group} className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`group-${group}`}
-                          checked={form.watch('qualifyingCustomerGroups').includes(group)}
-                          onCheckedChange={(checked) => {
-                            const current = form.getValues('qualifyingCustomerGroups');
-                            form.setValue('qualifyingCustomerGroups', 
-                              checked ? [...current, group] : current.filter(v => v !== group)
-                            );
-                          }}
-                        />
-                        <label htmlFor={`group-${group}`} className="text-xs">{group}</label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="usageLimit"
-                  render={({ field }) => (
-                    <FormItem className="border-t pt-4">
-                      <FormLabel>Total Usage Limit</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="Unlimited" {...field} value={field.value || ''} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="limitPerCustomer"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Limit Per Customer</FormLabel>
-                      <FormControl>
-                        <Input type="number" {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
               </CardContent>
             </Card>
 
@@ -558,28 +560,28 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="isGlobal"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                      <div className="space-y-0.5">
-                        <FormLabel>Global Promotion</FormLabel>
-                        <FormDescription className="text-[10px]">
-                          Available in all branches.
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
+                {isAdmin ? (
+                  <FormField
+                    control={form.control}
+                    name="isGlobal"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                          <FormLabel>Global Promotion</FormLabel>
+                        </div>
+                        <FormControl>
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                ) : (
+                  <div className="rounded-lg border p-3 bg-muted/50">
+                    <FormLabel className="text-muted-foreground opacity-70">Global Promotion (Admin Only)</FormLabel>
+                  </div>
+                )}
 
-                {!watchIsGlobal && (
+                {(isAdmin && !watchIsGlobal) && (
                   <div className="space-y-3">
                     <FormLabel>Specific Branches</FormLabel>
                     <div className="flex flex-wrap gap-2">
@@ -602,45 +604,7 @@ const DiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
                   </div>
                 )}
 
-                <FormField
-                  control={form.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem className="border-t pt-4">
-                      <FormLabel>Application Priority (1-10)</FormLabel>
-                      <FormControl>
-                        <Input type="number" min="1" max="10" {...field} />
-                      </FormControl>
-                      <FormDescription className="text-[10px]">10 is highest priority.</FormDescription>
-                    </FormItem>
-                  )}
-                />
-
                 <div className="flex flex-col gap-3 border-t pt-4">
-                  <FormField
-                    control={form.control}
-                    name="autoApply"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center justify-between">
-                        <FormLabel className="text-xs">Auto-apply in POS</FormLabel>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="allowFurtherDiscounts"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center justify-between">
-                        <FormLabel className="text-xs">Stackable (allow more)</FormLabel>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
                    <FormField
                     control={form.control}
                     name="status"

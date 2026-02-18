@@ -1,14 +1,22 @@
 const DiscountPromotion = require('../models/discount.model');
 const mongoose = require('mongoose');
 
-/**
- * @desc    Create a new discount/promotion
- * @route   POST /api/discounts
- * @access  Private (Admin/Manager)
- */
 const createDiscount = async (req, res, next) => {
   try {
-    const discount = await DiscountPromotion.create(req.body);
+    const discountData = { ...req.body };
+
+    // Role-based security enforcement
+    if (req.user.role !== 'admin') {
+      discountData.isGlobal = false;
+      discountData.applicableBranches = [req.user.branch_id];
+    } else {
+      // For admins, if not global, ensure branches are provided
+      if (!discountData.isGlobal && (!discountData.applicableBranches || discountData.applicableBranches.length === 0)) {
+        return res.status(400).json({ message: 'Please select at least one branch for a local promotion.' });
+      }
+    }
+
+    const discount = await DiscountPromotion.create(discountData);
     res.status(201).json({
       success: true,
       message: 'Discount created successfully',
@@ -19,11 +27,6 @@ const createDiscount = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Get all discounts with filtering and pagination
- * @route   GET /api/discounts
- * @access  Private
- */
 const getAllDiscounts = async (req, res, next) => {
   try {
     const { status, type, branchId, search } = req.query;
@@ -36,8 +39,14 @@ const getAllDiscounts = async (req, res, next) => {
     if (status) query.status = status;
     if (type) query.type = type;
     
-    // Filter by branch (either global or specific branch)
-    if (branchId) {
+    // Data Isolation: Non-admins only see global or their own branch discounts
+    if (req.user.role !== 'admin') {
+      query.$or = [
+        { isGlobal: true },
+        { applicableBranches: req.user.branch_id }
+      ];
+    } else if (branchId) {
+      // Admin filter by specific branch
       query.$or = [
         { isGlobal: true },
         { applicableBranches: branchId }
@@ -46,10 +55,13 @@ const getAllDiscounts = async (req, res, next) => {
 
     // Simple search by name or coupon code
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { couponCode: { $regex: search, $options: 'i' } }
-      ];
+      query.$and = query.$and || [];
+      query.$and.push({
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { couponCode: { $regex: search, $options: 'i' } }
+        ]
+      });
     }
 
     const [discounts, total] = await Promise.all([
@@ -60,7 +72,7 @@ const getAllDiscounts = async (req, res, next) => {
         .populate('applicableBranches', 'name branch_id')
         .populate('qualifyingCategories', 'name')
         .populate('qualifyingBrands', 'name')
-        .populate('qualifyingProducts', 'productName'),
+        .populate('qualifyingProducts', 'productName variants'),
       DiscountPromotion.countDocuments(query)
     ]);
 
@@ -77,24 +89,24 @@ const getAllDiscounts = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Get single discount by ID
- * @route   GET /api/discounts/:id
- * @access  Private
- */
 const getDiscountById = async (req, res, next) => {
   try {
     const discount = await DiscountPromotion.findById(req.params.id)
       .populate('applicableBranches', 'name branch_id')
       .populate('qualifyingCategories', 'name')
       .populate('qualifyingBrands', 'name')
-      .populate('qualifyingProducts', 'productName');
+      .populate('qualifyingProducts', 'productName variants');
 
     if (!discount) {
       return res.status(404).json({
         success: false,
         message: 'Discount not found'
       });
+    }
+
+    // Security Check: Non-admins cannot view discounts from other branches unless global
+    if (req.user.role !== 'admin' && !discount.isGlobal && !discount.applicableBranches.some(b => b._id.toString() === req.user.branch_id.toString())) {
+      return res.status(403).json({ message: 'Access denied to this promotion.' });
     }
 
     res.status(200).json({
@@ -106,25 +118,29 @@ const getDiscountById = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Update discount
- * @route   PUT /api/discounts/:id
- * @access  Private (Admin/Manager)
- */
 const updateDiscount = async (req, res, next) => {
   try {
+    const discountData = { ...req.body };
+
+    // Safety fetch to check ownership
+    const existing = await DiscountPromotion.findById(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Discount not found' });
+
+    // Role-based security enforcement
+    if (req.user.role !== 'admin') {
+      // Non-admins cannot modify other branch's local discounts
+      if (!existing.isGlobal && !existing.applicableBranches.includes(req.user.branch_id)) {
+        return res.status(403).json({ message: 'Access denied. You can only update your branch promotions.' });
+      }
+      discountData.isGlobal = false;
+      discountData.applicableBranches = [req.user.branch_id];
+    }
+
     const discount = await DiscountPromotion.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      discountData,
       { new: true, runValidators: true }
     );
-
-    if (!discount) {
-      return res.status(404).json({
-        success: false,
-        message: 'Discount not found'
-      });
-    }
 
     res.status(200).json({
       success: true,
@@ -136,11 +152,6 @@ const updateDiscount = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Delete discount
- * @route   DELETE /api/discounts/:id
- * @access  Private (Admin/Manager)
- */
 const deleteDiscount = async (req, res, next) => {
   try {
     const discount = await DiscountPromotion.findByIdAndDelete(req.params.id);
@@ -161,11 +172,6 @@ const deleteDiscount = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Validate a coupon code
- * @route   POST /api/discounts/validate
- * @access  Private
- */
 const validateCoupon = async (req, res, next) => {
   try {
     const { code, branchId, customerGroup, cartTotal, cartItems } = req.body;
