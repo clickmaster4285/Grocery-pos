@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useGetBranchStock } from '@/features/stockTransfer.api';
 import { useCreateSale } from '@/features/sale.api';
 import { useGetAllBranches } from '@/features/branch.api';
+import { useValidateCoupon } from '@/features/discount.api';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -15,22 +16,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Trash2, Plus, Minus, Search, ShoppingCart, CreditCard, Banknote, Landmark, Store, Loader2, Printer, ShieldAlert } from 'lucide-react';
+import { Trash2, Plus, Minus, Search, ShoppingCart, CreditCard, Banknote, Landmark, Store, Loader2, Printer, ShieldAlert, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReactToPrint } from 'react-to-print';
 import ReceiptPrint from './ReceiptPrint';
+import QRScannerDialog from './QRScannerDialog';
+
+import { parseCouponQRPayload } from '@/utils/couponUtils';
 
 const POS = () => {
   const { user } = useAuth();
   const { pos, isAdmin, branch: branchPerms } = usePermissions();
   
   const canCreateSale = pos.transaction.create;
-  const canSelectBranch = isAdmin || branchPerms.read; // Admins or those with branch read perms can switch
+  const canSelectBranch = isAdmin || branchPerms.read; 
 
   const searchInputRef = useRef(null);
   const receiptRef = useRef(null);
   
-  // State for the active branch being managed in POS
   const [activeBranchId, setActiveBranchId] = useState(user?.branch_id || '');
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,12 +42,15 @@ const POS = () => {
   const { data: stock, isLoading: stockLoading, isFetching: stockFetching } = useGetBranchStock(activeBranchId, debouncedSearch);
   const { data: branches } = useGetAllBranches({ enabled: canSelectBranch });
   const createSaleMutation = useCreateSale();
+  const validateCouponMutation = useValidateCoupon();
 
   const [cart, setCart] = useState([]);
   const [customerName, setCustomerName] = useState('');
   const [discount, setDiscount] = useState(0);
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [lastSaleData, setLastSaleData] = useState(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Print function
   const handlePrint = useReactToPrint({
@@ -144,6 +150,48 @@ const POS = () => {
 
   const total = cart.reduce((acc, item) => acc + item.subtotal, 0);
   const finalTotal = Math.max(0, total - discount);
+
+  const handleCouponScanned = async (scannedText) => {
+    if (!activeBranchId) return toast.error("Please select a branch first");
+    if (cart.length === 0) return toast.error("Please add items to cart before scanning a coupon");
+
+    // Decode the payload (handles both JSON and raw text)
+    const couponInfo = parseCouponQRPayload(scannedText);
+    const codeToValidate = couponInfo.code || couponInfo.id;
+
+    if (!codeToValidate) {
+      return toast.error("Invalid QR code format");
+    }
+
+    try {
+      const response = await validateCouponMutation.mutateAsync({
+        code: codeToValidate,
+        branchId: activeBranchId,
+        cartTotal: total,
+        cartItems: cart.map(item => ({
+            product: item.productId,
+            variant: item.variantId,
+            quantity: item.quantity,
+            price: item.price
+        }))
+      });
+
+      const couponData = response.data;
+      
+      let calculatedDiscount = 0;
+      if (couponData.amountType === 'Percentage') {
+        calculatedDiscount = (total * couponData.amountValue) / 100;
+      } else if (couponData.amountType === 'Fixed') {
+        calculatedDiscount = couponData.amountValue;
+      }
+
+      setDiscount(calculatedDiscount);
+      setAppliedCoupon(couponData);
+      toast.success(`Coupon "${couponData.name}" applied successfully!`);
+    } catch (err) {
+      // Error handled by mutation toast
+    }
+  };
 
   const handleCheckout = async (shouldPrint = false) => {
     if (!canCreateSale) return toast.error("You don't have permission to finalize sales");
@@ -417,16 +465,46 @@ const POS = () => {
                 </div>
                 <div className="flex items-center justify-between gap-4 px-1">
                   <Label className="text-[11px] font-bold uppercase text-muted-foreground">Discount</Label>
-                  <div className="relative w-24">
-                    <span className="absolute left-2 top-1.5 text-[10px] text-muted-foreground">$</span>
-                    <Input 
-                      type="number" 
-                      className="h-7 pl-5 text-right text-xs font-bold focus-visible:ring-primary" 
-                      value={discount} 
-                      onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} 
-                    />
+                  <div className="flex items-center gap-2">
+                    <div className="relative w-24">
+                      <span className="absolute left-2 top-1.5 text-[10px] text-muted-foreground">$</span>
+                      <Input 
+                        type="number" 
+                        className="h-7 pl-5 text-right text-xs font-bold focus-visible:ring-primary" 
+                        value={discount} 
+                        onChange={(e) => {
+                            setDiscount(parseFloat(e.target.value) || 0);
+                            setAppliedCoupon(null);
+                        }} 
+                      />
+                    </div>
+                    <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-7 w-7 border-primary text-primary hover:bg-primary/10"
+                        onClick={() => setIsScannerOpen(true)}
+                        title="Scan Coupon QR Code"
+                    >
+                        <QrCode className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
+                {appliedCoupon && (
+                    <div className="px-1 flex justify-between items-center">
+                        <Badge variant="secondary" className="text-[9px] font-bold uppercase tracking-tighter bg-green-100 text-green-700 hover:bg-green-100 border-none">
+                            Coupon: {appliedCoupon.name}
+                        </Badge>
+                        <button 
+                            className="text-[10px] text-destructive hover:underline font-bold"
+                            onClick={() => {
+                                setDiscount(0);
+                                setAppliedCoupon(null);
+                            }}
+                        >
+                            Remove
+                        </button>
+                    </div>
+                )}
                 <Separator />
                 <div className="flex justify-between font-bold text-lg py-1 px-1">
                   <span className="text-sm uppercase text-muted-foreground self-center">Total</span>
@@ -497,6 +575,12 @@ const POS = () => {
           </Card>
         </div>
       </div>
+
+      <QRScannerDialog 
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScanSuccess={handleCouponScanned}
+      />
     </div>
   );
 };

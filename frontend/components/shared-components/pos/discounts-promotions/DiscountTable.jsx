@@ -17,10 +17,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Edit, Trash2, Eye, Tag, Calendar, Users, Percent, Gift } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, Eye, Tag, Calendar, Users, Percent, Gift, QrCode } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import QRCodeDialog from './QRCodeDialog';
 
 const DiscountTable = ({ 
   discounts = [], 
@@ -29,6 +30,8 @@ const DiscountTable = ({
   onView,
   isLoading 
 }) => {
+  const [selectedDiscountForQR, setSelectedDiscountForQR] = React.useState(null);
+
   if (isLoading) {
     return (
       <div className="w-full h-64 flex items-center justify-center">
@@ -156,6 +159,13 @@ const DiscountTable = ({
                       <Eye className="mr-2 h-4 w-4 text-blue-500" />
                       View Details
                     </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => setSelectedDiscountForQR(discount)} 
+                      className="cursor-pointer"
+                    >
+                      <QrCode className="mr-2 h-4 w-4 text-primary" />
+                      View QR Code
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onEdit(discount._id)} className="cursor-pointer">
                       <Edit className="mr-2 h-4 w-4 text-amber-500" />
                       Edit Promotion
@@ -174,6 +184,12 @@ const DiscountTable = ({
           ))}
         </TableBody>
       </Table>
+
+      <QRCodeDialog 
+        isOpen={!!selectedDiscountForQR}
+        onClose={() => setSelectedDiscountForQR(null)}
+        discount={selectedDiscountForQR}
+      />
     </div>
   );
 };
