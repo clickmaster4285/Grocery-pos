@@ -38,14 +38,14 @@ const validate = (schema) => (req, res, next) => {
 
 const SettingsPermissions = PERMISSIONS_OBJECT.SETTINGS;
 
+router.get(
+  "/",
+  // checkPermission([SettingsPermissions.STORE_SETTINGS.READ]),
+  settingsController.getSettings
+);
 // Apply auth middleware globally for all settings routes
 router.use(auth);
 
-router.get(
-  "/",
-  checkPermission([SettingsPermissions.STORE_SETTINGS.READ]),
-  settingsController.getSettings
-);
 
 // For updating "Store Settings"
 router.put(

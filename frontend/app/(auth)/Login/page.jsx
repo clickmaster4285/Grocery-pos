@@ -17,7 +17,8 @@ import {
   TrendingUp,
   Package,
   Users,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Loading from '@/app/loading/page';
 import BackgroundBeams from '@/components/ui/BackgroundBeams';
-
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL
 // --- SUB-COMPONENTS FOR THE MARKETING SIDE ---
 
 const FeatureItem = ({ icon: Icon, title, description, delay }) => (
@@ -107,8 +108,8 @@ const Login = () => {
             className="flex items-center gap-3 mb-16"
           >
             {logoUrl ? (
-              <div className="h-12 w-12 rounded-xl overflow-hidden border border-white/10 bg-white/5 p-1 backdrop-blur-sm">
-                <img src={logoUrl} alt="Logo" className="h-full w-full object-contain" />
+              <div className="h-20 w-20 overflow-hidden pt-3 rounded-md">
+                <img src={logoUrl} alt="Logo"  />
               </div>
             ) : (
               <div className="h-12 w-12 rounded-xl bg-amber-400 flex items-center justify-center shadow-lg shadow-amber-400/20">
@@ -163,9 +164,15 @@ const Login = () => {
       <div className="flex-1 relative flex items-center justify-center p-6 md:p-12 lg:p-24 overflow-y-auto">
         {/* Mobile Logo Only */}
         <div className="lg:hidden absolute top-12 left-1/2 -translate-x-1/2 flex flex-col items-center">
-          <div className="h-16 w-16 rounded-2xl bg-amber-400 flex items-center justify-center mb-4 shadow-2xl shadow-amber-400/20">
-            <Store className="text-black h-10 w-10" />
-          </div>
+          {logoUrl ? (
+            <div className="h-20 w-20 rounded-xl overflow-hidden  p-1 backdrop-blur-sm">
+              <img src={logoUrl} alt="Logo" />
+            </div>
+          ) : (
+            <div className="h-12 w-12 rounded-xl bg-amber-400 flex items-center justify-center shadow-lg shadow-amber-400/20">
+              {/* <Store className="text-black h-7 w-7" /> */}
+            </div>
+          )}
           <h1 className="text-2xl font-black text-white tracking-tighter uppercase">{companyName}</h1>
         </div>
 

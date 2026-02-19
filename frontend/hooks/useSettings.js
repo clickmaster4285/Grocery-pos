@@ -1,11 +1,6 @@
 import { useMemo } from 'react';
 import { useGetSettings } from '@/features/settings.api';
 
-/**
- * useSettings Hook
- * Provides system-wide settings with convenient helpers for logos, 
- * currency, and formatting.
- */
 export const useSettings = () => {
   const { data: settings, isLoading, isError, refetch } = useGetSettings();
 
