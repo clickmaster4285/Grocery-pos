@@ -150,7 +150,7 @@ const DiscountPromotionList = ({ role }) => {
         </CardContent>
       </Card>
 
-      <div className="relative min-h-[400px]">
+      <div className="relative min-h-100">
         <DiscountTable
           discounts={getAllDiscountsQuery.data?.data || []}
           isLoading={getAllDiscountsQuery.isLoading}
