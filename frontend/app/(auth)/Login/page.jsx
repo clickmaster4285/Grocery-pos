@@ -3,16 +3,52 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
-import { Mail, Lock, Sparkles } from 'lucide-react';
+import { useSettings } from '@/hooks/useSettings';
+import {
+  Mail,
+  Lock,
+  Sparkles,
+  Store,
+  ShieldCheck,
+  Zap,
+  BarChart3,
+  Globe,
+  ArrowRight,
+  TrendingUp,
+  Package,
+  Users,
+  CheckCircle2
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Loading from '@/app/loading/page';
 import BackgroundBeams from '@/components/ui/BackgroundBeams';
 
+// --- SUB-COMPONENTS FOR THE MARKETING SIDE ---
+
+const FeatureItem = ({ icon: Icon, title, description, delay }) => (
+  <motion.div
+    initial={{ opacity: 0, x: -20 }}
+    animate={{ opacity: 1, x: 0 }}
+    transition={{ duration: 0.5, delay }}
+    className="flex items-start gap-4 p-4 rounded-2xl hover:bg-white/5 transition-colors group"
+  >
+    <div className="p-3 rounded-xl bg-amber-400/10 text-amber-400 group-hover:scale-110 transition-transform shadow-lg shadow-amber-400/5">
+      <Icon size={24} />
+    </div>
+    <div>
+      <h3 className="text-white font-bold text-lg mb-1 group-hover:text-amber-300 transition-colors">{title}</h3>
+      <p className="text-gray-400 text-sm leading-relaxed">{description}</p>
+    </div>
+  </motion.div>
+);
+
 const Login = () => {
   const router = useRouter();
   const { isAuthenticated, user, isLoading: authLoading, loginMutation } = useAuth();
+  const { companyName, logoUrl } = useSettings();
 
   const [signinIdentifier, setSigninIdentifier] = useState('');
   const [signinPassword, setSigninPassword] = useState('');
@@ -30,176 +66,204 @@ const Login = () => {
     setLoginError('');
 
     const trimmedIdentifier = signinIdentifier.trim();
-
-    if (!trimmedIdentifier) {
-      toast.error('Please enter email');
-      return;
-    }
-
-    if (!signinPassword) {
-      toast.error('Please enter password');
-      return;
-    }
-
-    const payload = {
-      email: trimmedIdentifier,
-      password: signinPassword,
-    };
+    if (!trimmedIdentifier) return toast.error('Please enter email');
+    if (!signinPassword) return toast.error('Please enter password');
 
     const toastId = toast.loading('Signing in...');
     try {
-      const result = await loginMutation.mutateAsync(payload);
+      const result = await loginMutation.mutateAsync({
+        email: trimmedIdentifier,
+        password: signinPassword,
+      });
 
       toast.success('Login successful!', {
         id: toastId,
         description: `Welcome back, ${result.data.user.firstName}!`,
       });
-
     } catch (error) {
-      const errorMessage =
-        error?.data?.message ||
-        error?.message ||
-        'Login failed. Please check your credentials.';
-
+      const errorMessage = error?.data?.message || error?.message || 'Login failed.';
       setLoginError(errorMessage);
-      toast.error('Login Failed', {
-        id: toastId,
-        description: errorMessage,
-        duration: 5000,
-      });
+      toast.error('Login Failed', { id: toastId, description: errorMessage });
     }
   };
 
-  if (authLoading || isAuthenticated) {
-    return (
-      <Loading />
-    );
-  }
+  if (authLoading || isAuthenticated) return <Loading />;
 
   return (
-    <>
-      <div className="fixed inset-0 z-0">
+    <div className="min-h-screen bg-neutral-950 overflow-hidden flex flex-col lg:flex-row relative">
+      {/* Global Animated Background */}
+      <div className="absolute inset-0 z-0">
         <BackgroundBeams />
+        <div className="absolute inset-0 bg-radial-gradient from-amber-500/5 to-transparent pointer-events-none" />
       </div>
 
-      <div className="relative z-10 min-h-screen flex items-center justify-center bg-transparent p-4 md:p-6">
-        {/* Main Container - Enhanced Design */}
-        <div className="relative w-full max-w-2xl h-auto bg-linear-to-br from-card/20 to-card/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl shadow-primary/10 overflow-hidden p-8 md:p-12">
-
-          {/* Decorative top accent */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-transparent via-amber-400 to-transparent opacity-70" />
-
-          {/* Logo/Brand area */}
-          <div className="flex flex-col items-center mb-4">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="relative">
-                <Sparkles className="w-8 h-8 text-amber-400" />
-                <div className="absolute -inset-1 bg-amber-400/20 blur-md rounded-full" />
+      {/* --- LEFT SIDE: MARKETING & FEATURES --- */}
+      <div className="hidden lg:flex lg:w-1/2 relative p-12 flex-col justify-between overflow-hidden">
+        <div className="relative z-10">
+          {/* Logo Section */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-3 mb-16"
+          >
+            {logoUrl ? (
+              <div className="h-12 w-12 rounded-xl overflow-hidden border border-white/10 bg-white/5 p-1 backdrop-blur-sm">
+                <img src={logoUrl} alt="Logo" className="h-full w-full object-contain" />
               </div>
-              <span className="text-2xl font-bold tracking-tighter bg-linear-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent">
-                GroceryStore
-              </span>
-            </div>
-          </div>
-
-          {/* Header Section */}
-          <div className="text-center mb-5">
-            <p className="text-gray-400 text-base md:text-lg tracking-wide leading-relaxed font-light">
-              Sign in to access your personalized dashboard
-            </p>
-          </div>
-
-          <form className="space-y-6" onSubmit={handleLogin}>
-            {/* Email Input */}
-            <div className="space-y-2.5">
-              <Label htmlFor="signin-identifier" className="text-sm font-medium tracking-wide text-primary pl-1">
-                Email Address
-              </Label>
-              <div className="relative group">
-                <div className="absolute inset-0 bg-linear-to-r from-amber-500/0 via-amber-400/10 to-amber-500/0 rounded-xl blur-sm group-focus-within:blur-md transition-all duration-300" />
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-400/70" />
-                  <Input
-                    id="signin-identifier"
-                    type="email"
-                    placeholder="you@example.com"
-                    className="pl-12 h-14 bg-card/10 border border-white/20 rounded-xl text-base placeholder:text-gray-400 focus:border-amber-400/50 focus:ring-2 focus:ring-amber-400/20 transition-all duration-300 text-white font-medium tracking-wide"
-                    value={signinIdentifier}
-                    onChange={(e) => setSigninIdentifier(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Password Input */}
-            <div className="space-y-2.5">
-              <Label htmlFor="signin-password" className="text-sm font-medium tracking-wide text-primary pl-1">
-                Password
-              </Label>
-              <div className="relative group">
-                <div className="absolute inset-0 bg-linear-to-r from-amber-500/0 via-amber-400/10 to-amber-500/0 rounded-xl blur-sm group-focus-within:blur-md transition-all duration-300" />
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-400/70" />
-                  <Input
-                    id="signin-password"
-                    type="password"
-                    placeholder="••••••••"
-                    className="pl-12 h-14 bg-card/10 border border-white/20 rounded-xl text-base placeholder:text-gray-400 focus:border-amber-400/50 focus:ring-2 focus:ring-amber-400/20 tracking-widest transition-all duration-300 text-white font-medium"
-                    value={signinPassword}
-                    onChange={(e) => setSigninPassword(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Error Message */}
-            {loginError && (
-              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
-                <p className="text-sm text-red-400 text-center font-medium tracking-wide">
-                  {loginError}
-                </p>
+            ) : (
+              <div className="h-12 w-12 rounded-xl bg-amber-400 flex items-center justify-center shadow-lg shadow-amber-400/20">
+                <Store className="text-black h-7 w-7" />
               </div>
             )}
+            <h1 className="text-2xl font-black text-white tracking-tighter uppercase">{companyName}</h1>
+          </motion.div>
 
-            {/* Login Button */}
+          <div className="max-w-md space-y-12">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <h2 className="text-5xl font-black text-white leading-tight mb-6">
+                Next-Gen <span className="text-amber-400">Retail</span> Intelligence.
+              </h2>
+              <p className="text-gray-400 text-lg leading-relaxed font-light">
+                Empower your business with real-time analytics, seamless inventory, and secure branch management.
+              </p>
+            </motion.div>
+
+            <div className="space-y-4">
+              <FeatureItem
+                icon={Zap}
+                title="Lightning Fast Checkout"
+                description="Optimize throughput with our sub-50ms hybrid search engine."
+                delay={0.4}
+              />
+              <FeatureItem
+                icon={BarChart3}
+                title="Unified Analytics"
+                description="Consolidated reporting across all branches in a single view."
+                delay={0.5}
+              />
+              <FeatureItem
+                icon={ShieldCheck}
+                title="Enterprise Security"
+                description="Granular permissions and hierarchical data isolation."
+                delay={0.6}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Subtle decorative circle */}
+        <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-amber-500/10 rounded-full blur-[100px]" />
+      </div>
+
+      {/* --- RIGHT SIDE: LOGIN FORM --- */}
+      <div className="flex-1 relative flex items-center justify-center p-6 md:p-12 lg:p-24 overflow-y-auto">
+        {/* Mobile Logo Only */}
+        <div className="lg:hidden absolute top-12 left-1/2 -translate-x-1/2 flex flex-col items-center">
+          <div className="h-16 w-16 rounded-2xl bg-amber-400 flex items-center justify-center mb-4 shadow-2xl shadow-amber-400/20">
+            <Store className="text-black h-10 w-10" />
+          </div>
+          <h1 className="text-2xl font-black text-white tracking-tighter uppercase">{companyName}</h1>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6 }}
+          className="w-full max-w-md"
+        >
+          <div className="mb-10 text-center lg:text-left">
+            <h3 className="text-3xl font-black text-white mb-2 tracking-tight">System Login</h3>
+            <p className="text-gray-500 font-medium tracking-wide">Enter your authorized credentials to continue</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-amber-400 ml-1">Email Identifier</Label>
+              <div className="relative group">
+                <div className="absolute -inset-0.5 bg-linear-to-r from-amber-500 to-amber-600 rounded-xl opacity-0 group-focus-within:opacity-20 transition-opacity" />
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-amber-400 transition-colors" />
+                  <Input
+                    type="email"
+                    placeholder="name@company.com"
+                    className="h-14 pl-12 bg-neutral-900 border-white/10 rounded-xl text-white focus:border-amber-400/50 focus:ring-0"
+                    value={signinIdentifier}
+                    onChange={e => setSigninIdentifier(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center px-1">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-amber-400">Security PIN / Password</Label>
+                <button type="button" className="text-[10px] font-black uppercase text-gray-500 hover:text-white transition-colors">Forgot Access?</button>
+              </div>
+              <div className="relative group">
+                <div className="absolute -inset-0.5 bg-linear-to-r from-amber-500 to-amber-600 rounded-xl opacity-0 group-focus-within:opacity-20 transition-opacity" />
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-amber-400 transition-colors" />
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    className="h-14 pl-12 bg-neutral-900 border-white/10 rounded-xl text-white focus:border-amber-400/50 focus:ring-0 tracking-widest"
+                    value={signinPassword}
+                    onChange={e => setSigninPassword(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {loginError && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-bold text-center"
+              >
+                {loginError}
+              </motion.div>
+            )}
+
             <Button
               type="submit"
               disabled={loginMutation.isPending}
-              className="w-full h-14 rounded-xl bg-linear-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold text-base tracking-wider shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed group"
+              className="w-full h-14 bg-amber-400 hover:bg-amber-500 text-black font-black rounded-xl shadow-[0_8px_30px_rgb(251,191,36,0.2)] transition-all active:scale-[0.98] group"
             >
               {loginMutation.isPending ? (
-                <span className="flex items-center gap-2">
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Authenticating...
-                </span>
+                <Loader2 className="animate-spin h-6 w-6" />
               ) : (
-                <span className="flex items-center gap-2">
-                  LOGIN
-                  <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                </span>
+                <div className="flex items-center justify-center gap-2">
+                  <span>ENTER TERMINAL</span>
+                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                </div>
               )}
             </Button>
 
-            {/* Help Text */}
-            <div className="pt-4 border-t border-white/10">
-              <p className="text-center text-sm text-muted-foreground/90 tracking-wide">
-                Need help?{' '}
-                <a href="#" className="text-amber-400 hover:text-amber-300 font-medium transition-colors">
-                  Contact Support
-                </a>
-              </p>
+            <div className="grid grid-cols-2 gap-4 mt-8 pt-8 border-t border-white/5">
+              <div className="flex items-center gap-2 text-gray-500">
+                <CheckCircle2 size={14} className="text-amber-400/50" />
+                <span className="text-[10px] font-bold uppercase tracking-tight">Active Sessions: 12</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-500 justify-end">
+                <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                <span className="text-[10px] font-bold uppercase tracking-tight">Ver 4.2.0-POS</span>
+              </div>
             </div>
           </form>
+        </motion.div>
 
-          {/* Decorative bottom accent */}
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-linear-to-r from-transparent via-amber-400/50 to-transparent opacity-50" />
+        {/* Desktop subtle footer */}
+        <div className="hidden lg:block absolute bottom-12 right-12">
+          <p className="text-[10px] text-gray-600 font-bold uppercase tracking-[0.2em]">
+            Powered by Clickmasters &copy; 2026
+          </p>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

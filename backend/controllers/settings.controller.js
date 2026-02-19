@@ -65,25 +65,27 @@ exports.updateProfile = async (req, res) => {
     if (firstName) user.firstName = firstName;
     if (lastName) user.lastName = lastName;
 
-    // Check if email or phone is changing
+    // Check if email or phone is changing (ensure we have values and they are different)
     const wantsToChangeEmail = email && email !== user.email;
     const wantsToChangePhone = phone && phone !== user.phone;
 
     if (wantsToChangeEmail || wantsToChangePhone) {
-      if (!currentPassword) {
-        return res.status(400).json({ message: "Password required to change email or phone" });
+      if (!currentPassword || currentPassword.trim() === "") {
+        return res.status(400).json({ message: "Current password is required to change email or phone" });
       }
 
       const isMatch = await comparePassword(currentPassword, user.password);
-      if (!isMatch) return res.status(401).json({ message: "Invalid password" });
+      if (!isMatch) return res.status(401).json({ message: "Invalid current password" });
 
       if (wantsToChangeEmail) user.email = email;
       if (wantsToChangePhone) user.phone = phone;
     }
 
-    // Password change
-    if (newPassword) {
-      if (!oldPassword) return res.status(400).json({ message: "Old password required to change password" });
+    // Password change (only if newPassword is provided and not empty)
+    if (newPassword && newPassword.trim() !== "") {
+      if (!oldPassword || oldPassword.trim() === "") {
+        return res.status(400).json({ message: "Old password is required to set a new password" });
+      }
 
       const isOldMatch = await comparePassword(oldPassword, user.password);
       if (!isOldMatch) return res.status(401).json({ message: "Old password does not match" });
