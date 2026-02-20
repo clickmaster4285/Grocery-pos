@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
   useGetBranchLocations,
@@ -12,42 +12,61 @@ import { useAuth } from '@/hooks/useAuth';
 export const useBranchLocationHook = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState(null);
+  const [selectedBranchId, setSelectedBranchId] = useState(null);
 
-  const { inventory } = usePermissions();
-  const canCreate = inventory.location.create;
-  const canRead = inventory.location.read;
-  const canUpdate = inventory.location.update;
-  const canDelete = inventory.location.delete;
+  const { inventory, isAdmin } = usePermissions(); 
+  const canCreate = inventory?.location?.create;
+  const canRead = inventory?.location?.read;
+  const canUpdate = inventory?.location?.update;
+  const canDelete = inventory?.location?.delete;
 
   const { user } = useAuth();
-  const currentBranchId = user?.branch_id;
+  const userBranchId = user?.branch_id;
 
-  const { data: locations, isLoading: isLocationsLoading, refetch } = useGetBranchLocations(currentBranchId, {
-    enabled: !!currentBranchId && canRead, // Enable only if branchId exists and user has read permission
+  // Sync selectedBranchId with userBranchId for non-admins
+  useEffect(() => {
+    if (!isAdmin && userBranchId && selectedBranchId !== userBranchId) {
+      setSelectedBranchId(userBranchId);
+    }
+  }, [isAdmin, userBranchId, selectedBranchId]);
+
+  const effectiveBranchId = isAdmin ? selectedBranchId : userBranchId;
+
+  const { data: locationsResponse, isLoading: isLocationsLoading, refetch } = useGetBranchLocations(effectiveBranchId, {
+    enabled: !!effectiveBranchId && canRead,
   });
+
+  const locations = useMemo(() => locationsResponse?.data || [], [locationsResponse]);
+
   const createMutation = useCreateBranchLocation();
   const updateMutation = useUpdateBranchLocation();
   const deleteMutation = useDeleteBranchLocation();
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
-  const handleOpenForm = (location = null) => {
+  const handleOpenForm = useCallback((location = null) => {
     setEditingLocation(location);
     setIsFormOpen(true);
-  };
+  }, []);
 
-  const handleCloseForm = () => {
+  const handleCloseForm = useCallback(() => {
     setEditingLocation(null);
     setIsFormOpen(false);
-  };
+  }, []);
 
-  const handleSubmit = async (formData) => {
+  const handleSubmit = useCallback(async (formData) => {
     try {
       if (editingLocation) {
-        await updateMutation.mutateAsync({ id: editingLocation._id, ...formData });
+        await updateMutation.mutateAsync({ 
+          id: editingLocation._id, 
+          locationData: formData // Correct structure for API
+        });
         toast.success('Location updated successfully!');
       } else {
-        await createMutation.mutateAsync(formData);
+        await createMutation.mutateAsync({
+          ...formData,
+          branch: effectiveBranchId // Ensure branch ID is sent
+        });
         toast.success('Location created successfully!');
       }
       refetch();
@@ -55,44 +74,39 @@ export const useBranchLocationHook = () => {
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to save location.');
     }
-  };
+  }, [editingLocation, updateMutation, createMutation, refetch, handleCloseForm, effectiveBranchId]);
 
-  const handleDelete = async (id) => {
+  const handleDelete = useCallback(async (id) => {
     if (!canDelete) {
       toast.error('You do not have permission to delete locations.');
       return;
     }
-    if (window.confirm('Are you sure you want to delete this location?')) {
-      try {
-        await deleteMutation.mutateAsync(id);
-        toast.success('Location deleted successfully!');
-        refetch();
-      } catch (error) {
-        toast.error(error.response?.data?.message || 'Failed to delete location.');
-      }
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast.success('Location deleted successfully!');
+      refetch();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to delete location.');
     }
-  };
+  }, [canDelete, deleteMutation, refetch]);
 
   return {
-    // Data
-    locations: locations?.data || [],
+    locations,
     isLocationsLoading,
-    
-    // Form management
     isFormOpen,
     editingLocation,
     handleOpenForm,
     handleCloseForm,
     handleSubmit,
     isSubmitting,
-
-    // Actions
     handleDelete,
-
-    // Permissions
     canCreate,
     canRead,
     canUpdate,
     canDelete,
+    isAdmin,
+    selectedBranchId,
+    setSelectedBranchId,
+    refetch
   };
 };

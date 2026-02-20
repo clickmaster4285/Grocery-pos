@@ -20,8 +20,10 @@ import Image from 'next/image';
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 // VariantAttributes remains a sub-component within VariantManagementTabContent.jsx
+import { ATTRIBUTE_SUGGESTIONS, COMMON_ATTRIBUTE_KEYS } from '@/constants/productAttributes';
+
 const VariantAttributes = ({ variantIndex }) => {
-  const { control } = useFormContext(); // Use useFormContext here
+  const { control, watch } = useFormContext(); // Use useFormContext here
   const { fields, append, remove } = useFieldArray({
     control: control,
     name: `variants.${variantIndex}.attributes`,
@@ -30,6 +32,8 @@ const VariantAttributes = ({ variantIndex }) => {
   const handleAddAttribute = () => {
     append({ key: '', value: '' });
   };
+
+  const attributeKeyOptions = COMMON_ATTRIBUTE_KEYS.map(key => ({ label: key, value: key }));
 
   return (
     <div className="space-y-3 p-3 border rounded-md bg-gray-50 dark:bg-gray-900">
@@ -41,45 +45,63 @@ const VariantAttributes = ({ variantIndex }) => {
       </div>
       <p className="text-muted-foreground text-xs">Define key-value pairs for variant characteristics (e.g., "Color: Red", "Size: M").</p>
 
-      {fields.map((field, attrIndex) => (
-        <div key={field.id} className="flex gap-2 items-center">
-          <FormField
-            control={control}
-            name={`variants.${variantIndex}.attributes.${attrIndex}.key`}
-            render={({ field: attrKeyField }) => (
-              <FormItem className="flex-1">
-                <FormLabel className="sr-only">Attribute Key</FormLabel>
-                <FormControl>
-                  <Input placeholder="Key (e.g., Color)" {...attrKeyField} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={control}
-            name={`variants.${variantIndex}.attributes.${attrIndex}.value`}
-            render={({ field: attrValueField }) => (
-              <FormItem className="flex-1">
-                <FormLabel className="sr-only">Attribute Value</FormLabel>
-                <FormControl>
-                  <Input placeholder="Value (e.g., Red)" {...attrValueField} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => remove(attrIndex)}
-          >
-            <XCircle className="h-4 w-4 text-red-500" />
-            <span className="sr-only">Remove attribute</span>
-          </Button>
-        </div>
-      ))}
+      {fields.map((field, attrIndex) => {
+        const currentKey = watch(`variants.${variantIndex}.attributes.${attrIndex}.key`);
+        const valueSuggestions = ATTRIBUTE_SUGGESTIONS[currentKey] || [];
+
+        return (
+          <div key={field.id} className="flex gap-2 items-center">
+            <FormField
+              control={control}
+              name={`variants.${variantIndex}.attributes.${attrIndex}.key`}
+              render={({ field: attrKeyField }) => (
+                <FormItem className="flex-1">
+                  <FormLabel className="sr-only">Attribute Key</FormLabel>
+                  <ComboBox
+                    items={attributeKeyOptions}
+                    value={attrKeyField.value}
+                    onValueChange={attrKeyField.onChange}
+                    placeholder="Key (e.g., Color)"
+                    searchPlaceholder="Search keys..."
+                    emptyPlaceholder="Type to create new..."
+                    custom={true}
+                  />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={control}
+              name={`variants.${variantIndex}.attributes.${attrIndex}.value`}
+              render={({ field: attrValueField }) => (
+                <FormItem className="flex-1">
+                  <FormLabel className="sr-only">Attribute Value</FormLabel>
+                  <ComboBox
+                    items={valueSuggestions}
+                    value={attrValueField.value}
+                    onValueChange={attrValueField.onChange}
+                    placeholder="Value (e.g., Red)"
+                    searchPlaceholder="Search values..."
+                    emptyPlaceholder="Type to create new..."
+                    custom={true}
+                    disabled={!currentKey}
+                  />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => remove(attrIndex)}
+            >
+              <XCircle className="h-4 w-4 text-red-500" />
+              <span className="sr-only">Remove attribute</span>
+            </Button>
+          </div>
+        );
+      })}
     </div>
   );
 };

@@ -21,11 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner";
 import { useEffect } from "react";
-
-// Import the hook
-import { useBranchLocationHook } from '@/hooks/useBranchLocationHook';
 
 // Remove branch from formSchema as it's handled by the backend (user's branch)
 const formSchema = z.object({
@@ -45,21 +41,14 @@ const formSchema = z.object({
   capacity: z.coerce.number().min(0, "Capacity cannot be negative.").default(0),
 });
 
-const BranchLocationForm = () => { // Removed props
-  const { 
-    editingLocation, 
-    handleCloseForm, 
-    handleSubmit: handleHookSubmit, // Renamed to avoid conflict
-    isSubmitting 
-  } = useBranchLocationHook();
-
+const BranchLocationForm = ({ initialData, onSubmit, onCancel, isLoading }) => {
   const form = useForm({
     resolver: zodResolver(formSchema),
-    defaultValues: editingLocation // Use editingLocation from hook
+    defaultValues: initialData
       ? {
-          ...editingLocation,
-          floor: editingLocation.floor || 0,
-          capacity: editingLocation.capacity || 0,
+          ...initialData,
+          floor: initialData.floor || 0,
+          capacity: initialData.capacity || 0,
         }
       : {
           name: "",
@@ -71,12 +60,12 @@ const BranchLocationForm = () => { // Removed props
   });
 
   useEffect(() => {
-    // Reset form when editingLocation changes (e.g., when opening form for new or different edit)
-    if (editingLocation) {
+    // Reset form when initialData changes
+    if (initialData) {
       form.reset({
-        ...editingLocation,
-        floor: editingLocation.floor || 0,
-        capacity: editingLocation.capacity || 0,
+        ...initialData,
+        floor: initialData.floor || 0,
+        capacity: initialData.capacity || 0,
       });
     } else {
       form.reset({
@@ -87,15 +76,15 @@ const BranchLocationForm = () => { // Removed props
         capacity: 0,
       });
     }
-  }, [editingLocation, form]);
+  }, [initialData, form]);
 
-  async function onSubmit(values) {
-    handleHookSubmit(values); // Call the hook's handleSubmit
+  async function handleLocalSubmit(values) {
+    onSubmit(values);
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleLocalSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
@@ -115,7 +104,7 @@ const BranchLocationForm = () => { // Removed props
           render={({ field }) => (
             <FormItem>
               <FormLabel>Location Type</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value || "BACKROOM"}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a type" />
@@ -176,11 +165,11 @@ const BranchLocationForm = () => { // Removed props
           )}
         />
         <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={handleCloseForm} disabled={isSubmitting}>
+            <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
                 Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-            {editingLocation ? "Update Location" : "Create Location"}
+            <Button type="submit" disabled={isLoading}>
+            {initialData ? "Update Location" : "Create Location"}
             </Button>
         </div>
       </form>
