@@ -85,6 +85,7 @@ export const MENU_METADATA = {
   'product_database': { path: '/inventory/products', icon: Package },
   'stock_management': { path: '/inventory/stock', icon: Boxes },
   'purchase_orders': { path: '/inventory/po', icon: ClipboardList },
+  'location_database': { path: '/inventory/locations', icon: MapPin },
   'vendor_management': { path: '/inventory/suppliers', icon: Truck },
   'categories_departments': { path: '/inventory/categories', icon: Tags },
   'brands': { path: '/inventory/brands', icon: Building2 },

@@ -59,6 +59,7 @@ export const usePermissions = () => {
       products: getMenuPermissions('inventory', 'product_database'),
       stock: getMenuPermissions('inventory', 'stock_management'),
       po: getMenuPermissions('inventory', 'purchase_orders'),
+      location: getMenuPermissions('inventory', 'location_database'), 
       suppliers: getMenuPermissions('inventory', 'vendor_management'),
       categories: getMenuPermissions('inventory', 'categories_departments'),
       brands: getMenuPermissions('inventory', 'brands'),

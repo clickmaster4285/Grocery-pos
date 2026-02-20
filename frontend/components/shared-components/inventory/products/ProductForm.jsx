@@ -1,29 +1,23 @@
 "use client";
 
-import React, { useEffect, useMemo } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import React, { useEffect, useMemo, useState } from 'react'; // Added useState
+import { FormProvider, useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
+  Form as ShadcnForm,
 } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, XCircle, UploadCloud, Badge, Image as ImageIcon } from 'lucide-react';
-import { ComboBox } from '@/components/ui/combobox';
 import { toast } from 'sonner';
-import Image from 'next/image';
+
 import { useAuth } from '@/hooks/useAuth';
 import { useGetAllCategories } from '@/features/category.api';
 import { useGetAllBrands } from '@/features/brand.api';
 import { useGetAllSuppliers } from '@/features/supplier.api';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+import ProductDetailsTabContent from './product-form-tabs/ProductDetailsTabContent';
+import VariantManagementTabContent from './product-form-tabs/VariantManagementTabContent';
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -53,13 +47,20 @@ const variantSchema = z.object({
   qrCode: z.string().max(200, { message: "QR Code cannot be more than 200 characters." }).optional().nullable(),
   images: z.array(z.union([z.string(), z.instanceof(File)])).optional(),
   isDeleted: z.boolean().optional(),
-  // Fields for explicit stock adjustments during editing
   stockChangeAmount: z.preprocess(
-    (val) => (val === '' ? null : Number(val)), // Allow empty string but preprocess to null
+    (val) => (val === '' ? null : Number(val)),
     z.number().int().optional().nullable()
   ),
-  stockChangeType: z.enum(['RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT']).optional().nullable(),
+  stockChangeType: z.enum(['RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT', 'TRANSFER_IN', 'TRANSFER_OUT']).optional().nullable(),
   stockChangeReason: z.string().max(200).optional().nullable(),
+  minStockLevel: z.preprocess(
+    (val) => Number(val),
+    z.number().int().min(0, { message: 'Minimum stock level cannot be negative.' }).default(0)
+  ),
+  maxStockLevel: z.preprocess(
+    (val) => Number(val),
+    z.number().int().min(0, { message: 'Maximum stock level cannot be negative.' }).default(0)
+  ),
 });
 
 const productFormSchema = z.object({
@@ -67,71 +68,15 @@ const productFormSchema = z.object({
   description: z.string().max(1000, { message: 'Product description cannot be more than 1000 characters.' }).optional().nullable(),
   brand: z.string().optional().nullable(),
   category: z.string().optional().nullable(),
+  unit: z.enum(['PIECE', 'KG', 'GRAM', 'LITER', 'ML', 'PACK', 'DOZEN']).default('PIECE'),
+  storageRequirement: z.enum(['AMBIENT', 'REFRIGERATED', 'FROZEN']).default('AMBIENT'),
+  taxRate: z.preprocess(
+    (val) => Number(val),
+    z.number().min(0, { message: 'Tax rate cannot be negative.' }).max(100, { message: 'Tax rate cannot exceed 100.' }).default(0)
+  ),
   variants: z.array(variantSchema).min(1, { message: 'At least one variant is required.' }),
 });
 
-const VariantAttributes = ({ form, variantIndex, supplierOptions, isLoadingSuppliers }) => {
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: `variants.${variantIndex}.attributes`,
-  });
-
-  const handleAddAttribute = () => {
-    append({ key: '', value: '' });
-  };
-
-  return (
-    <div className="space-y-3 p-3 border rounded-md bg-gray-50 dark:bg-gray-900">
-      <div className="flex justify-between items-center">
-        <h5 className="font-semibold text-sm">Attributes ({fields.length})</h5>
-        <Button type="button" variant="outline" size="sm" onClick={handleAddAttribute}>
-          <PlusCircle className="mr-2 h-3 w-3" /> Add Attribute
-        </Button>
-      </div>
-      <p className="text-muted-foreground text-xs">Define key-value pairs for variant characteristics (e.g., "Color: Red", "Size: M").</p>
-
-      {fields.map((field, attrIndex) => (
-        <div key={field.id} className="flex gap-2 items-center">
-          <FormField
-            control={form.control}
-            name={`variants.${variantIndex}.attributes.${attrIndex}.key`}
-            render={({ field: attrKeyField }) => (
-              <FormItem className="flex-1">
-                <FormLabel className="sr-only">Attribute Key</FormLabel>
-                <FormControl>
-                  <Input placeholder="Key (e.g., Color)" {...attrKeyField} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`variants.${variantIndex}.attributes.${attrIndex}.value`}
-            render={({ field: attrValueField }) => (
-              <FormItem className="flex-1">
-                <FormLabel className="sr-only">Attribute Value</FormLabel>
-                <FormControl>
-                  <Input placeholder="Value (e.g., Red)" {...attrValueField} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => remove(attrIndex)}
-          >
-            <XCircle className="h-4 w-4 text-red-500" />
-            <span className="sr-only">Remove attribute</span>
-          </Button>
-        </div>
-      ))}
-    </div>
-  );
-};
 
 const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
   const { user } = useAuth();
@@ -171,62 +116,75 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
     return [];
   }, [suppliersData]);
 
-    const form = useForm({
-
-      resolver: zodResolver(productFormSchema),
-      defaultValues: initialData ? {
-        ...initialData,
-        category: initialData.category?._id || '',
-        brand: initialData.brand?._id || '',
-        variants: initialData.variants?.map(variant => ({
-          ...variant,
-          _id: variant._id ? String(variant._id) : '',
-          buyingPrice: variant.priceHistory?.length ? variant.priceHistory[variant.priceHistory.length - 1].buyingPrice : 0.01,
-
-          sellingPrice: variant.priceHistory?.length ? variant.priceHistory[variant.priceHistory.length - 1].sellingPrice : 0.01,
-          supplier: variant.supplier?._id || '',
-          attributes: variant.attributes || [],
-          barcode: variant.barcode || '',
-          qrCode: variant.qrCode || '',
-          isDeleted: variant.isDeleted || false,
+  const form = useForm({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: initialData ? {
+      ...initialData,
+      category: initialData.category?._id || '',
+      brand: initialData.brand?._id || '',
+      unit: initialData.unit || 'PIECE', // Initialize new field
+      storageRequirement: initialData.storageRequirement || 'AMBIENT', // Initialize new field
+      taxRate: initialData.taxRate !== undefined ? initialData.taxRate : 0, // Initialize new field
+      variants: initialData.variants?.map(variant => ({
+        ...variant,
+        _id: variant._id ? String(variant._id) : '',
+        buyingPrice: variant.priceHistory?.length ? variant.priceHistory[variant.priceHistory.length - 1].buyingPrice : 0.01,
+        sellingPrice: variant.priceHistory?.length ? variant.priceHistory[variant.priceHistory.length - 1].sellingPrice : 0.01,
+        supplier: variant.supplier?._id || '',
+        attributes: variant.attributes || [],
+        barcode: variant.barcode || '',
+        qrCode: variant.qrCode || '',
+        images: z.array(z.union([z.string(), z.instanceof(File)])).optional(),
+        isDeleted: variant.isDeleted || false,
         stockChangeAmount: null,
         stockChangeType: null,
         stockChangeReason: null,
-        })) || [{
-          sku: '',
-          buyingPrice: 0.01,
-          sellingPrice: 0.01,
-          stock: 0,
-          supplier: '',
-          barcode: '',
-          qrCode: '',
-          images: [],
-          attributes: [],
-        }],
-      } : {
-        productName: '',
-        description: '',
-        brand: '',
-        category: '',
-        variants: [{
-          sku: '',
-          buyingPrice: 0.01,
-          sellingPrice: 0.01,
-          stock: 0,
-          supplier: '',
-          barcode: '',
-          qrCode: '',
-          images: [],
-          attributes: [],
-        }],
-      },
-      mode: 'onChange',
-    });  
+        minStockLevel: variant.minStockLevel !== undefined ? variant.minStockLevel : 0, // Initialize new field
+        maxStockLevel: variant.maxStockLevel !== undefined ? variant.maxStockLevel : 0, // Initialize new field
+      })) || [{
+        sku: '',
+        buyingPrice: 0.01,
+        sellingPrice: 0.01,
+        stock: 0,
+        supplier: '',
+        barcode: '',
+        qrCode: '',
+        images: [],
+        attributes: [],
+        minStockLevel: 0, // Initialize new field
+        maxStockLevel: 0, // Initialize new field
+      }],
+    } : {
+      productName: '',
+      description: '',
+      brand: '',
+      category: '',
+      unit: 'PIECE', // Default for new product
+      storageRequirement: 'AMBIENT', // Default for new product
+      taxRate: 0, // Default for new product
+      variants: [{
+        sku: '',
+        buyingPrice: 0.01,
+        sellingPrice: 0.01,
+        stock: 0,
+        supplier: '',
+        barcode: '',
+        qrCode: '',
+        images: [],
+        attributes: [],
+        minStockLevel: 0, // Default for new variant
+        maxStockLevel: 0, // Default for new variant
+      }],
+    },
+    mode: 'onChange',
+  });  
 
-    const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: 'variants',
   });
+
+  const [activeTab, setActiveTab] = useState('product-details'); // State to manage active tab
 
   const totalStock = useMemo(() => {
     return form.watch('variants').reduce((sum, variant) => {
@@ -247,6 +205,8 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
       qrCode: '',
       images: [],
       attributes: [],
+      minStockLevel: 0,
+      maxStockLevel: 0,
     });
   };
 
@@ -295,7 +255,7 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
   };
 
   return (
-    <Form {...form}>
+    <FormProvider {...form}>
       <form onSubmit={form.handleSubmit(onSubmitHandler)} className="space-y-8 bg-white p-2">
         <h2 className="text-3xl font-bold tracking-tight text-primary">
           {isEditing ? 'Edit Product' : 'Create New Product'}
@@ -304,355 +264,43 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
           {isEditing ? 'Update the details for your product.' : 'Fill in the details to add a new product to your inventory.'}
         </p>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <FormField
-            control={form.control}
-            name="productName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Product Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="E.g., Organic Apples" {...field} />
-                </FormControl>
-                <FormDescription>The name of your product.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4"> {/* Controlled Tabs */}
+          <TabsList>
+            <TabsTrigger value="product-details">Product Details</TabsTrigger>
+            <TabsTrigger value="variants">Variants</TabsTrigger>
+          </TabsList>
 
-          <FormField
-            control={form.control}
-            name="brand"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Brand</FormLabel>
-                <ComboBox
-                  items={brandOptions}
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  placeholder={isLoadingBrands ? "Loading brands..." : "Select a brand"}
-                  searchPlaceholder="Search brands..."
-                  emptyPlaceholder="No brands found."
-                />
-                <FormDescription>The brand of the product.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <TabsContent value="product-details">
+            <ProductDetailsTabContent
+              categoryOptions={categoryOptions}
+              isLoadingCategories={isLoadingCategories}
+              brandOptions={brandOptions}
+              isLoadingBrands={isLoadingBrands}
+              setActiveTab={setActiveTab} // Pass setActiveTab
+              form={form} // Pass form for validation
+            />
+          </TabsContent>
 
-          <FormField
-            control={form.control}
-            name="category"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Category</FormLabel>
-                <ComboBox
-                  items={categoryOptions}
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  placeholder={isLoadingCategories ? "Loading categories..." : "Select a category"}
-                  searchPlaceholder="Search categories..."
-                  emptyPlaceholder="No categories found."
-                />
-                <FormDescription>The category this product belongs to.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-        </div>
-
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea placeholder="A detailed description of the product..." rows={5} {...field} />
-              </FormControl>
-              <FormDescription>Provide a detailed description of the product.</FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="mt-8 space-y-6 border p-4 rounded-md shadow-inner">
-          <h3 className="text-xl font-semibold flex justify-between items-center">
-            Product Variants ({fields.length})
-            <Button type="button" onClick={handleAddVariant} size="sm">
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Variant
-            </Button>
-          </h3>
-          <p className="text-muted-foreground text-sm">
-            Define different variations of your product (e.g., size, color, weight)
-            along with their unique SKU, price, stock, and images.
-          </p>
-
-          {fields.map((variantField, variantIndex) => (
-            <div key={variantField.id} className="space-y-4 border-t pt-4 relative">
-              <h4 className="text-lg font-semibold flex items-center justify-between">
-                <span>Variant #{variantIndex + 1}</span>
-                <div className="flex items-center space-x-2">
-                  {form.watch(`variants.${variantIndex}.isDeleted`) && (
-                    <Badge variant="destructive" className="mr-2">Soft Deleted</Badge>
-                  )}
-                  {form.watch(`variants.${variantIndex}.isDeleted`) && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => form.setValue(`variants.${variantIndex}.isDeleted`, false)}
-                    >
-                      Restore
-                    </Button>
-                  )}
-                  {fields.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => remove(variantIndex)}
-                      className="h-7 w-7 rounded-full"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      <span className="sr-only">Remove variant</span>
-                    </Button>
-                  )}
-                </div>
-              </h4>
-
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <FormField
-                  control={form.control}
-                  name={`variants.${variantIndex}.sku`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SKU (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Leave blank to auto-generate" {...field} />
-                      </FormControl>
-                      <FormDescription>Unique identifier for this variant. Auto-generated if left blank.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name={`variants.${variantIndex}.supplier`}
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Supplier</FormLabel>
-                      <ComboBox
-                        items={supplierOptions}
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        placeholder={isLoadingSuppliers ? "Loading suppliers..." : "Select a supplier"}
-                        searchPlaceholder="Search suppliers..."
-                        emptyPlaceholder="No suppliers found."
-                      />
-                      <FormDescription>Assign a supplier to this variant.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name={`variants.${variantIndex}.stock`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Current Stock Quantity</FormLabel>
-                      <FormControl>
-                        <Input type="number" {...field} readOnly={isEditing} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name={`variants.${variantIndex}.buyingPrice`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Buying Price</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name={`variants.${variantIndex}.sellingPrice`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Selling Price</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name={`variants.${variantIndex}.barcode`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Barcode (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter barcode" {...field} />
-                      </FormControl>
-                      <FormDescription>Unique barcode for this variant.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name={`variants.${variantIndex}.qrCode`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>QR Code (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter QR code data" {...field} />
-                      </FormControl>
-                      <FormDescription>QR code data for this variant.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {isEditing && (
-                <div className="space-y-3 p-3 border rounded-md bg-yellow-50/20 dark:bg-yellow-950/20">
-                  <h5 className="font-semibold text-sm">Stock Adjustment</h5>
-                  <p className="text-muted-foreground text-xs">Adjust stock quantity and provide a reason for the change. Use negative values for deductions (e.g., sales, damages).</p>
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    <FormField
-                      control={form.control}
-                      name={`variants.${variantIndex}.stockChangeType`}
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Change Type</FormLabel>
-                          <ComboBox
-                            items={[
-                              { label: 'Restock', value: 'RESTOCK' },
-                              { label: 'Sale', value: 'SALE' },
-                              { label: 'Return', value: 'RETURN' },
-                              { label: 'Adjustment', value: 'ADJUSTMENT' },
-                            ]}
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            placeholder="Select change type"
-                            searchPlaceholder="Search types..."
-                            emptyPlaceholder="No types found."
-                          />
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`variants.${variantIndex}.stockChangeAmount`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Change Amount</FormLabel>
-                          <FormControl>
-                            <Input type="number" placeholder="e.g., 10 (add) or -5 (deduct)" {...field} />
-                          </FormControl>
-                          <FormDescription>Positive for increase, negative for decrease.</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`variants.${variantIndex}.stockChangeReason`}
-                      render={({ field }) => (
-                        <FormItem className="md:col-span-2 lg:col-span-1">
-                          <FormLabel>Reason (Optional)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., Weekly delivery, Damaged goods" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-              )}
-
-              <VariantAttributes form={form} variantIndex={variantIndex} />
-
-              <FormField
-                control={form.control}
-                name={`variants.${variantIndex}.images`}
-                render={() => (
-                  <FormItem className="lg:col-span-3">
-                    <FormLabel>Variant Images</FormLabel>
-                    <FormControl>
-                      <div className="flex flex-wrap gap-3 p-3 border rounded-md min-h-25 items-center">
-                        {(form.watch(`variants.${variantIndex}.images`) || []).map((image, imgIdx) => {
-                          const imageUrl = image instanceof File ? URL.createObjectURL(image) : `${API_URL}${image}`;
-                          return (
-                            <div key={imgIdx} className="relative w-40 h-40 rounded-md overflow-hidden group">
-                              <Image src={imageUrl} alt={`Variant image ${imgIdx + 1}`} fill style={{ objectFit: 'cover' }} unoptimized={true} />
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                size="icon"
-                                className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => handleRemoveImage(variantIndex, imgIdx)}
-                              >
-                                <XCircle className="h-3 w-3" />
-                                <span className="sr-only">Remove image</span>
-                              </Button>
-                            </div>
-                          );
-                        })}
-                        {(form.watch(`variants.${variantIndex}.images`)?.length || 0) < 5 && (
-                          <label className="flex flex-col items-center justify-center w-40 h-40 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
-                            <UploadCloud className="h-6 w-6 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground mt-1">Add Images</span>
-                            <Input type="file" multiple className="sr-only" onChange={(e) => handleImageUpload(variantIndex, e)} accept="image/*" />
-                          </label>
-                        )}
-                      </div>
-                    </FormControl>
-                    <FormDescription>
-                      You can upload up to 5 images for each variant, with each image up to 5MB (total 25MB per variant). Accepted formats: JPG, PNG, GIF, WebP.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-            </div>
-          ))}
-        </div>
-
-        <div className="flex justify-end space-x-4 mt-8">
-          <Button type="button" variant="outline" onClick={() => form.reset()}>
-            Reset
-          </Button>
-          <Button type="submit" disabled={isLoading || !form.formState.isValid}>
-            {isLoading ? 'Saving...' : (isEditing ? 'Update Product' : 'Create Product')}
-          </Button>
-        </div>
-
-        <div className="text-right text-sm text-muted-foreground">
-          Total Stock Across Variants: <span className="font-bold text-primary">{totalStock}</span>
-        </div>
+          <TabsContent value="variants" className="space-y-6 border p-4 rounded-md shadow-inner">
+            <VariantManagementTabContent
+              fields={fields}
+              handleAddVariant={handleAddVariant}
+              handleRemoveImage={handleRemoveImage}
+              handleImageUpload={handleImageUpload}
+              isEditing={isEditing}
+              supplierOptions={supplierOptions}
+              isLoadingSuppliers={isLoadingSuppliers}
+              setActiveTab={setActiveTab} // Pass setActiveTab
+              form={form} // Pass form for validation and submission
+              onSubmitHandler={onSubmitHandler} // Pass onSubmitHandler
+              isLoading={isLoading} // Pass isLoading
+              initialData={initialData} // Pass initialData
+              removeVariant={remove} // Pass the remove function
+            />
+          </TabsContent>
+        </Tabs>
       </form>
-    </Form>
+    </FormProvider>
   );
 };
 
