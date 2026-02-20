@@ -3,6 +3,9 @@ const BranchStock = require('../models/branchStock.model');
 const Product = require('../models/product.model');
 const Counter = require('../models/counter.model');
 const mongoose = require('mongoose');
+const BranchStockLocation = require('../models/branchStockLocation.model'); // Added
+const BranchLocation = require('../models/branchLocation.model'); // Added
+const { deductStockFromLocations } = require('../utils/inventory.utils'); // Added
 
 // Helper to generate bill number: SALE-YYYYMMDD-[BASE36_SERIAL]
 // Base-36 uses 0-9 and A-Z, allowing 1,679,616 unique IDs in just 4 characters.
@@ -48,35 +51,29 @@ const generateBillNumber = async () => {
 
 // Create a new sale
 exports.createSale = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
         const { branchId, items, discount, paymentMethod, customerName, customerPhone } = req.body;
         const cashierId = req.user._id;
 
         if (!items || items.length === 0) {
-            return res.status(400).json({ success: false, message: 'No items in the sale.' });
+            throw new Error('No items in the sale.');
         }
 
         let totalAmount = 0;
         const processedItems = [];
 
-        // Validate items and check branch stock
         for (const item of items) {
-            const product = await Product.findById(item.product);
-            if (!product) throw new Error(`Product ${item.product} not found`);
+            const product = await Product.findById(item.product).session(session);
+            if (!product) throw new Error(`Product ${item.product} not found.`);
 
             const variant = product.variants.id(item.variantId);
-            if (!variant) throw new Error(`Variant ${item.variantId} not found`);
+            if (!variant) throw new Error(`Variant ${item.variantId} not found for product ${product.productName}.`);
 
-            // Check Branch Stock
-            const branchStock = await BranchStock.findOne({
-                branch: branchId,
-                product: item.product,
-                variantId: item.variantId
-            });
-
-            if (!branchStock || branchStock.quantity < item.quantity) {
-                throw new Error(`Insufficient stock in branch for ${product.productName} (${variant.sku})`);
-            }
+            // Deduct stock from BranchStockLocations using the utility function
+            await deductStockFromLocations(branchId, item.product, item.variantId, item.quantity, session);
 
             // Get latest price
             const latestPrice = variant.priceHistory[variant.priceHistory.length - 1].sellingPrice;
@@ -92,10 +89,6 @@ exports.createSale = async (req, res) => {
                 unitPrice: latestPrice,
                 subtotal: itemSubtotal
             });
-
-            // Deduct from Branch Stock
-            branchStock.quantity -= item.quantity;
-            await branchStock.save();
         }
 
         const finalAmount = totalAmount - (discount || 0);
@@ -114,12 +107,15 @@ exports.createSale = async (req, res) => {
             customerPhone
         });
 
-        await sale.save();
-
+        await sale.save({ session });
+        await session.commitTransaction();
         res.status(201).json({ success: true, data: sale });
 
     } catch (error) {
+        await session.abortTransaction();
         res.status(400).json({ success: false, message: error.message });
+    } finally {
+        session.endSession();
     }
 };
 
@@ -129,6 +125,7 @@ exports.getBranchSales = async (req, res) => {
         const { branchId } = req.params;
         const sales = await Sale.find({ branch: branchId })
             .populate('cashier', 'firstName lastName')
+            .populate('branch', 'branch_name') // Added populate for branch
             .sort({ createdAt: -1 });
         
         res.status(200).json({ success: true, data: sales });

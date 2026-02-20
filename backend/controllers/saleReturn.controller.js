@@ -1,8 +1,11 @@
 const SaleReturn = require('../models/saleReturn.model');
 const Sale = require('../models/sale.model');
 const BranchStock = require('../models/branchStock.model');
+const BranchStockLocation = require('../models/branchStockLocation.model'); // Added
+const BranchLocation = require('../models/branchLocation.model'); // Added
 const Product = require('../models/product.model');
 const Counter = require('../models/counter.model');
+const { addStockToLocation, deductStockFromLocations, getDefaultBackroomLocation } = require('../utils/inventory.utils'); // Added
 
 // Helper to generate Return Number: RTN-YYYYMMDD-[BASE36]
 const generateReturnNumber = async () => {
@@ -21,17 +24,22 @@ const generateReturnNumber = async () => {
 };
 
 exports.processReturn = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
         const { saleId, type, returnedItems, exchangedItems } = req.body;
         const userId = req.user._id;
 
         // 1. Fetch Original Sale
-        const originalSale = await Sale.findById(saleId);
-        if (!originalSale) return res.status(404).json({ success: false, message: 'Original sale not found' });
+        const originalSale = await Sale.findById(saleId).session(session);
+        if (!originalSale) throw new Error('Original sale not found');
 
         const returnNumber = await generateReturnNumber();
         let totalRefundValue = 0;
         let totalExchangeValue = 0;
+
+        const branchDefaultBackroom = await getDefaultBackroomLocation(originalSale.branch, session);
 
         // 2. Process Returned Items
         for (const item of returnedItems) {
@@ -49,12 +57,18 @@ exports.processReturn = async (req, res) => {
 
             totalRefundValue += (originalItem.unitPrice * item.quantity);
 
-            // Update Stock if condition is GOOD
+            // Update Stock if condition is GOOD - add back to default backroom
             if (item.condition === 'GOOD') {
-                await BranchStock.findOneAndUpdate(
-                    { branch: originalSale.branch, product: item.product, variantId: item.variantId },
-                    { $inc: { quantity: item.quantity } },
-                    { upsert: true }
+                const productDoc = await Product.findById(productId).session(session);
+                if (!productDoc) throw new Error(`Product ${productId} not found.`);
+                
+                await addStockToLocation(
+                    originalSale.branch,
+                    productId,
+                    variantId,
+                    branchDefaultBackroom._id,
+                    item.quantity,
+                    session
                 );
             }
         }
@@ -63,25 +77,17 @@ exports.processReturn = async (req, res) => {
         const processedExchanges = [];
         if (type === 'EXCHANGE' && exchangedItems) {
             for (const item of exchangedItems) {
-                const product = await Product.findById(item.product);
+                const product = await Product.findById(item.product).session(session);
+                if (!product) throw new Error(`Product ${item.product} not found.`);
+
                 const variant = product.variants.id(item.variantId);
+                if (!variant) throw new Error(`Variant ${item.variantId} not found.`);
+
                 const price = variant.priceHistory[variant.priceHistory.length - 1].sellingPrice;
                 const subtotal = price * item.quantity;
 
-                // Check stock for new items
-                const branchStock = await BranchStock.findOne({
-                    branch: originalSale.branch,
-                    product: item.product,
-                    variantId: item.variantId
-                });
-
-                if (!branchStock || branchStock.quantity < item.quantity) {
-                    throw new Error(`Insufficient stock for exchange item: ${product.productName}`);
-                }
-
-                // Deduct stock
-                branchStock.quantity -= item.quantity;
-                await branchStock.save();
+                // Deduct stock for new items from branch stock locations
+                await deductStockFromLocations(originalSale.branch, item.product, item.variantId, item.quantity, session);
 
                 totalExchangeValue += subtotal;
                 processedExchanges.push({
@@ -109,12 +115,16 @@ exports.processReturn = async (req, res) => {
             performedBy: userId
         });
 
-        await saleReturn.save();
+        await saleReturn.save({ session });
+        await session.commitTransaction();
 
         res.status(201).json({ success: true, data: saleReturn });
 
     } catch (error) {
+        await session.abortTransaction();
         res.status(400).json({ success: false, message: error.message });
+    } finally {
+        session.endSession();
     }
 };
 

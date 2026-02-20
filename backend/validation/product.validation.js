@@ -36,6 +36,8 @@ const variantSchema = Joi.object({
   qrCode: Joi.string().trim().max(200).allow(null, ''),
   isDeleted: Joi.boolean().default(false),
   deletedAt: Joi.date().iso().allow(null),
+  minStockLevel: Joi.number().min(0).default(0),
+  maxStockLevel: Joi.number().min(0).default(0),
   stockChangeAmount: Joi.number().optional(),
   stockChangeType: Joi.valid('RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT', null, '').optional(), // Allow null/empty in base schema
   stockChangeReason: Joi.string().trim().max(200).allow(null, '').optional(), // Allow null/empty in base schema
@@ -79,6 +81,9 @@ const createProductSchema = Joi.object({
   description: Joi.string().trim().max(1000).allow(null, ''),
   category: Joi.objectId().optional().allow(null, ''),
   brand: Joi.objectId().optional().allow(null, ''),
+  unit: Joi.string().valid('PIECE', 'KG', 'GRAM', 'LITER', 'ML', 'PACK', 'DOZEN').default('PIECE'),
+  storageRequirement: Joi.string().valid('AMBIENT', 'REFRIGERATED', 'FROZEN').default('AMBIENT'),
+  taxRate: Joi.number().min(0).default(0),
   variants: Joi.array().items(variantSchema).min(1).required(),
   isActive: Joi.boolean().default(true),
 });
@@ -88,6 +93,9 @@ const updateProductSchema = Joi.object({
   description: Joi.string().trim().max(1000).allow(null, '').optional(),
   category: Joi.objectId().optional().allow(null, ''),
   brand: Joi.objectId().optional().allow(null, ''),
+  unit: Joi.string().valid('PIECE', 'KG', 'GRAM', 'LITER', 'ML', 'PACK', 'DOZEN').optional(),
+  storageRequirement: Joi.string().valid('AMBIENT', 'REFRIGERATED', 'FROZEN').optional(),
+  taxRate: Joi.number().min(0).optional(),
   variants: Joi.array().items(variantSchemaForUpdate).min(0).optional(), // Use the update-specific variant schema
   isActive: Joi.boolean().optional(),
   isDeleted: Joi.boolean().optional(),

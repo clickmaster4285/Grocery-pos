@@ -24,6 +24,7 @@ const SYSTEM_HIERARCHY = [
     menus: [
       'Product Database',
       'Stock Management',
+      'Location Database',
       'Purchase Orders',
       'Vendor Management',
       'Categories & Departments',

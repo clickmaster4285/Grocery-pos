@@ -8,7 +8,7 @@ const path = require('path'); // Added path module
 const { connectDatabase } = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 const mainRouter = require('./routes');
-const { initializeAdminAccount } = require('./config/bootstrap');
+const { initializeAdminAccount, initializeBranchLocations } = require('./config/bootstrap');
 
 const app = express();
 const PORT = process.env.PORT;
@@ -40,11 +40,6 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve static files (uploads folder)
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
-// app.use('/api/uploads', express.static(path.join(__dirname, 'uploads'), {
-//   setHeaders: (res) => {
-//     res.set('Cross-Origin-Resource-Policy', 'cross-origin');
-//   }
-// }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -75,6 +70,7 @@ async function startServer() {
   try {
     await connectDatabase();
     await initializeAdminAccount();
+    await initializeBranchLocations();
 
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);

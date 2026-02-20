@@ -23,24 +23,26 @@ The application follows a **Decoupled Monolith** architecture, utilizing a robus
 -   **Local Asset Storage**: Static assets (Brand Logos, Product Images) are stored locally in `backend/uploads/{module_name}` and served via Express static middleware. This ensures data sovereignty, speed, and privacy.
 
 ### 1.2. The Multi-Tier Inventory Model
-We distinguish between "Virtual Catalog" and "Physical Availability."
-1.  **Product Model**: The source of truth for metadata (Category, Name).
+We distinguish between "Virtual Catalog" and "Physical Availability," now with granular location tracking.
+1.  **Product Model**: The source of truth for metadata (Category, Name, `unit`, `storageRequirement`, `taxRate`).
 2.  **Brand Model**: Architectural node for product classification. Features atomic `BRD-[BASE36]` codes and local logo storage.
-3.  **Variant Model (Nested)**: The level where physical attributes (Size, Color, Material) and **Warehouse Stock** reside.
-4.  **BranchStock Model**: A flat junction table mapping `BranchID + ProductID + VariantID` to a specific `quantity`. This allows for O(1) lookups during checkout.
+3.  **Variant Model (Nested)**: The level where physical attributes (Size, Color, Material), `minStockLevel`, `maxStockLevel`, and **Warehouse Stock** reside.
+4.  **BranchLocation Model**: Defines specific physical areas *within* a branch (e.g., Aisle, Shelf, Backroom), including `capacity` and `currentOccupancy`. Enables location-based storage rules.
+5.  **BranchStockLocation Model**: Tracks the *exact quantity* of a product variant at a specific `BranchLocation`. This is the granular source of truth for physical stock placement.
+6.  **BranchStock Model**: A flat junction table mapping `BranchID + ProductID + VariantID` to an *aggregated total `quantity`*. This model now serves as a high-performance summary/cache, automatically synchronized by `BranchStockLocation` post-save/remove hooks, allowing for O(1) lookups during checkout and reports without complex aggregations.
 
 ---
 
 ## 2. Database Layer & Data Integrity
 
 ### 2.1. Simulated Transactions (Sequential Guard Pattern)
-MongoDB standalone instances do not support ACID transactions. To prevent "Ghost Stock" or "Double Spending," we use the **Sequential Guard Pattern**:
+MongoDB standalone instances do not support ACID transactions. To prevent "Ghost Stock" or "Double Spending," we use the **Sequential Guard Pattern**, now enhanced to operate on granular stock locations:
 
 | Step | Action | Logic |
 | :--- | :--- | :--- |
-| **1. Pre-flight** | Validation | Check `BranchStock.quantity >= requestedQty`. |
-| **2. Lock** | Deduction | `findOneAndUpdate` with `$inc: { quantity: -requestedQty }`. |
-| **3. Propagation**| Increment | If Exchange, increment new item's stock. |
+| **1. Pre-flight** | Validation | Check `BranchStock.quantity >= requestedQty` (for a quick overall check) AND ensure sufficient `BranchStockLocation` quantities are available in suitable locations. |
+| **2. Lock** | Deduction | Deduct `quantity` from specific `BranchStockLocation` entries (e.g., prioritizing sales floor, FIFO). `BranchStock` is then automatically updated via `BranchStockLocation` hooks. |
+| **3. Propagation**| Increment | If Exchange, increment new item's stock into the branch's default backroom `BranchStockLocation`. |
 | **4. Persistence**| Logging | Create `Sale` or `SaleReturn` record. |
 | **5. Cleanup** | Error Handle | If any step fails after Step 2, a manual compensation (rollback) logic is triggered. |
 
@@ -152,30 +154,34 @@ To optimize performance and ensure real-time security, the system employs a "Hyb
 -   `frontend/app/[role]/inventory/`: Sub-pages for Brands, Categories, Products, Stock, and Suppliers.
 -   `frontend/app/[role]/pos/`: Sub-pages for Sales and Returns.
 -   `frontend/app/[role]/employees/`: Comprehensive staff management module.
--   `frontend/components/shared-components/`: Reusable business UI, now organized modularly (e.g., `/inventory`, `/pos`, `/employees`).
+-   `frontend/app/[role]/settings/`: Global system configuration and branch settings.
+-   `frontend/components/shared-components/`: Reusable business UI, now organized modularly (e.g., `/inventory`, `/pos`, `/employees`, `/settings`).
 -   `frontend/components/ui/`: Atomic, design-system components (Shadcn).
 
 ---
 
 ## 8. Development Roadmap
 
-### ✅ Phase 1-5: The Core (Completed)
--   [x] Multi-variant Product Engine with price tracking.
--   [x] Sequential Inter-branch stock transfers.
+### ✅ Phase 1-6: Core & Management (Completed)
+-   [x] Multi-variant Product Engine with price tracking and granular thresholds.
+-   [x] Granular inventory tracking with physical `BranchLocation` and `BranchStockLocation` models.
+-   [x] Sequential Inter-branch and **Internal** stock transfers.
 -   [x] Hybrid Search POS with Barcode integration.
--   [x] Atomic Base-36 Return & Exchange system.
+-   [x] Atomic Base-36 Return & Exchange system, integrated with granular stock adjustments.
 -   [x] Unified Thermal Printing Engine.
 -   [x] Brand Module with Local Asset Management & Base-36 Codes.
 -   [x] **Granular Hierarchical Permission System (`module:menu:action`)**.
 -   [x] **Modular Directory Refactoring** (Inventory, POS, Employees).
 -   [x] **Backend-Driven Dynamic Sidebar**.
+-   [x] **Discount & Promotion Module**: Coupon code management and automated discounts.
+-   [x] **Customer Management Module**: Advanced CRM and customer history.
+-   [x] **System Settings Engine**: Branch-specific configurations and metadata.
 
-### 🚀 Phase 6: Management & Intelligence (Next)
+### 🚀 Phase 7: Advanced Intelligence (Next)
 -   **Dynamic Dashboards**: Real-time sales vs. target tracking.
 -   **Profit/Loss Engine**: Automated margin analysis (Selling Price - Buying Price).
--   **Discount & Promotion Module**: Coupon code management and automated discounts.
--   **Customer Management Module**: Advanced CRM and customer history.
 -   **EOD Automated Email**: Summarized end-of-day reports for branch owners.
+-   **Inventory Forecasting**: AI-driven stock level predictions based on historical trends.
 
 ---
 
