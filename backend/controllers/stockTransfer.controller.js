@@ -188,6 +188,7 @@ exports.getBranchStock = async (req, res) => {
         const searchTerms = (search || '').trim().split(/\s+/).filter(t => t !== '');
         let query = { branch: branchId };
         
+        // 1. Fetch Aggregated Stock first to use Smart Regex / Fuzzy Search
         let stock;
         if (searchTerms.length > 0) {
             const smartRegex = new RegExp(searchTerms.map(term => `(?=.*${term})`).join(''), 'i');
@@ -209,9 +210,10 @@ exports.getBranchStock = async (req, res) => {
                 .populate('branch', 'branch_name');
         }
         
-        let finalResults = stock.filter(item => item.product !== null);
+        let filteredStock = stock.filter(item => item.product !== null);
 
-        if (searchTerms.length > 0 && finalResults.length === 0) {
+        // 2. Fallback to Fuzzy Search if needed
+        if (searchTerms.length > 0 && filteredStock.length === 0) {
             const allStock = await BranchStock.find(query)
                 .populate('product', 'productName variants')
                 .populate('branch', 'branch_name');
@@ -232,8 +234,35 @@ exports.getBranchStock = async (req, res) => {
             });
 
             const fuseResults = fuse.search(search);
-            finalResults = fuseResults.map(result => result.item);
+            filteredStock = fuseResults.map(result => result.item);
         }
+
+        // 3. Re-hydrate with Location Details for the final results
+        const finalResults = await Promise.all(filteredStock.map(async (item) => {
+            const itemObj = item.toObject ? item.toObject() : item;
+            
+            // Find all physical locations for this variant
+            const locations = await BranchStockLocation.find({
+                branch: branchId,
+                product: item.product._id,
+                variantId: item.variantId,
+                quantity: { $gt: 0 }
+            }).populate('location', 'name type');
+
+            // Format location string (e.g., "Aisle 1, Backroom")
+            itemObj.locationDisplay = locations.length > 0 
+                ? locations.map(l => l.location.name).join(', ') 
+                : 'NAN';
+            
+            // Send full location objects for richer UI icons/badges
+            itemObj.locations = locations.map(l => ({
+                name: l.location.name,
+                type: l.location.type,
+                quantity: l.quantity
+            }));
+
+            return itemObj;
+        }));
         
         res.status(200).json({ success: true, data: finalResults });
     } catch (error) {
