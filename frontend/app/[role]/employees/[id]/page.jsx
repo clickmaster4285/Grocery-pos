@@ -100,14 +100,18 @@ const EmployeeDetailPage = () => {
   );
 
   return (
-    <div className="p-4 md:p-6 space-y-8 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 space-y-8 max-w-7xl mx-auto pb-20">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-muted-foreground border px-6 bg-white py-1 rounded-md hover:text-primary transition-colors cursor-pointer mb-2" onClick={() => router.push(`/${currentUserRole}/employees`)}>
+          <Button 
+            variant="ghost" 
+            onClick={() => router.push(`/${currentUserRole}/employees`)} 
+            className="gap-2 mb-2 px-0 hover:bg-transparent hover:text-primary transition-colors"
+          >
             <ArrowLeft className="h-4 w-4" />
             <span className="text-sm font-medium">Back to Staff List</span>
-          </div>
+          </Button>
           <h1 className="text-3xl font-bold tracking-tight capitalize">
             {user.firstName} {user.lastName}
           </h1>
@@ -387,6 +391,12 @@ const EmployeeDetailPage = () => {
               </div>
             </TabsContent>
           </Tabs>
+
+          <div className="mt-8 flex justify-end">
+            <Button variant="outline" onClick={() => router.push(`/${currentUserRole}/employees`)} className="gap-2">
+              <ArrowLeft className="h-4 w-4" /> Back to Staff List
+            </Button>
+          </div>
         </div>
       </div>
     </div>

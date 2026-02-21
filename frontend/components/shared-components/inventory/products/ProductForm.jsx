@@ -9,6 +9,8 @@ import {
 } from '@/components/ui/form';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useGetAllCategories } from '@/features/category.api';
@@ -79,9 +81,10 @@ const productFormSchema = z.object({
 
 
 const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
+  const router = useRouter();
   const { user } = useAuth();
   const { data: categoriesData, isLoading: isLoadingCategories } = useGetAllCategories();
-  
+
   const categoryOptions = useMemo(() => {
     if (categoriesData) {
       return categoriesData?.data?.map(category => ({
@@ -177,7 +180,7 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
       }],
     },
     mode: 'onChange',
-  });  
+  });
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -257,6 +260,16 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
   return (
     <FormProvider {...form}>
       <form onSubmit={form.handleSubmit(onSubmitHandler)} className="space-y-8 bg-white p-2">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => router.push(`/${user?.role}/inventory/products`)}
+          className="gap-2 px-0 hover:bg-transparent hover:text-primary transition-colors mb-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="text-sm font-medium">Back to Product List</span>
+        </Button>
+
         <h2 className="text-3xl font-bold tracking-tight text-primary">
           {isEditing ? 'Edit Product' : 'Create New Product'}
         </h2>

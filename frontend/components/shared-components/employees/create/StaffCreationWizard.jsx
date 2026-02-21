@@ -104,14 +104,26 @@ export const StaffCreationWizard = ({
         </CardContent>
 
         <div className="flex justify-between items-center p-6 bg-muted/10 border-t">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={currentStep === 0 ? resetForm : prevStep}
-            className="gap-2 font-semibold text-muted-foreground hover:text-foreground hover:bg-white transition-colors"
-          >
-            {currentStep === 0 ? 'Cancel' : <><ChevronLeft className="h-4 w-4" /> Back</>}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={resetForm}
+              className="font-semibold text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors"
+            >
+              Cancel
+            </Button>
+            {currentStep > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={prevStep}
+                className="gap-2 font-semibold"
+              >
+                <ChevronLeft className="h-4 w-4" /> Back
+              </Button>
+            )}
+          </div>
 
           <div className="flex gap-3">
             {!isLastStep ? (

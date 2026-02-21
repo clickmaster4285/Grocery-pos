@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Edit, Trash2, Barcode as BarcodeIcon, Printer } from 'lucide-react';
+import { Edit, Trash2, Barcode as BarcodeIcon, Printer, ArrowLeft } from 'lucide-react';
 import { useDeleteProduct } from '@/features/product.api';
 import { toast } from 'sonner';
 import {
@@ -42,7 +42,7 @@ const ProductDetail = ({ product, role }) => {
   const router = useRouter();
   const deleteProductMutation = useDeleteProduct();
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  
+
   // Barcode Printing State
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [printCount, setPrintCount] = useState(1);
@@ -94,9 +94,9 @@ const ProductDetail = ({ product, role }) => {
       {/* Printable Area - Rendered but off-screen */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
         {activeVariantForPrint && (
-          <BarcodePrint 
-            ref={printRef} 
-            value={activeVariantForPrint.barcode || activeVariantForPrint.sku} 
+          <BarcodePrint
+            ref={printRef}
+            value={activeVariantForPrint.barcode || activeVariantForPrint.sku}
             count={printCount}
             productName={product.productName}
           />
@@ -138,6 +138,14 @@ const ProductDetail = ({ product, role }) => {
       </Dialog>
 
       <CardHeader>
+        <Button
+          variant="ghost"
+          onClick={() => router.push(`/${role}/inventory/products`)}
+          className="gap-2 px-0 w-fit hover:bg-transparent hover:text-primary transition-colors mb-4"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="text-sm font-medium">Back to Product List</span>
+        </Button>
         <div className="flex justify-between items-start">
           <div>
             <CardTitle className="text-3xl font-bold">{product.productName}</CardTitle>

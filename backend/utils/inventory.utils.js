@@ -62,13 +62,19 @@ const syncBranchStock = async (branchId, productId, variantId, session) => {
 };
 
 // Helper function to deduct stock
-const deductStockFromLocations = async (branchId, productId, variantId, quantityToDeduct, session) => {
-    const stockLocations = await BranchStockLocation.find({
+const deductStockFromLocations = async (branchId, productId, variantId, quantityToDeduct, session, specificLocationId = null) => {
+    const query = {
         branch: branchId,
         product: productId,
         variantId: variantId,
         quantity: { $gt: 0 }
-    })
+    };
+
+    if (specificLocationId) {
+        query.location = specificLocationId;
+    }
+
+    const stockLocations = await BranchStockLocation.find(query)
     .populate('location')
     .sort({ 'location.type': 1, 'updatedAt': 1 })
     .session(session);
@@ -77,7 +83,8 @@ const deductStockFromLocations = async (branchId, productId, variantId, quantity
     let currentTotalStock = stockLocations.reduce((sum, loc) => sum + loc.quantity, 0);
 
     if (currentTotalStock < quantityToDeduct) {
-        throw new Error(`Insufficient total stock in branch for variant ${variantId}. Requested: ${quantityToDeduct}, Available: ${currentTotalStock}`);
+        const locationInfo = specificLocationId ? `in specified location` : `in branch`;
+        throw new Error(`Insufficient stock ${locationInfo} for variant ${variantId}. Requested: ${quantityToDeduct}, Available: ${currentTotalStock}`);
     }
 
     for (const stockLocation of stockLocations) {

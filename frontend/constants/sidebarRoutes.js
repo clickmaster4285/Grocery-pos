@@ -77,14 +77,14 @@ export const MENU_METADATA = {
   // 'payment_processing': { path: '/pos/payment', icon: CreditCard },
   'customer_information': { path: '/pos/customers', icon: Users },
   'discounts_promotions': { path: '/pos/discounts-promotions', icon: Percent },
-  'special_items': { path: '/pos/special', icon: Star },
+  // 'special_items': { path: '/pos/special', icon: Star },
   'returns_exchanges': { path: '/pos/returns', icon: RotateCcw },
   'receipt_management': { path: '/pos/receipts', icon: Receipt },
 
   // Module: Inventory
   'product_database': { path: '/inventory/products', icon: Package },
   'stock_management': { path: '/inventory/stock', icon: Boxes },
-  'purchase_orders': { path: '/inventory/po', icon: ClipboardList },
+  // 'purchase_orders': { path: '/inventory/po', icon: ClipboardList },
   'location_database': { path: '/inventory/locations', icon: MapPin },
   'vendor_management': { path: '/inventory/suppliers', icon: Truck },
   'categories_departments': { path: '/inventory/categories', icon: Tags },
@@ -95,9 +95,9 @@ export const MENU_METADATA = {
 
   // Module: Customer
   'customer_database': { path: '/customers', icon: UserPlus },
-  'loyalty_program': { path: '/customers/loyalty', icon: Award },
-  'customer_groups': { path: '/customers/groups', icon: Users },
-  'customer_communications': { path: '/customers/comms', icon: Globe },
+  // 'loyalty_program': { path: '/customers/loyalty', icon: Award },
+  // 'customer_groups': { path: '/customers/groups', icon: Users },
+  // 'customer_communications': { path: '/customers/comms', icon: Globe },
 
   // Module: Employee
   'employee_database': { path: '/employees', icon: UserCircle },
@@ -107,12 +107,12 @@ export const MENU_METADATA = {
 
   // Module: Reporting
   'sales_reports': { path: '/reports/sales', icon: BarChart3 },
-  'inventory_reports': { path: '/reports/inventory', icon: PieChart },
-  'financial_reports': { path: '/reports/finance', icon: DollarSign },
+  // 'inventory_reports': { path: '/reports/inventory', icon: PieChart },
+  // 'financial_reports': { path: '/reports/finance', icon: DollarSign },
 
   // Module: Settings
   'store_settings': { path: '/settings', icon: Settings },
-  'hardware_configuration': { path: '/settings/hardware', icon: Cpu },
-  'user_management': { path: '/settings/users', icon: Key },
-  'security_settings': { path: '/settings/security', icon: Lock },
+  // 'hardware_configuration': { path: '/settings/hardware', icon: Cpu },
+  // 'user_management': { path: '/settings/users', icon: Key },
+  // 'security_settings': { path: '/settings/security', icon: Lock },
 };

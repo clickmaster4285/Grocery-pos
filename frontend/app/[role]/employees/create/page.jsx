@@ -5,8 +5,12 @@ import { DialogHeader, DialogTitle, DialogDescription, Dialog } from "@/componen
 import { useUsersHook } from '@/hooks/useUsersHook';
 import { ROLES } from '@/constants/roles';
 import { useGetAllBranches } from '@/features/branch.api';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const EmployeeCreatePage = () => {
+  const router = useRouter();
   const {
     formData,
     isUserLoading,
@@ -30,11 +34,16 @@ const EmployeeCreatePage = () => {
 
   return (
     <div className='bg-white p-2 rounded-md'>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Add New Employee</h1>
-        <p className="text-muted-foreground">
-          Fill in the details below to create a new employee account.
-        </p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Add New Employee</h1>
+          <p className="text-muted-foreground">
+            Fill in the details below to create a new employee account.
+          </p>
+        </div>
+        <Button variant="ghost" onClick={() => router.back()} className="gap-2">
+          <ChevronLeft className="h-4 w-4" /> Back to List
+        </Button>
       </div>
 
       <StaffForm
