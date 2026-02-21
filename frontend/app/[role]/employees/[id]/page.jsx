@@ -104,18 +104,18 @@ const EmployeeDetailPage = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors cursor-pointer mb-2" onClick={() => router.push(`/${currentUserRole}/employees`)}>
+          <div className="flex items-center gap-2 text-muted-foreground border px-6 bg-white py-1 rounded-md hover:text-primary transition-colors cursor-pointer mb-2" onClick={() => router.push(`/${currentUserRole}/employees`)}>
             <ArrowLeft className="h-4 w-4" />
             <span className="text-sm font-medium">Back to Staff List</span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight capitalize">
             {user.firstName} {user.lastName}
           </h1>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="capitalize">{user.role.replace(/_/g, ' ')}</Badge>
-            <Badge variant={user.isActive ? "success" : "destructive"}>
-              {user.isActive ? "Active Account" : "Inactive Account"}
-            </Badge>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="capitalize font-semibold tracking-wide">{user.role.replace(/_/g, ' ')}</span>
+            <span className={cn("capitalize rounded-full px-4 border border-green-500 bg-green-100 text-green-500", user.isActive ? "" : "text-red-500")}>
+              {user.isActive ? "Active" : "Inactive"}
+            </span>
           </div>
         </div>
         <div className="flex gap-3">
@@ -206,7 +206,7 @@ const EmployeeDetailPage = () => {
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Pay Cycle</span>
-                      <Badge variant="secondary" className="capitalize">{user.salary?.payType}</Badge>
+                      <span className="capitalize">{user.salary?.payType}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Payment Method</span>

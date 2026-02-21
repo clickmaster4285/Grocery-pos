@@ -17,7 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 export const EmploymentDetails = ({ formData, updateFormField, branches }) => {
-  
+  console.log("the  branches is ", branches)
   const employmentStatuses = [
     { value: 'ACTIVE', label: 'Active' },
     { value: 'INACTIVE', label: 'Inactive' },

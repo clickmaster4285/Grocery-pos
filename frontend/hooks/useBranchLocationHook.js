@@ -19,9 +19,10 @@ export const useBranchLocationHook = () => {
   const canRead = inventory?.location?.read;
   const canUpdate = inventory?.location?.update;
   const canDelete = inventory?.location?.delete;
+  const canReadStock = inventory?.stock?.read; // Fallback permission
 
   const { user } = useAuth();
-  const userBranchId = user?.branch_id;
+  const userBranchId = user?.branch_id?._id || user?.branch_id;
 
   // Sync selectedBranchId with userBranchId for non-admins
   useEffect(() => {
@@ -33,10 +34,14 @@ export const useBranchLocationHook = () => {
   const effectiveBranchId = isAdmin ? selectedBranchId : userBranchId;
 
   const { data: locationsResponse, isLoading: isLocationsLoading, refetch } = useGetBranchLocations(effectiveBranchId, {
-    enabled: !!effectiveBranchId && canRead,
+    // Enable if we have a branch ID AND either location read permission OR stock read permission
+    enabled: !!effectiveBranchId && (canRead || canReadStock),
   });
 
-  const locations = useMemo(() => locationsResponse?.data || [], [locationsResponse]);
+  const locations = useMemo(() => {
+    const data = locationsResponse?.data || [];
+    return data;
+  }, [locationsResponse, effectiveBranchId]);
 
   const createMutation = useCreateBranchLocation();
   const updateMutation = useUpdateBranchLocation();
@@ -45,7 +50,6 @@ export const useBranchLocationHook = () => {
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   const handleOpenForm = useCallback((location = null) => {
-    console.log("Editing location data:", location);
     setEditingLocation(location);
     setIsFormOpen(true);
   }, []);
@@ -60,13 +64,13 @@ export const useBranchLocationHook = () => {
       if (editingLocation) {
         await updateMutation.mutateAsync({ 
           id: editingLocation._id, 
-          locationData: formData // Correct structure for API
+          locationData: formData 
         });
         toast.success('Location updated successfully!');
       } else {
         await createMutation.mutateAsync({
           ...formData,
-          branch: effectiveBranchId // Ensure branch ID is sent
+          branch: effectiveBranchId 
         });
         toast.success('Location created successfully!');
       }

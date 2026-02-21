@@ -105,22 +105,25 @@ exports.createTransfer = async (req, res) => {
     }
 };
 
-// Get all transfers with isolation
+// Get all transfers with role-based filtering
 exports.getTransfers = async (req, res) => {
     try {
-        const { isAdmin, branch_id } = req.user;
+        const { role, branch_id } = req.user;
+        const isAdmin = role === 'admin';
         
         let query = {};
         
-        // Data Isolation: Non-admins only see transfers related to their branch
-        if (!isAdmin) {
-            const branchIdStr = branch_id.toString();
-            query = {
-                $or: [
-                    { branch: branch_id }, // Internal transfers of this branch
-                    { fromLocation: branchIdStr }, // External transfers from this branch
-                    { toLocation: branchIdStr }    // External transfers to this branch
-                ]
+        if (isAdmin) {
+            // Admins see all EXTERNAL transfers (Warehouse -> Branch, Branch -> Branch)
+            query = { transferType: 'EXTERNAL' };
+        } else {
+            // Staff see only INTERNAL transfers within their own branch
+            if (!branch_id) {
+                return res.status(200).json({ success: true, data: [] });
+            }
+            query = { 
+                transferType: 'INTERNAL',
+                branch: branch_id 
             };
         }
 
@@ -131,19 +134,19 @@ exports.getTransfers = async (req, res) => {
             .sort({ createdAt: -1 });
 
         const populatedTransfers = await Promise.all(transfers.map(async (transfer) => {
-            let fromLocationName = transfer.fromLocation;
-            let toLocationName = transfer.toLocation;
+            let fromLocationDisplay = transfer.fromLocation;
+            let toLocationDisplay = transfer.toLocation;
 
             // Handle fromLocation display
             if (transfer.fromLocation === 'WAREHOUSE') {
-                fromLocationName = 'Main Warehouse';
+                fromLocationDisplay = 'Main Warehouse';
             } else if (mongoose.Types.ObjectId.isValid(transfer.fromLocation)) {
                 if (transfer.transferType === 'EXTERNAL') {
                     const fromBranch = await Branch.findById(transfer.fromLocation).select('branch_name');
-                    fromLocationName = fromBranch ? fromBranch.branch_name : 'Unknown Branch';
+                    fromLocationDisplay = fromBranch ? fromBranch.branch_name : 'Unknown Branch';
                 } else {
                     const fromLoc = await BranchLocation.findById(transfer.fromLocation).select('name');
-                    fromLocationName = fromLoc ? fromLoc.name : 'Unknown Location';
+                    fromLocationDisplay = fromLoc ? fromLoc.name : 'Unknown Location';
                 }
             }
 
@@ -151,22 +154,23 @@ exports.getTransfers = async (req, res) => {
             if (mongoose.Types.ObjectId.isValid(transfer.toLocation)) {
                 if (transfer.transferType === 'EXTERNAL') {
                     const toBranch = await Branch.findById(transfer.toLocation).select('branch_name');
-                    toLocationName = toBranch ? toBranch.branch_name : 'Unknown Branch';
+                    toLocationDisplay = toBranch ? toBranch.branch_name : 'Unknown Branch';
                 } else {
                     const toLoc = await BranchLocation.findById(transfer.toLocation).select('name');
-                    toLocationName = toLoc ? toLoc.name : 'Unknown Location';
+                    toLocationDisplay = toLoc ? toLoc.name : 'Unknown Location';
                 }
             }
 
             return {
                 ...transfer.toObject(),
-                fromLocationDisplay: fromLocationName,
-                toLocationDisplay: toLocationName,
+                fromLocationDisplay,
+                toLocationDisplay,
             };
         }));
         
         res.status(200).json({ success: true, data: populatedTransfers });
     } catch (error) {
+        console.error('Get Transfers Error:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -177,31 +181,37 @@ exports.getBranchStock = async (req, res) => {
         const { branchId } = req.params;
         const { search } = req.query;
         
-        if (!search || search.trim() === '') {
-            return res.status(200).json({ success: true, data: [] });
+        if (!branchId || branchId === 'undefined' || !mongoose.Types.ObjectId.isValid(branchId)) {
+             return res.status(200).json({ success: true, data: [] });
         }
 
-        const searchTerms = search.trim().split(/\s+/);
-        const smartRegex = new RegExp(searchTerms.map(term => `(?=.*${term})`).join(''), 'i');
-
+        const searchTerms = (search || '').trim().split(/\s+/).filter(t => t !== '');
         let query = { branch: branchId };
         
-        let stock = await BranchStock.find(query)
-            .populate({
-                path: 'product',
-                select: 'productName category brand variants',
-                match: {
-                    $or: [
-                        { productName: { $regex: smartRegex } },
-                        { 'variants.sku': { $regex: smartRegex } }
-                    ]
-                }
-            })
-            .populate('branch', 'branch_name');
+        let stock;
+        if (searchTerms.length > 0) {
+            const smartRegex = new RegExp(searchTerms.map(term => `(?=.*${term})`).join(''), 'i');
+            stock = await BranchStock.find(query)
+                .populate({
+                    path: 'product',
+                    select: 'productName category brand variants',
+                    match: {
+                        $or: [
+                            { productName: { $regex: smartRegex } },
+                            { 'variants.sku': { $regex: smartRegex } }
+                        ]
+                    }
+                })
+                .populate('branch', 'branch_name');
+        } else {
+            stock = await BranchStock.find(query)
+                .populate('product', 'productName category brand variants')
+                .populate('branch', 'branch_name');
+        }
         
         let finalResults = stock.filter(item => item.product !== null);
 
-        if (finalResults.length === 0) {
+        if (searchTerms.length > 0 && finalResults.length === 0) {
             const allStock = await BranchStock.find(query)
                 .populate('product', 'productName variants')
                 .populate('branch', 'branch_name');
@@ -227,6 +237,7 @@ exports.getBranchStock = async (req, res) => {
         
         res.status(200).json({ success: true, data: finalResults });
     } catch (error) {
+        console.error('Get Branch Stock Error:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };

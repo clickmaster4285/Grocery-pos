@@ -87,7 +87,7 @@ const PerformanceManagement = () => {
       {/* Top Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {topPerformer && (
-          <Card className="border-none shadow-md bg-linear-to-br from-indigo-600 to-violet-700 text-white overflow-hidden relative">
+          <Card className="border-none shadow-md bg-linear-to-br from-emerald-600 to-cyan-700 text-white overflow-hidden relative">
             <Award className="absolute -right-4 -bottom-4 h-32 w-32 text-white/10 rotate-12" />
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-bold uppercase tracking-[0.2em] text-white/80 flex items-center gap-2">

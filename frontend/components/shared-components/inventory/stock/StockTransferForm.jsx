@@ -6,8 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useGetAllProducts } from '@/features/product.api';
 import { useGetAllBranches } from '@/features/branch.api';
-import { useCreateTransfer } from '@/features/stockTransfer.api';
-import { useBranchLocationHook } from '@/hooks/useBranchLocationHook'; 
+import { useCreateTransfer, useGetBranchStock } from '@/features/stockTransfer.api';
+import { useBranchLocationHook } from '@/hooks/useBranchLocationHook';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +24,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { useAuth } from '@/hooks/useAuth'; // Assuming useAuth to get current branchId
+import { useAuth } from '@/hooks/useAuth';
 
 
 const itemSchema = z.object({
@@ -42,9 +42,7 @@ const stockTransferFormSchema = z.object({
 });
 
 const StockTransferForm = ({ onSuccess }) => {
-  const { user } = useAuth(); // Assuming user has branch_id
-  const currentBranchId = user?.branch_id;
-
+  const { user } = useAuth();
   const { inventory, isAdmin } = usePermissions();
   const canCreateTransfer = inventory.stock.create;
   const canReadStock = inventory.stock.read;
@@ -52,17 +50,16 @@ const StockTransferForm = ({ onSuccess }) => {
   const { data: productsData } = useGetAllProducts({ page: 1, limit: 1000, enabled: canReadStock });
   const products = productsData?.products || [];
 
-  const { data: branchesData, isLoading: isLoadingBranches } = useGetAllBranches({ enabled: isAdmin }); // Fetch all branches only if admin
+  const { data: branchesData, isLoading: isLoadingBranches } = useGetAllBranches({ enabled: isAdmin });
   const branches = branchesData?.data || [];
 
   const createTransferMutation = useCreateTransfer();
 
-  // Use the consolidated hook for branch locations
-  const { 
-    locations: branchLocations, 
-    isLocationsLoading, 
-    selectedBranchId, 
-    setSelectedBranchId 
+  const {
+    locations: branchLocations,
+    isLocationsLoading,
+    selectedBranchId,
+    setSelectedBranchId
   } = useBranchLocationHook();
 
   const form = useForm({
@@ -84,34 +81,87 @@ const StockTransferForm = ({ onSuccess }) => {
   const watchTransferType = form.watch('transferType');
   const watchFromLocation = form.watch('fromLocation');
 
+  const effectiveBranchId = isAdmin ? selectedBranchId : (user?.branch_id?._id || user?.branch_id);
+  const { data: branchStockData, isLoading: isLoadingBranchStock } = useGetBranchStock(
+    effectiveBranchId,
+    '',
+    { enabled: watchTransferType === 'INTERNAL' && !!effectiveBranchId }
+  );
+
+  const displayProducts = useMemo(() => {
+    if (watchTransferType === 'EXTERNAL') {
+      return products;
+    }
+
+    // For internal transfers, derive list from branch stock
+    if (!branchStockData) return [];
+
+    // Group by product since branch stock is by variant
+    const branchProductsMap = new Map();
+    branchStockData.forEach(item => {
+      if (!item.product) return;
+
+      const productId = item.product._id;
+      if (!branchProductsMap.has(productId)) {
+        branchProductsMap.set(productId, {
+          ...item.product,
+          variants: []
+        });
+      }
+
+      const product = branchProductsMap.get(productId);
+      const originalVariant = item.product.variants.find(v => v._id === item.variantId);
+
+      if (originalVariant) {
+        product.variants.push({
+          ...originalVariant,
+          stock: item.quantity // Use branch stock quantity instead of WH stock
+        });
+      }
+    });
+
+    return Array.from(branchProductsMap.values());
+  }, [watchTransferType, products, branchStockData]);
+
+  // When admin selects a branch for internal transfer, update the hook's state
+  const handleAdminBranchChange = (branchId) => {
+    setSelectedBranchId(branchId);
+    form.setValue('fromLocation', ''); // Clear locations as branch changed
+    form.setValue('toLocation', '');
+  };
+
   useEffect(() => {
-    // Reset from/to locations when transfer type changes
     if (watchTransferType === 'INTERNAL') {
+      if (!isAdmin) {
+        // For non-admins, effective branch is always their own, 
+        // useBranchLocationHook handles syncing this.
+      } else if (!selectedBranchId) {
+        // Admin needs to select a branch first
+      }
       form.setValue('fromLocation', '');
       form.setValue('toLocation', '');
     } else { // EXTERNAL
       form.setValue('fromLocation', 'WAREHOUSE');
       form.setValue('toLocation', '');
     }
-  }, [watchTransferType, form]);
+  }, [watchTransferType, isAdmin, selectedBranchId, form]);
 
   const handleSubmit = async (values) => {
     if (!canCreateTransfer) {
       return toast.error('You do not have permission to initiate transfers');
     }
 
-    // Additional validation specific to INTERNAL transfers
     if (values.transferType === 'INTERNAL' && (!values.fromLocation || !values.toLocation)) {
       return toast.error('For internal transfers, both source and destination locations are required.');
     }
     if (values.transferType === 'INTERNAL' && values.fromLocation === values.toLocation) {
-        return toast.error('Source and destination locations cannot be the same for internal transfers.');
+      return toast.error('Source and destination locations cannot be the same for internal transfers.');
     }
 
     try {
       await createTransferMutation.mutateAsync(values);
       toast.success('Stock transfer completed successfully');
-      form.reset(); // Reset form after successful submission
+      form.reset();
       onSuccess?.();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to complete transfer');
@@ -120,14 +170,14 @@ const StockTransferForm = ({ onSuccess }) => {
 
   if (!canReadStock) {
     return (
-        <div className="p-8 text-center bg-background rounded-lg border border-dashed flex flex-col items-center justify-center">
-            <ShieldAlert className="h-12 w-12 text-destructive mb-4 opacity-50" />
-            <h2 className="text-xl font-bold text-destructive mb-2">Access Denied</h2>
-            <p className="text-muted-foreground max-w-sm">You do not have permission to view or manage stock transfers.</p>
-        </div>
+      <div className="p-8 text-center bg-background rounded-lg border border-dashed flex flex-col items-center justify-center">
+        <ShieldAlert className="h-12 w-12 text-destructive mb-4 opacity-50" />
+        <h2 className="text-xl font-bold text-destructive mb-2">Access Denied</h2>
+        <p className="text-muted-foreground max-w-sm">You do not have permission to view or manage stock transfers.</p>
+      </div>
     );
   }
-  
+
   return (
     <Card>
       <CardHeader>
@@ -142,9 +192,9 @@ const StockTransferForm = ({ onSuccess }) => {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Transfer Type</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    value={field.value} 
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
                     disabled={!canCreateTransfer || !isAdmin}
                   >
                     <FormControl>
@@ -162,13 +212,12 @@ const StockTransferForm = ({ onSuccess }) => {
               )}
             />
 
-            {/* Branch selection for Admins */}
             {isAdmin && watchTransferType === 'INTERNAL' && (
               <FormItem>
                 <FormLabel>Select Branch for Internal Transfer</FormLabel>
-                <Select onValueChange={setSelectedBranchId} value={selectedBranchId || ''} disabled={isLoadingBranches}>
+                <Select onValueChange={handleAdminBranchChange} value={selectedBranchId || ''} disabled={isLoadingBranches}>
                   <FormControl>
-                    <SelectTrigger className="w-50">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select Branch" />
                     </SelectTrigger>
                   </FormControl>
@@ -244,19 +293,19 @@ const StockTransferForm = ({ onSuccess }) => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Source Internal Location</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canCreateTransfer || isLocationsLoading}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!canCreateTransfer || isLocationsLoading || (isAdmin && !selectedBranchId)}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select source internal location" />
+                              <SelectValue placeholder={isAdmin && !selectedBranchId ? "Select branch first" : "Select source location"} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             {isLocationsLoading ? (
-                                <SelectItem value="loading" disabled>Loading locations...</SelectItem>
+                              <SelectItem value="loading" disabled>Loading locations...</SelectItem>
                             ) : (
-                                branchLocations.map(loc => (
+                              branchLocations.map(loc => (
                                 <SelectItem key={loc._id} value={loc._id}>{loc.name} ({loc.type})</SelectItem>
-                                ))
+                              ))
                             )}
                           </SelectContent>
                         </Select>
@@ -271,19 +320,19 @@ const StockTransferForm = ({ onSuccess }) => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Destination Internal Location</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canCreateTransfer || isLocationsLoading}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!canCreateTransfer || isLocationsLoading || (isAdmin && !selectedBranchId)}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select destination internal location" />
+                              <SelectValue placeholder={isAdmin && !selectedBranchId ? "Select branch first" : "Select destination location"} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             {isLocationsLoading ? (
-                                <SelectItem value="loading" disabled>Loading locations...</SelectItem>
+                              <SelectItem value="loading" disabled>Loading locations...</SelectItem>
                             ) : (
-                                branchLocations.filter(loc => loc._id !== watchFromLocation).map(loc => (
+                              branchLocations.filter(loc => loc._id !== watchFromLocation).map(loc => (
                                 <SelectItem key={loc._id} value={loc._id}>{loc.name} ({loc.type})</SelectItem>
-                                ))
+                              ))
                             )}
                           </SelectContent>
                         </Select>
@@ -306,7 +355,7 @@ const StockTransferForm = ({ onSuccess }) => {
               {fields.map((itemField, index) => {
                 const watchedProductId = form.watch(`items.${index}.productId`);
                 const selectedProduct = products.find(p => p._id === watchedProductId);
-                
+
                 return (
                   <div key={itemField.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end border p-4 rounded-md relative">
                     <FormField
@@ -315,10 +364,10 @@ const StockTransferForm = ({ onSuccess }) => {
                       render={({ field }) => (
                         <FormItem className="md:col-span-2">
                           <FormLabel>Product</FormLabel>
-                          <Select 
+                          <Select
                             onValueChange={(val) => {
                               field.onChange(val);
-                              form.setValue(`items.${index}.variantId`, ''); // Reset variant when product changes
+                              form.setValue(`items.${index}.variantId`, '');
                             }}
                             value={field.value}
                             disabled={!canCreateTransfer}
@@ -329,7 +378,7 @@ const StockTransferForm = ({ onSuccess }) => {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {products.map(p => (
+                              {displayProducts.map(p => (
                                 <SelectItem key={p._id} value={p._id}>{p.productName}</SelectItem>
                               ))}
                             </SelectContent>
@@ -345,10 +394,10 @@ const StockTransferForm = ({ onSuccess }) => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Variant</FormLabel>
-                          <Select 
+                          <Select
                             onValueChange={field.onChange}
                             value={field.value}
-                            disabled={!watchedProductId || !canCreateTransfer} // Use watchedProductId here
+                            disabled={!watchedProductId || !canCreateTransfer}
                           >
                             <FormControl>
                               <SelectTrigger>
@@ -358,7 +407,7 @@ const StockTransferForm = ({ onSuccess }) => {
                             <SelectContent>
                               {selectedProduct?.variants.map(v => (
                                 <SelectItem key={v._id} value={v._id}>
-                                  {v.sku} ({v.stock} in WH)
+                                  {v.sku} ({v.stock} in {watchTransferType === 'EXTERNAL' ? 'WH' : 'Branch'})
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -376,9 +425,9 @@ const StockTransferForm = ({ onSuccess }) => {
                           <FormItem className="grow">
                             <FormLabel>Quantity</FormLabel>
                             <FormControl>
-                              <Input 
-                                type="number" 
-                                min="1" 
+                              <Input
+                                type="number"
+                                min="1"
                                 {...field}
                                 onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                                 disabled={!canCreateTransfer}
@@ -389,10 +438,10 @@ const StockTransferForm = ({ onSuccess }) => {
                         )}
                       />
                       {fields.length > 1 && canCreateTransfer && (
-                        <Button 
-                          type="button" 
-                          variant="destructive" 
-                          size="icon" 
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
                           onClick={() => remove(index)}
                           className="self-end"
                         >
@@ -412,8 +461,8 @@ const StockTransferForm = ({ onSuccess }) => {
                 <FormItem>
                   <FormLabel>Notes (Optional)</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="Reason for transfer, e.g., Restock for holiday season" 
+                    <Input
+                      placeholder="Reason for transfer, e.g., Restock for holiday season"
                       {...field}
                       disabled={!canCreateTransfer}
                     />

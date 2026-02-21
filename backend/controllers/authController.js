@@ -44,6 +44,7 @@ const login = async (req, res, next) => {
         lastName: user.lastName,
         email: user.email,
         role: user.role,
+        branch_id: user.branch_id,
         permissions: userPermissions,
         availableModules: availableModules, // Add structured modules to response
       },
