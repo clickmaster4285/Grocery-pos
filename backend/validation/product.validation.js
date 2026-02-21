@@ -10,15 +10,15 @@ const priceHistorySchema = Joi.object({
   buyingPrice: Joi.number().min(0).required(),
   sellingPrice: Joi.number().min(0).required(),
   effectiveDate: Joi.date().iso().default(Joi.ref('$now')),
-  changedBy: Joi.objectId(),
+  changedBy: Joi.any(), // Allow object or ID
 });
 
 const stockHistorySchema = Joi.object({
   change: Joi.number().required(),
-  type: Joi.string().valid('RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT').required(),
+  type: Joi.string().valid('RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT', 'TRANSFER_IN', 'TRANSFER_OUT').required(),
   reason: Joi.string().trim().max(200),
   date: Joi.date().iso().default(Joi.ref('$now')),
-  performedBy: Joi.objectId().required(),
+  performedBy: Joi.any(), // Allow object or ID
 });
 
 const variantSchema = Joi.object({
@@ -28,8 +28,8 @@ const variantSchema = Joi.object({
   buyingPrice: Joi.number().min(0).required(),
   sellingPrice: Joi.number().min(0).required(),
   stock: Joi.number().min(0).default(0),
-  priceHistory: Joi.array().items(priceHistorySchema).default([]),
-  stockHistory: Joi.array().items(stockHistorySchema).default([]),
+  priceHistory: Joi.any().strip(), // Strip history from incoming data during updates/creates if not needed
+  stockHistory: Joi.any().strip(), // Strip history from incoming data
   images: Joi.array().items(Joi.string().trim().allow('')).max(5).default([]),
   supplier: Joi.objectId().optional().allow(null, ''),
   barcode: Joi.string().trim().max(100).allow(null, ''),
@@ -39,19 +39,22 @@ const variantSchema = Joi.object({
   minStockLevel: Joi.number().min(0).default(0),
   maxStockLevel: Joi.number().min(0).default(0),
   stockChangeAmount: Joi.number().optional(),
-  stockChangeType: Joi.valid('RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT', null, '').optional(), // Allow null/empty in base schema
-  stockChangeReason: Joi.string().trim().max(200).allow(null, '').optional(), // Allow null/empty in base schema
+  stockChangeType: Joi.valid('RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT', 'TRANSFER_IN', 'TRANSFER_OUT', null, '').optional(),
+  stockChangeReason: Joi.string().trim().max(200).allow(null, '').optional(),
+  createdAt: Joi.any().strip(),
+  updatedAt: Joi.any().strip(),
+  __v: Joi.any().strip(),
 });
 
 // A variant schema specifically for updates, including stock adjustment validation
 const variantSchemaForUpdate = variantSchema.keys({
-  stock: Joi.number().min(0).default(0) // Ensure base stock is non-negative
+  stock: Joi.number().min(0).default(0) 
     .when('stockChangeAmount', {
-      is: Joi.exist().not(null), // If stockChangeAmount is provided
+      is: Joi.exist().not(null), 
       then: Joi.number()
         .custom((value, helpers) => {
-          const currentStock = value; // This 'value' is the variant.stock from the incoming payload
-          const stockChangeAmount = helpers.state.ancestors[0].stockChangeAmount; // Access stockChangeAmount from the parent object
+          const currentStock = value; 
+          const stockChangeAmount = helpers.state.ancestors[0].stockChangeAmount; 
 
           if (currentStock + stockChangeAmount < 0) {
             return helpers.error('any.custom', {
@@ -62,17 +65,15 @@ const variantSchemaForUpdate = variantSchema.keys({
           return value;
         }, 'resulting stock cannot be negative'),
     }),
-  stockChangeType: Joi.string().valid('RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT')
+  stockChangeType: Joi.string().valid('RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT', 'TRANSFER_IN', 'TRANSFER_OUT')
     .when('stockChangeAmount', {
-      is: Joi.number().not(0).exist().not(null), // Only required if stockChangeAmount is a non-zero number
+      is: Joi.number().not(0).exist().not(null), 
       then: Joi.required(),
-      // No 'otherwise' needed, as base schema already allows null/empty
     }),
   stockChangeReason: Joi.string().trim().max(200)
-    .when('stockChangeAmount', { // Also make stockChangeReason conditionally required if amount is present
-      is: Joi.number().not(0).exist().not(null), // Only required if stockChangeAmount is a non-zero number
+    .when('stockChangeAmount', { 
+      is: Joi.number().not(0).exist().not(null), 
       then: Joi.required(),
-      // No 'otherwise' needed, as base schema already allows null/empty
     }),
 });
 
@@ -89,6 +90,7 @@ const createProductSchema = Joi.object({
 });
 
 const updateProductSchema = Joi.object({
+  _id: Joi.any().strip(),
   productName: Joi.string().trim().max(100).optional(),
   description: Joi.string().trim().max(1000).allow(null, '').optional(),
   category: Joi.objectId().optional().allow(null, ''),
@@ -96,9 +98,14 @@ const updateProductSchema = Joi.object({
   unit: Joi.string().valid('PIECE', 'KG', 'GRAM', 'LITER', 'ML', 'PACK', 'DOZEN').optional(),
   storageRequirement: Joi.string().valid('AMBIENT', 'REFRIGERATED', 'FROZEN').optional(),
   taxRate: Joi.number().min(0).optional(),
-  variants: Joi.array().items(variantSchemaForUpdate).min(0).optional(), // Use the update-specific variant schema
+  variants: Joi.array().items(variantSchemaForUpdate).min(0).optional(),
   isActive: Joi.boolean().optional(),
   isDeleted: Joi.boolean().optional(),
+  totalStock: Joi.any().strip(), // Strip calculated field
+  lastRestocked: Joi.any().strip(), // Strip calculated field
+  createdAt: Joi.any().strip(),
+  updatedAt: Joi.any().strip(),
+  __v: Joi.any().strip(),
 });
 
 module.exports = {

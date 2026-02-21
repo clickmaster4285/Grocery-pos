@@ -1,59 +1,32 @@
 const StockTransfer = require('../models/stockTransfer.model');
 const BranchStock = require('../models/branchStock.model');
-const BranchStockLocation = require('../models/branchStockLocation.model'); // Added
-const BranchLocation = require('../models/branchLocation.model'); // Added
-const Branch = require('../models/branch.model'); // Added
+const BranchStockLocation = require('../models/branchStockLocation.model');
+const BranchLocation = require('../models/branchLocation.model');
+const Branch = require('../models/branch.model');
 const Product = require('../models/product.model');
 const mongoose = require('mongoose');
 const Fuse = require('fuse.js');
+const { 
+    checkStorageCompatibility, 
+    getDefaultBackroomLocation, 
+    deductStockFromLocations, 
+    addStockToLocation 
+} = require('../utils/inventory.utils');
 
-// Helper function to check storage compatibility
-const checkStorageCompatibility = (productStorageReq, locationType) => {
-    // Define compatible location types for each storage requirement
-    const compatibilityMap = {
-        'AMBIENT': ['AISLE', 'RACK', 'SHELF', 'GONDOLA', 'DISPLAY', 'BACKROOM'],
-        'REFRIGERATED': ['REFRIGERATOR', 'DISPLAY', 'BACKROOM'],
-        'FROZEN': ['FREEZER', 'BACKROOM']
-    };
-
-    if (!compatibilityMap[productStorageReq].includes(locationType)) {
-        throw new Error(`Incompatible storage: Product requires ${productStorageReq} but location is ${locationType}.`);
-    }
-    return true;
-};
-
-// Helper function to check capacity
-const checkCapacity = async (locationId, newQuantity) => {
-    const location = await BranchLocation.findById(locationId);
-    if (!location) {
-        throw new Error(`Destination location ${locationId} not found.`);
-    }
-
-    if (location.capacity > 0 && (location.currentOccupancy + newQuantity > location.capacity)) {
-        throw new Error(`Capacity exceeded: Location ${location.name} (${location.currentOccupancy}/${location.capacity}) cannot accommodate ${newQuantity} more items.`);
-    }
-    return location;
-};
-
-// Create a new stock transfer
 // Create a new stock transfer
 exports.createTransfer = async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
     try {
         const { transferType, fromLocation, toLocation, items, notes } = req.body;
         const transferredBy = req.user._id;
-        const branchId = req.user.branch_id; // Assuming user making internal transfer is from that branch
+        const branchId = req.user.branch_id; 
 
         let fromLocObj, toLocObj;
         if (transferType === 'INTERNAL') {
             if (!branchId) {
                 throw new Error('Branch ID is required for internal transfers.');
             }
-            // Validate internal locations
-            fromLocObj = await BranchLocation.findById(fromLocation).session(session);
-            toLocObj = await BranchLocation.findById(toLocation).session(session);
+            fromLocObj = await BranchLocation.findById(fromLocation);
+            toLocObj = await BranchLocation.findById(toLocation);
 
             if (!fromLocObj || !toLocObj) {
                 throw new Error('Invalid source or destination physical location for internal transfer.');
@@ -69,16 +42,17 @@ exports.createTransfer = async (req, res) => {
         const transferItems = [];
 
         for (const item of items) {
-            const productDoc = await Product.findById(item.product).session(session);
-            if (!productDoc) throw new Error(`Product ${item.product} not found.`);
+            const productId = item.productId || item.product; 
+            if (!productId) throw new Error('Product ID is required for transfer items.');
+
+            const productDoc = await Product.findById(productId);
+            if (!productDoc) throw new Error(`Product ${productId} not found.`);
 
             const variant = productDoc.variants.id(item.variantId);
             if (!variant) throw new Error(`Variant ${item.variantId} not found for product ${productDoc.productName}.`);
             
-            // Validate storage compatibility for internal transfers
             if (transferType === 'INTERNAL') {
                 checkStorageCompatibility(productDoc.storageRequirement, toLocObj.type);
-                // Capacity check is now inside addStockToLocation
             }
 
             // Deduct stock from source
@@ -94,25 +68,20 @@ exports.createTransfer = async (req, res) => {
                         reason: `External transfer to branch ${toLocation}`,
                         performedBy: transferredBy
                     });
-                    await productDoc.save({ session });
-                } else { // From another branch (deduct from its default backroom)
-                    // The deductStockFromLocations function already handles finding the right stock location
-                    // For external transfers, we assume deduction happens from the default backroom of the source branch.
-                    await deductStockFromLocations(fromLocation, item.product, item.variantId, item.quantity, session);
+                    await productDoc.save();
+                } else { // From another branch
+                    await deductStockFromLocations(fromLocation, productId, item.variantId, item.quantity);
                 }
 
-                // Add stock to destination (External) - always to the default backroom of the destination branch
-                const destBranchDefaultBackroom = await getDefaultBackroomLocation(toLocation, session);
-                await addStockToLocation(toLocation, item.product, item.variantId, destBranchDefaultBackroom._id, item.quantity, session);
+                // Add stock to destination
+                const destBranchDefaultBackroom = await getDefaultBackroomLocation(toLocation);
+                await addStockToLocation(toLocation, productId, item.variantId, destBranchDefaultBackroom._id, item.quantity);
 
             } else if (transferType === 'INTERNAL') {
-                // Deduct from source internal location
-                await deductStockFromLocations(branchId, item.product, item.variantId, item.quantity, session);
-                
-                // Add to destination internal location (capacity and storage check done above)
-                await addStockToLocation(branchId, item.product, item.variantId, toLocObj._id, item.quantity, session);
+                await deductStockFromLocations(branchId, productId, item.variantId, item.quantity);
+                await addStockToLocation(branchId, productId, item.variantId, toLocObj._id, item.quantity);
             }
-            transferItems.push({ product: item.product, variantId: item.variantId, quantity: item.quantity });
+            transferItems.push({ product: productId, variantId: item.variantId, quantity: item.quantity });
         }
 
         // Record the transfer
@@ -120,52 +89,70 @@ exports.createTransfer = async (req, res) => {
             transferType,
             fromLocation: transferType === 'EXTERNAL' ? fromLocation : fromLocObj._id,
             toLocation: transferType === 'EXTERNAL' ? toLocation : toLocObj._id,
-            branch: transferType === 'INTERNAL' ? branchId : undefined, // For internal transfers, record the branch
+            branch: transferType === 'INTERNAL' ? branchId : undefined,
             items: transferItems,
             notes,
             transferredBy,
             status: 'COMPLETED'
         });
-        await transfer.save({ session });
+        await transfer.save();
 
-        await session.commitTransaction();
         res.status(201).json({ success: true, data: transfer });
 
     } catch (error) {
-        await session.abortTransaction();
+        console.error('Stock Transfer Error:', error.message);
         res.status(400).json({ success: false, message: error.message });
-    } finally {
-        session.endSession();
     }
 };
 
-// Get all transfers
+// Get all transfers with isolation
 exports.getTransfers = async (req, res) => {
     try {
-        const transfers = await StockTransfer.find()
-            .populate('branch', 'branch_name') // Populate for INTERNAL transfers
+        const { isAdmin, branch_id } = req.user;
+        
+        let query = {};
+        
+        // Data Isolation: Non-admins only see transfers related to their branch
+        if (!isAdmin) {
+            const branchIdStr = branch_id.toString();
+            query = {
+                $or: [
+                    { branch: branch_id }, // Internal transfers of this branch
+                    { fromLocation: branchIdStr }, // External transfers from this branch
+                    { toLocation: branchIdStr }    // External transfers to this branch
+                ]
+            };
+        }
+
+        const transfers = await StockTransfer.find(query)
+            .populate('branch', 'branch_name')
             .populate('transferredBy', 'firstName lastName')
-            .populate('items.product', 'productName');
+            .populate('items.product', 'productName')
+            .sort({ createdAt: -1 });
 
         const populatedTransfers = await Promise.all(transfers.map(async (transfer) => {
             let fromLocationName = transfer.fromLocation;
             let toLocationName = transfer.toLocation;
 
-            if (transfer.transferType === 'EXTERNAL') {
-                if (transfer.fromLocation !== 'WAREHOUSE' && mongoose.Types.ObjectId.isValid(transfer.fromLocation)) {
+            // Handle fromLocation display
+            if (transfer.fromLocation === 'WAREHOUSE') {
+                fromLocationName = 'Main Warehouse';
+            } else if (mongoose.Types.ObjectId.isValid(transfer.fromLocation)) {
+                if (transfer.transferType === 'EXTERNAL') {
                     const fromBranch = await Branch.findById(transfer.fromLocation).select('branch_name');
                     fromLocationName = fromBranch ? fromBranch.branch_name : 'Unknown Branch';
-                }
-                if (mongoose.Types.ObjectId.isValid(transfer.toLocation)) {
-                    const toBranch = await Branch.findById(transfer.toLocation).select('branch_name');
-                    toLocationName = toBranch ? toBranch.branch_name : 'Unknown Branch';
-                }
-            } else if (transfer.transferType === 'INTERNAL') {
-                if (mongoose.Types.ObjectId.isValid(transfer.fromLocation)) {
+                } else {
                     const fromLoc = await BranchLocation.findById(transfer.fromLocation).select('name');
                     fromLocationName = fromLoc ? fromLoc.name : 'Unknown Location';
                 }
-                if (mongoose.Types.ObjectId.isValid(transfer.toLocation)) {
+            }
+
+            // Handle toLocation display
+            if (mongoose.Types.ObjectId.isValid(transfer.toLocation)) {
+                if (transfer.transferType === 'EXTERNAL') {
+                    const toBranch = await Branch.findById(transfer.toLocation).select('branch_name');
+                    toLocationName = toBranch ? toBranch.branch_name : 'Unknown Branch';
+                } else {
                     const toLoc = await BranchLocation.findById(transfer.toLocation).select('name');
                     toLocationName = toLoc ? toLoc.name : 'Unknown Location';
                 }
@@ -190,18 +177,15 @@ exports.getBranchStock = async (req, res) => {
         const { branchId } = req.params;
         const { search } = req.query;
         
-        // Return empty if no search term is provided (to keep catalog empty initially)
         if (!search || search.trim() === '') {
             return res.status(200).json({ success: true, data: [] });
         }
 
         const searchTerms = search.trim().split(/\s+/);
-        // Create a regex that ensures all search terms are present (order-independent)
         const smartRegex = new RegExp(searchTerms.map(term => `(?=.*${term})`).join(''), 'i');
 
         let query = { branch: branchId };
         
-        // First, attempt a high-performance DB search using regex
         let stock = await BranchStock.find(query)
             .populate({
                 path: 'product',
@@ -215,17 +199,13 @@ exports.getBranchStock = async (req, res) => {
             })
             .populate('branch', 'branch_name');
         
-        // Filter out items where the product didn't match the regex criteria
         let finalResults = stock.filter(item => item.product !== null);
 
-        // If no results found with regex, use Fuse.js for fuzzy matching
         if (finalResults.length === 0) {
-            // Fetch all stock for this branch to perform fuzzy search in memory
             const allStock = await BranchStock.find(query)
                 .populate('product', 'productName variants')
                 .populate('branch', 'branch_name');
             
-            // Prepare data for Fuse - flatten nested fields for searching
             const searchData = allStock.map(item => {
                 const variant = item.product?.variants.find(v => v._id.toString() === item.variantId.toString());
                 return {
@@ -237,7 +217,7 @@ exports.getBranchStock = async (req, res) => {
 
             const fuse = new Fuse(searchData, {
                 keys: ['searchableName', 'searchableSku'],
-                threshold: 0.3, // 0.0 is perfect match, 1.0 matches everything
+                threshold: 0.3,
                 distance: 100
             });
 

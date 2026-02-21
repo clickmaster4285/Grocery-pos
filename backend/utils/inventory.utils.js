@@ -2,10 +2,10 @@ const mongoose = require('mongoose');
 const BranchLocation = require('../models/branchLocation.model');
 const Product = require('../models/product.model');
 const BranchStockLocation = require('../models/branchStockLocation.model');
+const BranchStock = require('../models/branchStock.model');
 
 // Helper function to check storage compatibility
 const checkStorageCompatibility = (productStorageReq, locationType) => {
-    // Define compatible location types for each storage requirement
     const compatibilityMap = {
         'AMBIENT': ['AISLE', 'RACK', 'SHELF', 'GONDOLA', 'DISPLAY', 'BACKROOM'],
         'REFRIGERATED': ['REFRIGERATOR', 'DISPLAY', 'BACKROOM'],
@@ -13,7 +13,6 @@ const checkStorageCompatibility = (productStorageReq, locationType) => {
     };
 
     if (!productStorageReq || !locationType) {
-        // If either is undefined, assume no strict requirement or default compatibility
         return true;
     }
 
@@ -23,21 +22,20 @@ const checkStorageCompatibility = (productStorageReq, locationType) => {
     return true;
 };
 
-// Helper function to check if a location has enough capacity for new items
+// Helper function to check capacity
 const checkCapacity = async (locationId, newQuantity, session) => {
     const location = await BranchLocation.findById(locationId).session(session);
     if (!location) {
         throw new Error(`Destination location ${locationId} not found.`);
     }
 
-    // Capacity of 0 or less means unlimited
     if (location.capacity > 0 && (location.currentOccupancy + newQuantity > location.capacity)) {
         throw new Error(`Capacity exceeded: Location "${location.name}" (${location.currentOccupancy}/${location.capacity}) cannot accommodate ${newQuantity} more items.`);
     }
     return location;
 };
 
-// Helper function to find the default backroom for a branch
+// Helper function to find the default backroom
 const getDefaultBackroomLocation = async (branchId, session) => {
     const defaultBackroom = await BranchLocation.findOne({ branch: branchId, type: 'BACKROOM' }).session(session);
     if (!defaultBackroom) {
@@ -46,7 +44,24 @@ const getDefaultBackroomLocation = async (branchId, session) => {
     return defaultBackroom;
 };
 
-// Helper function to deduct stock from BranchStockLocation based on FIFO/Sales Floor priority
+// Sync high-level BranchStock cache
+const syncBranchStock = async (branchId, productId, variantId, session) => {
+    const locations = await BranchStockLocation.find({
+        branch: branchId,
+        product: productId,
+        variantId: variantId
+    }).session(session);
+
+    const totalQuantity = locations.reduce((sum, loc) => sum + loc.quantity, 0);
+
+    await BranchStock.findOneAndUpdate(
+        { branch: branchId, product: productId, variantId: variantId },
+        { quantity: totalQuantity },
+        { upsert: true, session }
+    );
+};
+
+// Helper function to deduct stock
 const deductStockFromLocations = async (branchId, productId, variantId, quantityToDeduct, session) => {
     const stockLocations = await BranchStockLocation.find({
         branch: branchId,
@@ -55,7 +70,7 @@ const deductStockFromLocations = async (branchId, productId, variantId, quantity
         quantity: { $gt: 0 }
     })
     .populate('location')
-    .sort({ 'location.type': 1, 'updatedAt': 1 }) // Prioritize sales floor types (e.g., AISLE < BACKROOM) and then FIFO
+    .sort({ 'location.type': 1, 'updatedAt': 1 })
     .session(session);
 
     let remainingQuantityToDeduct = quantityToDeduct;
@@ -74,18 +89,19 @@ const deductStockFromLocations = async (branchId, productId, variantId, quantity
         
         await stockLocation.save({ session });
 
-        // Update currentOccupancy of the BranchLocation
         const branchLocation = await BranchLocation.findById(stockLocation.location._id).session(session);
         if (branchLocation) {
             branchLocation.currentOccupancy -= deductedQty;
             await branchLocation.save({ session });
         }
     }
+
+    // Sync total cache
+    await syncBranchStock(branchId, productId, variantId, session);
 };
 
-// Helper function to add stock to a specific BranchStockLocation
+// Helper function to add stock
 const addStockToLocation = async (branchId, productId, variantId, locationId, quantityToAdd, session) => {
-    // Check capacity before adding
     await checkCapacity(locationId, quantityToAdd, session);
 
     let branchStockLoc = await BranchStockLocation.findOne({
@@ -108,12 +124,15 @@ const addStockToLocation = async (branchId, productId, variantId, locationId, qu
         });
         await branchStockLoc.save({ session });
     }
-    // Update currentOccupancy of the BranchLocation
+
     const branchLocation = await BranchLocation.findById(locationId).session(session);
     if (branchLocation) {
         branchLocation.currentOccupancy += quantityToAdd;
         await branchLocation.save({ session });
     }
+
+    // Sync total cache
+    await syncBranchStock(branchId, productId, variantId, session);
 };
 
 
@@ -123,4 +142,5 @@ module.exports = {
     getDefaultBackroomLocation,
     deductStockFromLocations,
     addStockToLocation,
+    syncBranchStock
 };

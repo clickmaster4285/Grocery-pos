@@ -7,7 +7,7 @@ import * as z from 'zod';
 import { useGetAllProducts } from '@/features/product.api';
 import { useGetAllBranches } from '@/features/branch.api';
 import { useCreateTransfer } from '@/features/stockTransfer.api';
-import { useGetBranchLocations } from '@/features/branchLocation.api'; // New import
+import { useBranchLocationHook } from '@/hooks/useBranchLocationHook'; 
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,23 +45,31 @@ const StockTransferForm = ({ onSuccess }) => {
   const { user } = useAuth(); // Assuming user has branch_id
   const currentBranchId = user?.branch_id;
 
-  const { inventory } = usePermissions();
+  const { inventory, isAdmin } = usePermissions();
   const canCreateTransfer = inventory.stock.create;
   const canReadStock = inventory.stock.read;
 
   const { data: productsData } = useGetAllProducts({ page: 1, limit: 1000, enabled: canReadStock });
   const products = productsData?.products || [];
 
-  const { data: branchesData } = useGetAllBranches({ enabled: canReadStock });
+  const { data: branchesData, isLoading: isLoadingBranches } = useGetAllBranches({ enabled: isAdmin }); // Fetch all branches only if admin
   const branches = branchesData?.data || [];
 
   const createTransferMutation = useCreateTransfer();
 
+  // Use the consolidated hook for branch locations
+  const { 
+    locations: branchLocations, 
+    isLocationsLoading, 
+    selectedBranchId, 
+    setSelectedBranchId 
+  } = useBranchLocationHook();
+
   const form = useForm({
     resolver: zodResolver(stockTransferFormSchema),
     defaultValues: {
-      transferType: 'EXTERNAL',
-      fromLocation: 'WAREHOUSE',
+      transferType: isAdmin ? 'EXTERNAL' : 'INTERNAL',
+      fromLocation: isAdmin ? 'WAREHOUSE' : '',
       toLocation: '',
       items: [{ productId: '', variantId: '', quantity: 1 }],
       notes: '',
@@ -75,12 +83,6 @@ const StockTransferForm = ({ onSuccess }) => {
 
   const watchTransferType = form.watch('transferType');
   const watchFromLocation = form.watch('fromLocation');
-
-  // Fetch branch locations if internal transfer is selected
-  const { data: branchLocationsData } = useGetBranchLocations(currentBranchId, {
-    enabled: watchTransferType === 'INTERNAL' && !!currentBranchId,
-  });
-  const branchLocations = branchLocationsData || [];
 
   useEffect(() => {
     // Reset from/to locations when transfer type changes
@@ -140,14 +142,18 @@ const StockTransferForm = ({ onSuccess }) => {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Transfer Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canCreateTransfer}>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value} 
+                    disabled={!canCreateTransfer || !isAdmin}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select transfer type" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="EXTERNAL">External (Branch to Branch / Warehouse)</SelectItem>
+                      {isAdmin && <SelectItem value="EXTERNAL">External (Branch to Branch / Warehouse)</SelectItem>}
                       <SelectItem value="INTERNAL">Internal (Location to Location within Branch)</SelectItem>
                     </SelectContent>
                   </Select>
@@ -155,6 +161,30 @@ const StockTransferForm = ({ onSuccess }) => {
                 </FormItem>
               )}
             />
+
+            {/* Branch selection for Admins */}
+            {isAdmin && watchTransferType === 'INTERNAL' && (
+              <FormItem>
+                <FormLabel>Select Branch for Internal Transfer</FormLabel>
+                <Select onValueChange={setSelectedBranchId} value={selectedBranchId || ''} disabled={isLoadingBranches}>
+                  <FormControl>
+                    <SelectTrigger className="w-50">
+                      <SelectValue placeholder="Select Branch" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {isLoadingBranches ? (
+                      <SelectItem value="loading" disabled>Loading branches...</SelectItem>
+                    ) : (
+                      branches.map(branch => (
+                        <SelectItem key={branch._id} value={branch._id}>{branch.branch_name}</SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
               {watchTransferType === 'EXTERNAL' ? (
@@ -214,16 +244,20 @@ const StockTransferForm = ({ onSuccess }) => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Source Internal Location</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canCreateTransfer}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canCreateTransfer || isLocationsLoading}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select source internal location" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {branchLocations.map(loc => (
-                              <SelectItem key={loc._id} value={loc._id}>{loc.name} ({loc.type})</SelectItem>
-                            ))}
+                            {isLocationsLoading ? (
+                                <SelectItem value="loading" disabled>Loading locations...</SelectItem>
+                            ) : (
+                                branchLocations.map(loc => (
+                                <SelectItem key={loc._id} value={loc._id}>{loc.name} ({loc.type})</SelectItem>
+                                ))
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -237,16 +271,20 @@ const StockTransferForm = ({ onSuccess }) => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Destination Internal Location</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canCreateTransfer}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canCreateTransfer || isLocationsLoading}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select destination internal location" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {branchLocations.filter(loc => loc._id !== watchFromLocation).map(loc => (
-                              <SelectItem key={loc._id} value={loc._id}>{loc.name} ({loc.type})</SelectItem>
-                            ))}
+                            {isLocationsLoading ? (
+                                <SelectItem value="loading" disabled>Loading locations...</SelectItem>
+                            ) : (
+                                branchLocations.filter(loc => loc._id !== watchFromLocation).map(loc => (
+                                <SelectItem key={loc._id} value={loc._id}>{loc.name} ({loc.type})</SelectItem>
+                                ))
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />

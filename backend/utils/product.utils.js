@@ -5,28 +5,50 @@ const Product = require('../models/product.model');
 const transformEmptyStringsToNull = (productData) => {
     const data = { ...productData };
 
-    if (data.category === '') {
-        data.category = null;
-    }
-    if (data.brand === '') {
-        data.brand = null;
-    }
+    // Helper to recursively remove null/empty strings
+    const cleanObject = (obj) => {
+        const cleaned = { ...obj };
+        for (const key in cleaned) {
+            if (cleaned[key] === '' || cleaned[key] === null) {
+                delete cleaned[key];
+            } else if (Array.isArray(cleaned[key])) {
+                // Don't recursively clean arrays of objects here unless needed, 
+                // but let's handle variants specifically below.
+            } else if (typeof cleaned[key] === 'object' && cleaned[key] !== null && !(cleaned[key] instanceof mongoose.Types.ObjectId)) {
+                cleaned[key] = cleanObject(cleaned[key]);
+            }
+        }
+        return cleaned;
+    };
 
-    if (data.variants && Array.isArray(data.variants)) {
-        data.variants = data.variants.map(variant => {
-            if (variant.supplier === '') {
-                variant.supplier = null;
+    // Clean top level first
+    let cleanedData = cleanObject(data);
+
+    // Specifically handle variants array
+    if (cleanedData.variants && Array.isArray(cleanedData.variants)) {
+        cleanedData.variants = cleanedData.variants.map(variant => {
+            const newVariant = { ...variant };
+            for (const key in newVariant) {
+                if (newVariant[key] === '' || newVariant[key] === null) {
+                    delete newVariant[key];
+                }
             }
-            if (variant.barcode === '') {
-                variant.barcode = null;
-            }
-            if (variant.qrCode === '') {
-                variant.qrCode = null;
-            }
-            return variant;
+            return newVariant;
         });
     }
-    return data;
+
+    // Re-set category and brand to null if they were deleted but are expected to be null for DB
+    // Actually, for ObjectIds, null is often better than missing if we want to clear them.
+    // But for unique fields like barcode, missing is MANDATORY.
+    
+    if (productData.category === '' || productData.category === null) {
+        cleanedData.category = null;
+    }
+    if (productData.brand === '' || productData.brand === null) {
+        cleanedData.brand = null;
+    }
+
+    return cleanedData;
 };
 
 

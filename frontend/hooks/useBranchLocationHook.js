@@ -45,6 +45,7 @@ export const useBranchLocationHook = () => {
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   const handleOpenForm = useCallback((location = null) => {
+    console.log("Editing location data:", location);
     setEditingLocation(location);
     setIsFormOpen(true);
   }, []);

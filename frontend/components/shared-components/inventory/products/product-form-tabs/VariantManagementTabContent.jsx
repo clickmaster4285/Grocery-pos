@@ -421,7 +421,7 @@ const VariantManagementTabContent = ({ fields, handleAddVariant, handleRemoveIma
         <Button type="button" variant="outline" onClick={handlePrevious} className="gap-2">
           <ArrowLeft className="h-4 w-4" /> Previous
         </Button>
-        <Button type="button" onClick={handleFormSubmit} disabled={isLoading || !form.formState.isValid} className="gap-2">
+        <Button type="button" onClick={handleFormSubmit} disabled={isLoading} className="gap-2">
           {isLoading ? 'Saving...' : (isEditing ? 'Update Product' : 'Create Product')}
         </Button>
       </div>

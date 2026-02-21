@@ -31,15 +31,15 @@ const variantSchema = z.object({
   sku: z.string().max(50, { message: "SKU cannot be more than 50 characters." }).optional(),
   attributes: z.array(attributeSchema).optional(),
   buyingPrice: z.preprocess(
-    (val) => Number(val),
+    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
     z.number().min(0.01, { message: 'Buying price must be at least 0.01' })
   ),
   sellingPrice: z.preprocess(
-    (val) => Number(val),
+    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
     z.number().min(0.01, { message: 'Selling price must be at least 0.01' })
   ),
   stock: z.preprocess(
-    (val) => Number(val),
+    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
     z.number().int().min(0, { message: 'Stock must be a non-negative integer' })
   ),
   supplier: z.string().optional().nullable(),
@@ -48,17 +48,17 @@ const variantSchema = z.object({
   images: z.array(z.union([z.string(), z.instanceof(File)])).optional(),
   isDeleted: z.boolean().optional(),
   stockChangeAmount: z.preprocess(
-    (val) => (val === '' ? null : Number(val)),
+    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
     z.number().int().optional().nullable()
   ),
   stockChangeType: z.enum(['RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT', 'TRANSFER_IN', 'TRANSFER_OUT']).optional().nullable(),
   stockChangeReason: z.string().max(200).optional().nullable(),
   minStockLevel: z.preprocess(
-    (val) => Number(val),
+    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
     z.number().int().min(0, { message: 'Minimum stock level cannot be negative.' }).default(0)
   ),
   maxStockLevel: z.preprocess(
-    (val) => Number(val),
+    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
     z.number().int().min(0, { message: 'Maximum stock level cannot be negative.' }).default(0)
   ),
 });
@@ -71,7 +71,7 @@ const productFormSchema = z.object({
   unit: z.enum(['PIECE', 'KG', 'GRAM', 'LITER', 'ML', 'PACK', 'DOZEN']).default('PIECE'),
   storageRequirement: z.enum(['AMBIENT', 'REFRIGERATED', 'FROZEN']).default('AMBIENT'),
   taxRate: z.preprocess(
-    (val) => Number(val),
+    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
     z.number().min(0, { message: 'Tax rate cannot be negative.' }).max(100, { message: 'Tax rate cannot exceed 100.' }).default(0)
   ),
   variants: z.array(variantSchema).min(1, { message: 'At least one variant is required.' }),
@@ -134,11 +134,11 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
         attributes: variant.attributes || [],
         barcode: variant.barcode || '',
         qrCode: variant.qrCode || '',
-        images: z.array(z.union([z.string(), z.instanceof(File)])).optional(),
+        images: variant.images || [], // Corrected: Should be the actual image data or empty array
         isDeleted: variant.isDeleted || false,
-        stockChangeAmount: null,
-        stockChangeType: null,
-        stockChangeReason: null,
+        stockChangeAmount: undefined,
+        stockChangeType: undefined,
+        stockChangeReason: '',
         minStockLevel: variant.minStockLevel !== undefined ? variant.minStockLevel : 0, // Initialize new field
         maxStockLevel: variant.maxStockLevel !== undefined ? variant.maxStockLevel : 0, // Initialize new field
       })) || [{
@@ -151,8 +151,8 @@ const ProductForm = ({ initialData, onSubmit, isLoading, isEditing }) => {
         qrCode: '',
         images: [],
         attributes: [],
-        minStockLevel: 0, // Initialize new field
-        maxStockLevel: 0, // Initialize new field
+        minStockLevel: 0, // Default for new variant
+        maxStockLevel: 0, // Default for new variant
       }],
     } : {
       productName: '',
