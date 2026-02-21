@@ -185,6 +185,165 @@ To optimize performance and ensure real-time security, the system employs a "Hyb
 
 ---
 
-## 9. Project Documents
-- [SuperMarket POS Comprehensive Guide (PDF)](./documents/SuperMarketPOS.pdf)
-- [System Modules & Menus Overview (Markdown)](./documents/main_modules_and_menus.md)
+## 10. Modern High-Performance GUI Standards (POS V2)
+
+The system adopts a specific "Information Density without Clutter" design philosophy, perfected in the POS redesign.
+
+### 10.1. Layout Hierarchy
+-   **Primary Workspace (Left 70-75%)**: Reserved for high-volume data review (e.g., Active Billing Table). This area uses clean, high-density tables with subtle borders.
+-   **Action Sidebar (Right 25-30%)**: Reserved for status summaries and flow-control buttons. Actions are grouped logically: Input (Customer) -> Choice (Payment) -> Summary (Totals) -> Execution (Save/Print).
+-   **Universal Input (Top Header)**: Features a combined context selector (Branch) and a global command/search input.
+
+### 10.2. The "Floating Dropdown Table" Pattern
+To maximize screen real estate, search results are never rendered as permanent cards.
+-   **Implementation**: A `motion.div` popover triggered by search input focus.
+-   **Format**: A mini-table within the popover.
+-   **Required Columns**: Product Detail (with SKU), Location (MapPin icon), Stock Qty (Color-coded), and Price.
+-   **Interaction**: Auto-add on single match or SKU barcode match; manual click to add.
+
+### 10.3. Visual Style & Typography
+-   **Weight Softening**: Prefer `font-medium` for readability and `font-semibold` for emphasis. Avoid `font-black` or excessive `font-bold` to prevent visual fatigue.
+-   **Micro-Labels**: Use `text-[10px] font-semibold uppercase tracking-widest` for secondary metadata headers (e.g., "Terminal Location").
+-   **High-Contrast "Hero Cards"**: Use dark slate/black backgrounds (`bg-slate-900`) for final checkout balances or critical KPIs to provide immediate focus.
+-   **Radius & Softness**: Standardize on `rounded-xl` (12px) for main cards/inputs and `rounded-2xl` (16px) for major "Hero" sections.
+
+### 10.4. Interactive Feedback (Framer Motion)
+-   **Layout Animations**: Use `layout` prop on table rows for smooth sorting/deleting transitions.
+-   **Entry/Exit**: `AnimatePresence` for search results and notification badges.
+-   **Haptics**: Subtle `whileTap={{ scale: 0.98 }}` on buttons to simulate physical interaction.
+-   **Status Indicators**: Use animated pulses (e.g., "Live Sync Active") to indicate real-time connectivity without static text.
+
+---
+
+## 11. Design System & UI Style Guide (V2 Aesthetic)
+
+This guide defines the exact CSS/Tailwind standards for updating and maintaining the "V2 Aesthetic" across the application.
+
+### 11.1. Typography Scale
+| Style | Tailwind Classes | Usage |
+| :--- | :--- | :--- |
+| **Hero Total** | `text-3xl font-semibold tabular-nums tracking-tight` | Final totals, critical KPIs. |
+| **Page Title** | `text-lg font-semibold text-slate-700` | Section headers, card titles. |
+| **Table Body** | `text-[13px] font-medium text-slate-600` | Product names, list items. |
+| **Micro Data** | `text-[10px] font-semibold uppercase tracking-widest` | Labels, SKUs, category tags. |
+| **Price/Qty** | `text-sm font-semibold tabular-nums` | Numerical data in tables. |
+
+### 11.2. Spacing & Letter Heights
+-   **Line Heights**: 
+    -   Relaxed (`leading-relaxed`) for descriptive paragraphs.
+    -   Tight (`leading-tight`) for table headers and product titles.
+    -   None (`leading-none`) for micro-labels and hero numbers.
+-   **Letter Spacing**:
+    -   Standard for body text.
+    -   `tracking-widest` (0.1em+) for all uppercase micro-labels.
+    -   `tracking-tighter` (-0.05em) for high-impact numbers > 20px.
+
+### 11.3. Color Palette & Surfaces
+-   **Surface 1 (Base)**: `bg-slate-50/50` (The "lightest gray" for body background).
+-   **Surface 2 (Card)**: `bg-white` with `shadow-sm` and `border-slate-100`.
+-   **Surface 3 (Hover)**: `hover:bg-primary/[0.02]` or `hover:bg-slate-50`.
+-   **Surface 4 (Hero)**: `bg-slate-900` (Use sparingly for contrast).
+-   **Primary Accents**: 
+    -   Icon Backgrounds: `bg-primary/10`.
+    -   Soft Rings: `ring-primary/10`.
+
+### 11.4. Component Recipes
+-   **The V2 Input**: `h-11 rounded-xl bg-slate-50/50 border-slate-100 text-sm font-medium`.
+-   **The V2 Button (Primary)**: `h-14 rounded-xl font-semibold uppercase tracking-widest shadow-xl shadow-primary/20`.
+-   **The V2 Table Row**: `h-16 transition-colors border-b border-slate-100`.
+-   **The V2 Icon Badge**: `p-1.5 rounded-lg bg-primary/10 text-primary`.
+
+### 11.5. Visual Prohibitions
+-   **NO** `font-black`.
+-   **NO** `font-bold` on long sentences (use `font-semibold` instead).
+-   **NO** `border-black` (use `border-slate-100` or `border-slate-200`).
+-   **NO** Square corners (Minimum `rounded-lg`).
+-   **NO** Standard HTML scrollbars (use `scrollbar-thin scrollbar-thumb-slate-200`).
+
+---
+
+## 12. Core Business Logic & Decision Engines
+
+This section documents the underlying algorithms and business rules governing store operations.
+
+### 12.1. Stock Movement & Priority Engine
+When stock is deducted (Sale or Internal Transfer), the system follows a **Location Prioritization Algorithm**:
+1.  **Selection**: Fetches all `BranchStockLocation` entries for the variant.
+2.  **Sorting**: Prioritizes `location.type` (e.g., Sales Floor over Backroom) and `updatedAt` (FIFO - First In, First Out).
+3.  **Exhaustion**: Deducts from the first location until empty, then moves to the next.
+4.  **Compatibility**: New stock additions use `checkStorageCompatibility` to ensure, for example, frozen products are only added to `FREEZER` or `BACKROOM` types.
+
+### 12.2. Promotion & Coupon Validation Logic
+The `validateCoupon` engine performs a multi-step eligibility check:
+-   **Temporal**: Checks if `now` is between `startDate` and `endDate` AND if today is an `applicableDay`.
+-   **Scope**: Validates `isGlobal` vs `applicableBranches`.
+-   **Prerequisites**: Checks `minPurchaseAmount` against `cartTotal`.
+-   **Usage Control**: Ensures `usageLimit` has not been exceeded via atomic increment.
+-   **Targeting**: Checks `qualifyingCustomerGroups` (if defined).
+
+### 12.3. Return & Exchange "Remaining Qty" Algorithm
+To prevent fraudulent returns, the system calculates returnable balance dynamically:
+1.  **Base**: Fetches `OriginalSale.items.quantity`.
+2.  **Subtraction**: Aggregates all previous `SaleReturn.returnedItems` for the specific `variantId`.
+3.  **Result**: `remainingQty = purchased - totalPreviouslyReturned`.
+4.  **Condition Handling**: Only items returned in `GOOD` condition are restored to the branch's `Default Backroom`.
+
+### 12.4. Automatic History Tracking (Auto-Scribing)
+The system automatically logs changes to critical fields without manual developer calls:
+-   **Prices**: Any change to `sellingPrice` or `buyingPrice` pushes a new entry to `priceHistory` with a reference to the performing user.
+-   **Stock**: All movements (Sale, Transfer, Manual Adj) push to `stockHistory`.
+-   **Staff**: Updates to `salary`, `designation`, or `shift` trigger a history snapshot in the `User` model.
+
+### 12.5. Permission Rehydration (Auth Middleware)
+Permissions are **Stateless in Token, Stateful in DB**:
+1.  **Verification**: JWT is verified for identity (userId).
+2.  **Rehydration**: Full user record is fetched from DB.
+3.  **Module Mapping**: `getModulesFromPermissions` transforms flat strings into a nested UI hierarchy.
+4.  **Injection**: Fresh permissions are injected into `req.user`, ensuring instant access revocation or updates.
+
+---
+
+## 11. Design System & UI Style Guide (V2 Aesthetic)
+
+This guide defines the exact CSS/Tailwind standards for updating and maintaining the "V2 Aesthetic" across the application.
+
+### 11.1. Typography Scale
+| Style | Tailwind Classes | Usage |
+| :--- | :--- | :--- |
+| **Hero Total** | `text-3xl font-semibold tabular-nums tracking-tight` | Final totals, critical KPIs. |
+| **Page Title** | `text-lg font-semibold text-slate-700` | Section headers, card titles. |
+| **Table Body** | `text-[13px] font-medium text-slate-600` | Product names, list items. |
+| **Micro Data** | `text-[10px] font-semibold uppercase tracking-widest` | Labels, SKUs, category tags. |
+| **Price/Qty** | `text-sm font-semibold tabular-nums` | Numerical data in tables. |
+
+### 11.2. Spacing & Letter Heights
+-   **Line Heights**: 
+    -   Relaxed (`leading-relaxed`) for descriptive paragraphs.
+    -   Tight (`leading-tight`) for table headers and product titles.
+    -   None (`leading-none`) for micro-labels and hero numbers.
+-   **Letter Spacing**:
+    -   Standard for body text.
+    -   `tracking-widest` (0.1em+) for all uppercase micro-labels.
+    -   `tracking-tighter` (-0.05em) for high-impact numbers > 20px.
+
+### 11.3. Color Palette & Surfaces
+-   **Surface 1 (Base)**: `bg-slate-50/50` (The "lightest gray" for body background).
+-   **Surface 2 (Card)**: `bg-white` with `shadow-sm` and `border-slate-100`.
+-   **Surface 3 (Hover)**: `hover:bg-primary/[0.02]` or `hover:bg-slate-50`.
+-   **Surface 4 (Hero)**: `bg-slate-900` (Use sparingly for contrast).
+-   **Primary Accents**: 
+    -   Icon Backgrounds: `bg-primary/10`.
+    -   Soft Rings: `ring-primary/10`.
+
+### 11.4. Component Recipes
+-   **The V2 Input**: `h-11 rounded-xl bg-slate-50/50 border-slate-100 text-sm font-medium`.
+-   **The V2 Button (Primary)**: `h-14 rounded-xl font-semibold uppercase tracking-widest shadow-xl shadow-primary/20`.
+-   **The V2 Table Row**: `h-16 transition-colors border-b border-slate-100`.
+-   **The V2 Icon Badge**: `p-1.5 rounded-lg bg-primary/10 text-primary`.
+
+### 11.5. Visual Prohibitions
+-   **NO** `font-black`.
+-   **NO** `font-bold` on long sentences (use `font-semibold` instead).
+-   **NO** `border-black` (use `border-slate-100` or `border-slate-200`).
+-   **NO** Square corners (Minimum `rounded-lg`).
+-   **NO** Standard HTML scrollbars (use `scrollbar-thin scrollbar-thumb-slate-200`).
