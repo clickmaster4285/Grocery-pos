@@ -1,6 +1,7 @@
 const Terminal = require('../models/terminal.model');
 const Branch = require('../models/branch.model');
 const Counter = require('../models/counter.model');
+const TerminalShiftReport = require('../models/terminalShiftReport.model');
 const mongoose = require('mongoose');
 const { 
     createTerminalSchema, 
@@ -39,7 +40,27 @@ exports.createTerminal = async (req, res, next) => {
             });
         }
 
-        // Generate Terminal ID if not provided
+        // 1. Determine Branch ID
+        let branchId;
+        if (req.user.role === 'admin') {
+            // Admin must provide branch in body
+            branchId = value.branch || req.body.branch;
+        } else {
+            // Non-admins use their own branch
+            branchId = req.user.branch_id?._id || req.user.branch_id;
+        }
+
+        if (!branchId) {
+            return res.status(400).json({ 
+                success: false, 
+                message: req.user.role === 'admin' ? 'Branch selection is required for admins.' : 'Your account is not assigned to a branch.' 
+            });
+        }
+
+        // 2. Ensure value.branch is set for Mongoose
+        value.branch = branchId;
+
+        // Generate Terminal ID
         const terminalId = await generateTerminalId();
 
         const terminal = await Terminal.create({
@@ -152,8 +173,21 @@ exports.openSession = async (req, res, next) => {
             return res.status(400).json({ success: false, message: `Terminal is currently ${terminal.status}. Close previous session first.` });
         }
 
+        // 1. Security Check: Allowed Terminals
+        // If the user has a restricted terminal list, ensure this terminal is on it.
+        if (req.user.role !== 'admin' && req.user.allowedTerminals?.length > 0) {
+            const isAllowed = req.user.allowedTerminals.some(t => t.toString() === terminal._id.toString());
+            if (!isAllowed) {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'Security Alert: You are not authorized to operate this specific terminal.' 
+                });
+            }
+        }
+
+        // 2. Initialize Session
         terminal.activeSession = {
-            userId: req.user.id,
+            userId: req.user._id, // Use _id to ensure it saves correctly
             openedAt: new Date(),
             openingFloat: value.openingFloat,
             currentDrawerBalance: value.openingFloat,
@@ -163,9 +197,15 @@ exports.openSession = async (req, res, next) => {
 
         await terminal.save();
 
+        // 3. Security Protocol: Deactivate general system access during session
+        if (req.user.role !== 'admin') {
+            const User = require('../models/User');
+            await User.findByIdAndUpdate(req.user._id, { hasSystemAccess: false });
+        }
+
         res.status(200).json({
             success: true,
-            message: 'Session opened successfully',
+            message: 'Session opened successfully. Security protocol engaged.',
             data: terminal
         });
     } catch (error) {
@@ -199,16 +239,45 @@ exports.closeSession = async (req, res, next) => {
             notes: value.notes
         };
 
+        const newShiftReport = await TerminalShiftReport.create({
+            terminal: terminal._id,
+            user: terminal.activeSession.userId,
+            branch: terminal.branch,
+            openedAt: terminal.activeSession.openedAt,
+            closedAt: new Date(),
+            openingFloat: terminal.activeSession.openingFloat,
+            closingFloat: value.actualCash,
+            expectedFloat: terminal.activeSession.currentDrawerBalance,
+            variance: variance,
+            totalSalesCount: terminal.activeSession.transactionCount,
+            notes: value.notes,
+            status: 'Completed',
+            // totalSalesAmount will require aggregating sales, which is a larger task.
+            // For now, we'll leave it as default or fetch it later.
+        });
+
+        const cashierId = terminal.activeSession.userId; // Get cashierId before clearing activeSession
+
         terminal.activeSession = undefined;
         terminal.status = 'Closed';
 
         await terminal.save();
 
+        // 4. Restore Security Protocol: Reactivate general system access
+        if (cashierId) {
+            const User = require('../models/User');
+            const cashier = await User.findById(cashierId);
+            if (cashier && cashier.role !== 'admin') {
+                cashier.hasSystemAccess = true;
+                await cashier.save();
+            }
+        }
+
         res.status(200).json({
             success: true,
-            message: 'Session closed successfully',
+            message: 'Session closed successfully. Security protocol disengaged.',
             data: {
-                report: closedSessionData
+                report: newShiftReport // Return the full report
             }
         });
     } catch (error) {

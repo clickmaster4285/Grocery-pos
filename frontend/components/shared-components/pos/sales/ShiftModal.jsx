@@ -76,7 +76,7 @@ const ShiftModal = ({
               <SelectContent className="rounded-xl border-slate-100 shadow-xl">
                 {terminals.map(term => (
                   <SelectItem key={term._id} value={term._id} disabled={term.status !== 'Closed'}>
-                    <div className="flex items-center justify-between w-full min-w-[300px]">
+                    <div className="flex items-center justify-between w-full min-w-75">
                       <span className="font-semibold">{term.name}</span>
                       <span className={cn(
                         "text-[10px] font-bold px-2 py-0.5 rounded uppercase ml-4",

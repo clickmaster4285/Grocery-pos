@@ -73,9 +73,10 @@ export const useTerminalHook = (filters = {}) => {
         });
         toast.success('Terminal updated successfully!');
       } else {
+        // Prioritize branch from form (admin selection) over hook's effectiveBranchId
         await createMutation.mutateAsync({
           ...formData,
-          branch: effectiveBranchId
+          branch: formData.branch || effectiveBranchId
         });
         toast.success('Terminal created successfully!');
       }

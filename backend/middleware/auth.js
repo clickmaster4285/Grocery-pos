@@ -23,7 +23,11 @@ const auth = async (req, res, next) => {
     }
 
     // Attach the full user object to the request, excluding the password.
-    const user = await User.findOne({ userId: decoded.userId, isDeleted: false }).select('-password');
+    // Populate allowedTerminals so frontend knows which terminals are permitted.
+    const user = await User.findOne({ userId: decoded.userId, isDeleted: false })
+      .select('-password')
+      .populate('allowedTerminals', 'name terminalId');
+
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -38,8 +42,8 @@ const auth = async (req, res, next) => {
         });
     }
 
-    // Populate availableModules for the user
-    const availableModules = getModulesFromPermissions(user.permissions);
+    // Populate availableModules for the user, respecting their current security protocol status
+    const availableModules = getModulesFromPermissions(user.permissions, user.hasSystemAccess, user.role);
     req.user = { ...user.toObject(), availableModules }; // Convert Mongoose document to plain object
 
     next();

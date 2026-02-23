@@ -1,45 +1,5 @@
 import {
-  LayoutDashboard,
-  ShoppingCart,
-  Package,
-  Store,
-  Users,
-  UserCircle,
-  BarChart3,
-  Megaphone,
-  Banknote,
-  Settings,
-  ScanLine,
-  Building2,
-  ShieldCheck,
-  Zap,
-  RotateCcw,
-  History,
-  CreditCard,
-  Percent,
-  Star,
-  Receipt,
-  Boxes,
-  Truck,
-  Tags,
-  MapPin,
-  List,
-  TrendingUp,
-  UserPlus,
-  Calendar,
-  Wallet,
-  Award,
-  FileText,
-  PieChart,
-  ClipboardList,
-  DollarSign,
-  Briefcase,
-  Wrench,
-  Key,
-  Database,
-  Globe,
-  Lock,
-  Cpu,
+  LayoutDashboard, ShoppingCart, Package, Store, Users, UserCircle, BarChart3, Megaphone, Banknote, Settings, ScanLine, Building2, ShieldCheck, Zap, RotateCcw, History, CreditCard, Percent, Star, Receipt, Boxes, Truck, Tags, MapPin, List, TrendingUp, UserPlus, Calendar, Wallet, Award, FileText, PieChart, ClipboardList, DollarSign, Briefcase, Wrench, Key, Database, Globe, Lock, Cpu,
 } from 'lucide-react';
 
 /**
@@ -61,6 +21,7 @@ export const MODULE_ICONS = {
   Building2,
   ShieldCheck,
   Zap,
+  FileText, // Added FileText icon to mapping
 };
 
 /**
@@ -107,9 +68,10 @@ export const MENU_METADATA = {
   'performance_management': { path: '/employees/performance', icon: TrendingUp },
 
   // Module: Reporting
-  'sales_reports': { path: '/reports/sales', icon: BarChart3 },
+  // 'sales_reports': { path: '/reports/sales', icon: BarChart3 },
   // 'inventory_reports': { path: '/reports/inventory', icon: PieChart },
   // 'financial_reports': { path: '/reports/finance', icon: DollarSign },
+  'terminal_shift_reports': { path: '/reports/terminal-logs', icon: FileText },
 
   // Module: Settings
   'store_settings': { path: '/settings', icon: Settings },

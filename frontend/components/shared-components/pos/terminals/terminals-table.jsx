@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit2, Trash2, MoreVertical, Monitor, Signal, Power, Lock, User, DollarSign, Wrench } from "lucide-react";
+import { Edit2, Trash2, MoreVertical, Monitor, Signal, Power, Lock, User, DollarSign, Wrench, Cpu, Eye } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -20,6 +20,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/utils/formatters";
+import { useRouter } from "next/navigation";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const StatusBadge = ({ status }) => {
   const configs = {
@@ -46,6 +48,9 @@ const StatusBadge = ({ status }) => {
 };
 
 const TerminalsTable = ({ terminals, onEdit, onDelete }) => {
+  const router = useRouter();
+  const { currentUserRole } = usePermissions();
+
   return (
     <div className="rounded-xl border border-slate-100 bg-white overflow-hidden shadow-sm">
       <Table>
@@ -123,6 +128,10 @@ const TerminalsTable = ({ terminals, onEdit, onDelete }) => {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-100 shadow-xl">
                       <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Management</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => router.push(`/${currentUserRole}/pos/terminals/${terminal._id}`)} className="flex items-center gap-2 py-2.5 cursor-pointer rounded-lg">
+                        <Eye className="h-3.5 w-3.5 text-slate-400" />
+                        <span className="text-xs font-semibold text-slate-600">View Details</span>
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onEdit(terminal)} className="flex items-center gap-2 py-2.5 cursor-pointer rounded-lg">
                         <Edit2 className="h-3.5 w-3.5 text-slate-400" />
                         <span className="text-xs font-semibold text-slate-600">Configure Hardware</span>

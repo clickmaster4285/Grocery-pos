@@ -93,6 +93,7 @@ export const usePermissions = () => {
       finance: getMenuPermissions('reporting_analytics', 'financial_reports'),
       employees: getMenuPermissions('reporting_analytics', 'employee_reports'),
       custom: getMenuPermissions('reporting_analytics', 'custom_reports'),
+      shift_reports: getMenuPermissions('reporting_analytics', 'terminal_shift_reports'),
     },
 
     // Module: Promotions

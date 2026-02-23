@@ -4,58 +4,71 @@ const createTerminalSchema = Joi.object({
     name: Joi.string().required().messages({
         'any.required': 'Terminal name is required',
     }),
-    branch: Joi.string().required().messages({
+    branch: Joi.string().optional().messages({
         'any.required': 'Branch ID is required',
     }),
-    department: Joi.string().optional(),
-    ipAddress: Joi.string().ip().optional(),
-    macAddress: Joi.string().optional(),
+    department: Joi.string().optional().allow(''),
+    ipAddress: Joi.string().ip().optional().allow(''),
+    macAddress: Joi.string().optional().allow(''),
     deviceType: Joi.string().valid("Desktop", "Tablet", "Kiosk", "Mobile").optional(),
     peripherals: Joi.object({
         printer: Joi.object({
-            name: Joi.string().optional(),
+            name: Joi.string().optional().allow(''),
             connectionType: Joi.string().valid("USB", "Ethernet", "Bluetooth", "None").optional(),
             status: Joi.string().valid("Connected", "Disconnected", "Error").optional()
         }).optional(),
         scanner: Joi.object({
-            name: Joi.string().optional(),
+            name: Joi.string().optional().allow(''),
             connectionType: Joi.string().valid("USB", "Bluetooth", "None").optional(),
             status: Joi.string().valid("Connected", "Disconnected").optional()
         }).optional(),
         scale: Joi.object({
-            name: Joi.string().optional(),
+            name: Joi.string().optional().allow(''),
             connectionType: Joi.string().valid("USB", "Serial", "None").optional(),
             isCalibrated: Joi.boolean().optional()
+        }).optional(),
+        cashDrawer: Joi.object({
+            isConnected: Joi.boolean().optional(),
+        }).optional(),
+        customerDisplay: Joi.object({
+            isConnected: Joi.boolean().optional(),
         }).optional()
     }).optional(),
-    softwareVersion: Joi.string().optional()
+    softwareVersion: Joi.string().optional().allow(''),
+    status: Joi.string().valid("Available", "Occupied", "Locked", "Closed", "Maintenance").optional()
 });
 
 const updateTerminalSchema = Joi.object({
-    name: Joi.string().optional(),
-    department: Joi.string().optional(),
-    ipAddress: Joi.string().ip().optional(),
-    macAddress: Joi.string().optional(),
+    name: Joi.string().optional().allow(''),
+    department: Joi.string().optional().allow(''),
+    ipAddress: Joi.string().ip().optional().allow(''),
+    macAddress: Joi.string().optional().allow(''),
     deviceType: Joi.string().valid("Desktop", "Tablet", "Kiosk", "Mobile").optional(),
     status: Joi.string().valid("Available", "Occupied", "Locked", "Closed", "Maintenance").optional(),
     peripherals: Joi.object({
         printer: Joi.object({
-            name: Joi.string().optional(),
+            name: Joi.string().optional().allow(''),
             connectionType: Joi.string().valid("USB", "Ethernet", "Bluetooth", "None").optional(),
             status: Joi.string().valid("Connected", "Disconnected", "Error").optional()
         }).optional(),
         scanner: Joi.object({
-            name: Joi.string().optional(),
+            name: Joi.string().optional().allow(''),
             connectionType: Joi.string().valid("USB", "Bluetooth", "None").optional(),
             status: Joi.string().valid("Connected", "Disconnected").optional()
         }).optional(),
         scale: Joi.object({
-            name: Joi.string().optional(),
+            name: Joi.string().optional().allow(''),
             connectionType: Joi.string().valid("USB", "Serial", "None").optional(),
             isCalibrated: Joi.boolean().optional()
+        }).optional(),
+        cashDrawer: Joi.object({
+            isConnected: Joi.boolean().optional(),
+        }).optional(),
+        customerDisplay: Joi.object({
+            isConnected: Joi.boolean().optional(),
         }).optional()
     }).optional(),
-    softwareVersion: Joi.string().optional(),
+    softwareVersion: Joi.string().optional().allow(''),
     isActive: Joi.boolean().optional()
 });
 

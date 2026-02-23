@@ -62,8 +62,21 @@ const POS = () => {
   } = useTerminalHook({ branchId: activeBranchId });
 
   const activeTerminal = useMemo(() => {
-    return terminals.find(t => t.activeSession?.userId?._id === user?._id || t.activeSession?.userId === user?._id);
+    if (!user?._id) return null;
+    return terminals.find(t => {
+      const sessionUserId = t.activeSession?.userId?._id || t.activeSession?.userId;
+      if (!sessionUserId) return false;
+      return sessionUserId.toString() === user._id.toString();
+    });
   }, [terminals, user?._id]);
+
+  // Filter terminals based on User's allowedTerminals whitelist
+  const availableTerminals = useMemo(() => {
+    if (isAdmin || !user?.allowedTerminals?.length) return terminals;
+    return terminals.filter(t => 
+      user.allowedTerminals.some(at => (at._id || at).toString() === t._id.toString())
+    );
+  }, [terminals, user?.allowedTerminals, isAdmin]);
 
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
@@ -95,10 +108,12 @@ const POS = () => {
   }, [lastSaleData, handlePrint]);
 
   useEffect(() => {
-    if (!activeTerminal && terminals.length > 0 && !isShiftModalOpen) {
+    // Only open the shift modal if loading is finished, no terminal is active, 
+    // and there are terminals available to select from.
+    if (!isTerminalsLoading && !activeTerminal && terminals.length > 0 && !isShiftModalOpen) {
       setIsShiftModalOpen(true);
     }
-  }, [activeTerminal, terminals, isShiftModalOpen]);
+  }, [activeTerminal, terminals, isShiftModalOpen, isTerminalsLoading]);
 
   useEffect(() => {
     if (searchInputRef.current && activeTerminal) searchInputRef.current.focus();

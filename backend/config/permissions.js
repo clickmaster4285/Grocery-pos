@@ -33,7 +33,7 @@ const SYSTEM_HIERARCHY = [
     ],
   },
   {
-    module: 'Branch', 
+    module: 'Branch',
     icons: 'Store',
     menus: ['Branch Management'],
   },
@@ -67,6 +67,7 @@ const SYSTEM_HIERARCHY = [
       'Financial Reports',
       'Employee Reports',
       'Custom Reports',
+      'Terminal Shift Reports',
     ],
   },
   {
@@ -118,7 +119,7 @@ const PERMISSIONS_OBJECT = {};
 SYSTEM_HIERARCHY.forEach((m) => {
   const moduleSlug = m.module.toLowerCase().replace(/ & /g, '_').replace(/ /g, '_').replace(/-/g, '_');
   const moduleKey = moduleSlug.toUpperCase();
-  
+
   PERMISSIONS_OBJECT[moduleKey] = {
     _MODULE_NAME: m.module,
   };

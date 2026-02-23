@@ -21,6 +21,7 @@ import {
 import { useGetAllBranches } from "@/features/branch.api";
 import { Monitor, Printer, Scan, Scale, Shield, Network } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
 
 const TerminalFormModal = ({
   isOpen,
@@ -67,16 +68,40 @@ const TerminalFormModal = ({
         softwareVersion: initialData.softwareVersion || "1.0.0",
       });
     } else {
+      // For new terminals, initialize with the active branch context
       setFormData(prev => ({
         ...prev,
+        name: "",
         branch: selectedBranchId || "",
+        department: "General",
+        deviceType: "Desktop",
+        ipAddress: "",
+        macAddress: "",
+        peripherals: {
+          printer: { name: "", connectionType: "None", status: "Disconnected" },
+          scanner: { name: "", connectionType: "None", status: "Disconnected" },
+          scale: { name: "", connectionType: "None", isCalibrated: false },
+        },
       }));
     }
   }, [initialData, isOpen, selectedBranchId]);
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    
+    // Final validation check for branch (Must have a branch ID if admin)
+    const finalBranchId = formData.branch || selectedBranchId;
+    
+    if (isAdmin && !finalBranchId) {
+      return toast.error("Branch selection is required for admins.");
+    }
+
+    const submissionData = {
+      ...formData,
+      branch: finalBranchId
+    };
+
+    onSubmit(submissionData);
   };
 
   const updatePeripheral = (type, field, value) => {

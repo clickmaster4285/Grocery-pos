@@ -13,17 +13,17 @@ import {
    SelectValue,
 } from "@/components/ui/select";
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
+   AlertDialog,
+   AlertDialogAction,
+   AlertDialogCancel,
+   AlertDialogContent,
+   AlertDialogDescription,
+   AlertDialogFooter,
+   AlertDialogHeader,
+   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import TerminalsTable from "./terminals-table";
-import TerminalFormModal from "./terminal-form-modal";
+import { useRouter, useParams } from "next/navigation";
 
 const Terminals = () => {
    const {
@@ -41,6 +41,9 @@ const Terminals = () => {
       selectedBranchId,
       setSelectedBranchId
    } = useTerminalHook();
+
+   const router = useRouter();
+   const params = useParams();
 
    const [searchQuery, setSearchQuery] = useState("");
    const [statusFilter, setStatusFilter] = useState("all");
@@ -63,9 +66,9 @@ const Terminals = () => {
    const openDeleteConfirm = (terminal) => setTerminalToDelete(terminal);
 
    const handleExecuteDelete = async () => {
-       if (!terminalToDelete) return;
-       await handleDelete(terminalToDelete._id);
-       setTerminalToDelete(null);
+      if (!terminalToDelete) return;
+      await handleDelete(terminalToDelete._id);
+      setTerminalToDelete(null);
    };
 
    if (isTerminalsLoading) {
@@ -78,23 +81,23 @@ const Terminals = () => {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                     <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
                         <Cpu className="h-5 w-5" />
-                    </div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">POS Terminals</h1>
+                     </div>
+                     <h1 className="text-3xl font-bold tracking-tight text-foreground">POS Terminals</h1>
                   </div>
                   <p className="text-muted-foreground font-medium">
                      Manage register hardware, peripheral connectivity, and active cashier sessions.
                   </p>
                </div>
                {canCreate && (
-                   <Button
-                      onClick={() => handleOpenForm()}
-                      className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm rounded-xl"
-                   >
-                      <Plus className="h-4 w-4" />
-                      Register New Terminal
-                   </Button>
+                  <Button
+                     onClick={() => router.push(`/${params.role}/pos/terminals/create`)}
+                     className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm rounded-xl"
+                  >
+                     <Plus className="h-4 w-4" />
+                     Register New Terminal
+                  </Button>
                )}
             </div>
 
@@ -141,40 +144,31 @@ const Terminals = () => {
 
             <TerminalsTable
                terminals={filteredTerminals}
-               onEdit={handleOpenForm}
+               onEdit={(terminal) => router.push(`/${params.role}/pos/terminals/${terminal._id}`)}
                onDelete={openDeleteConfirm}
             />
          </main>
 
-         <TerminalFormModal
-            isOpen={isFormOpen}
-            onClose={handleCloseForm}
-            onSubmit={handleSubmit}
-            initialData={editingTerminal}
-            isSubmitting={isSubmitting}
-            isAdmin={isAdmin}
-            selectedBranchId={selectedBranchId}
-            setSelectedBranchId={setSelectedBranchId}
-         />
+         {/* Form now on separate page */}
 
          <AlertDialog open={!!terminalToDelete} onOpenChange={(open) => !open && setTerminalToDelete(null)}>
             <AlertDialogContent className="border-none shadow-2xl rounded-2xl">
-                <AlertDialogHeader>
-                    <AlertDialogTitle className="text-xl font-bold text-destructive">Decommission Terminal</AlertDialogTitle>
-                    <AlertDialogDescription className="text-base text-muted-foreground py-2 leading-relaxed">
-                        Are you sure you want to deactivate <span className="text-foreground font-semibold underline underline-offset-4 decoration-primary/30">{terminalToDelete?.name}</span>? 
-                        This hardware entry will be archived and sessions will be forcibly closed.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter className="pt-4">
-                    <AlertDialogCancel className="font-semibold rounded-xl h-11">Cancel</AlertDialogCancel>
-                    <AlertDialogAction 
-                        onClick={handleExecuteDelete}
-                        className="bg-destructive hover:bg-destructive/90 text-white font-semibold rounded-xl h-11"
-                    >
-                        Archive Hardware
-                    </AlertDialogAction>
-                </AlertDialogFooter>
+               <AlertDialogHeader>
+                  <AlertDialogTitle className="text-xl font-bold text-destructive">Decommission Terminal</AlertDialogTitle>
+                  <AlertDialogDescription className="text-base text-muted-foreground py-2 leading-relaxed">
+                     Are you sure you want to deactivate <span className="text-foreground font-semibold underline underline-offset-4 decoration-primary/30">{terminalToDelete?.name}</span>?
+                     This hardware entry will be archived and sessions will be forcibly closed.
+                  </AlertDialogDescription>
+               </AlertDialogHeader>
+               <AlertDialogFooter className="pt-4">
+                  <AlertDialogCancel className="font-semibold rounded-xl h-11">Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                     onClick={handleExecuteDelete}
+                     className="bg-destructive hover:bg-destructive/90 text-white font-semibold rounded-xl h-11"
+                  >
+                     Archive Hardware
+                  </AlertDialogAction>
+               </AlertDialogFooter>
             </AlertDialogContent>
          </AlertDialog>
       </div>
