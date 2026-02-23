@@ -54,6 +54,7 @@ exports.getAllBranches = async (req, res) => {
   try {
     const branches = await Branch.find({ isDeleted: { $ne: true } })
       .populate('createdBy', 'firstName lastName')
+      .populate('terminals', 'name terminalId status')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -85,7 +86,8 @@ exports.getBranchById = async (req, res) => {
       isDeleted: { $ne: true }
     })
     .populate('createdBy', 'firstName lastName')
-    .populate('updatedBy', 'firstName lastName');
+    .populate('updatedBy', 'firstName lastName')
+    .populate('terminals', 'name terminalId status');
 
     if (!branch) {
       return res.status(404).json({

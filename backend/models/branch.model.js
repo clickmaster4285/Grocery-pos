@@ -31,6 +31,12 @@ const BranchSchema = new mongoose.Schema({
     street: String,
     zipCode: String
   },
+  terminals: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Terminal'
+    }
+  ],
   // Audit & Soft Delete Fields
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

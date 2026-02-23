@@ -3,10 +3,12 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ShieldCheck, Mail, Lock, KeyRound, CheckSquare, Square, Circle, CheckCircle2, Check } from "lucide-react";
+import { ShieldCheck, Mail, Lock, KeyRound, CheckSquare, Square, Circle, CheckCircle2, Check, MonitorSmartphone, DollarSign, Percent, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useMemo, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { useTerminalHook } from "@/hooks/useTerminalHook";
+import { Badge } from "@/components/ui/badge";
 
 export const SystemAccess = ({ 
   formData, 
@@ -16,6 +18,10 @@ export const SystemAccess = ({
 }) => {
   const [permissionSearchTerm, setPermissionSearchTerm] = useState('');
   const [activeModule, setActiveModule] = useState(null);
+
+  // Fetch terminals for restriction mapping
+  const userBranchId = formData.branch_id?._id || formData.branch_id;
+  const { terminals } = useTerminalHook({ branchId: userBranchId });
 
   // Initialize active module
   useMemo(() => {
@@ -72,6 +78,26 @@ export const SystemAccess = ({
     return allPermissions.find(m => m.moduleName === activeModule);
   }, [allPermissions, activeModule]);
 
+  const toggleTerminalSelection = (terminalId) => {
+    const current = formData.allowedTerminals || [];
+    const updated = current.includes(terminalId)
+      ? current.filter(id => id !== terminalId)
+      : [...current, terminalId];
+    updateFormField('allowedTerminals', updated);
+  };
+
+  const updateLimit = (field, value) => {
+    const currentLimits = formData.transactionLimits || {
+      maxDiscountPercent: 10,
+      maxVoidAmount: 500,
+      requireManagerForPriceOverride: true
+    };
+    updateFormField('transactionLimits', {
+      ...currentLimits,
+      [field]: value
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Access Toggles */}
@@ -106,6 +132,95 @@ export const SystemAccess = ({
         </div>
       </section>
 
+      {/* Terminal Restrictions (POS Specific) */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 text-primary font-semibold border-b pb-2">
+          <MonitorSmartphone className="h-4 w-4" />
+          <span>Terminal Restrictions</span>
+        </div>
+        <div className="space-y-3">
+          <Label className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Allowed POS Registers</Label>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {(formData.allowedTerminals || []).map(id => {
+              const term = terminals.find(t => t._id === id);
+              return (
+                <Badge key={id} variant="secondary" className="gap-1 px-2 py-1 bg-primary/10 text-primary border-primary/20">
+                  {term?.name || id}
+                  <XCircle className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => toggleTerminalSelection(id)} />
+                </Badge>
+              );
+            })}
+            {(formData.allowedTerminals || []).length === 0 && (
+              <span className="text-xs text-muted-foreground italic">No restrictions (Allowed on all branch terminals)</span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {terminals.map(term => {
+              const isSelected = (formData.allowedTerminals || []).includes(term._id);
+              return (
+                <Button
+                  key={term._id}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "h-9 justify-start gap-2 px-3 border-dashed",
+                    isSelected ? "bg-primary/5 border-primary text-primary" : "text-muted-foreground"
+                  )}
+                  onClick={() => toggleTerminalSelection(term._id)}
+                >
+                  <div className={cn("h-2 w-2 rounded-full", isSelected ? "bg-primary" : "bg-slate-200")} />
+                  <span className="truncate text-xs">{term.name}</span>
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Transaction Limits */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 text-primary font-semibold border-b pb-2">
+          <DollarSign className="h-4 w-4" />
+          <span>Transaction Limits & Safeguards</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-tight text-slate-500">Max Discount</Label>
+            <div className="relative">
+              <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <Input
+                type="number"
+                className="pl-9 h-10"
+                placeholder="10"
+                value={formData.transactionLimits?.maxDiscountPercent || ''}
+                onChange={(e) => updateLimit('maxDiscountPercent', Number(e.target.value))}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-tight text-slate-500">Max Void Amt</Label>
+            <div className="relative">
+              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <Input
+                type="number"
+                className="pl-9 h-10"
+                placeholder="500"
+                value={formData.transactionLimits?.maxVoidAmount || ''}
+                onChange={(e) => updateLimit('maxVoidAmount', Number(e.target.value))}
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/10 self-end h-10">
+            <Label className="text-xs font-semibold">Price Override Approval</Label>
+            <Switch 
+              checked={formData.transactionLimits?.requireManagerForPriceOverride ?? true} 
+              onCheckedChange={(val) => updateLimit('requireManagerForPriceOverride', val)} 
+            />
+          </div>
+        </div>
+      </section>
+
       {/* Login Credentials (Conditional) */}
       {formData.hasSystemAccess && (
         <section className="space-y-4 animate-in slide-in-from-top-2 duration-300">
@@ -123,7 +238,7 @@ export const SystemAccess = ({
                   id="email"
                   type="email"
                   placeholder="email@example.com"
-                  className="pl-10"
+                  className="pl-10 h-10 rounded-lg"
                   value={formData.email}
                   onChange={(e) => updateFormField('email', e.target.value)}
                   required
@@ -139,10 +254,10 @@ export const SystemAccess = ({
                   id="password"
                   type="password"
                   placeholder="••••••••"
-                  className="pl-10"
+                  className="pl-10 h-10 rounded-lg"
                   value={formData.password}
                   onChange={(e) => updateFormField('password', e.target.value)}
-                  required
+                  required={!formData._id} // Required only for new users
                 />
               </div>
             </div>
@@ -164,7 +279,7 @@ export const SystemAccess = ({
             placeholder="4-6 digit PIN"
             value={formData.pin}
             onChange={(e) => updateFormField('pin', e.target.value.replace(/\D/g, ''))}
-            className="text-center text-lg tracking-widest font-mono"
+            className="text-center text-lg tracking-widest font-mono h-12 rounded-xl border-primary/20 bg-primary/5 focus:bg-white transition-all"
             required
           />
           <p className="text-[10px] text-muted-foreground text-center italic">Required for Time Clock & attendance</p>
@@ -192,7 +307,7 @@ export const SystemAccess = ({
             )}
           </div>
 
-          <div className="w-full border rounded-lg p-4 bg-card">
+          <div className="w-full border rounded-lg p-4 bg-card shadow-sm">
             <div className="flex flex-col gap-4 mb-4">
               <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                 <div className="w-full overflow-x-auto pb-2 custom-scrollbar">
@@ -225,21 +340,21 @@ export const SystemAccess = ({
 
             {currentModuleData && (
               <div className="mt-0 space-y-4">
-                <div className="flex items-center justify-between bg-muted/30 p-2 rounded-md">
-                  <span className="text-xs font-medium text-muted-foreground px-1">
+                <div className="flex items-center justify-between bg-muted/30 p-2 rounded-md border border-slate-100">
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400 px-1">
                     {currentModuleData.moduleName} Module
                   </span>
                   <Button 
                     type="button" 
                     variant="ghost" 
                     size="sm" 
-                    className="h-7 px-2 text-[11px] gap-1 bg-emerald-50"
+                    className="h-7 px-2 text-[11px] gap-1 bg-emerald-50 text-emerald-600 font-bold uppercase"
                     onClick={() => toggleModulePermissions(currentModuleData.permissions, !(currentModuleData.permissions.length > 0 && currentModuleData.permissions.every(p => formData.permissions.includes(p.key))))}
                   >
                     {currentModuleData.permissions.length > 0 && currentModuleData.permissions.every(p => formData.permissions.includes(p.key)) ? (
                       <><Circle className="h-3 w-3" /> Unselect Module</>
                     ) : (
-                      <><CheckCircle2 className="h-3 w-3 text-emerald-400" /> Select All in Module</>
+                      <><CheckCircle2 className="h-3 w-3 text-emerald-400" /> Select All</>
                     )}
                   </Button>
                 </div>

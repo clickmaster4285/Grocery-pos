@@ -65,6 +65,17 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    allowedTerminals: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Terminal',
+      }
+    ],
+    transactionLimits: {
+      maxDiscountPercent: { type: Number, default: 10 },
+      maxVoidAmount: { type: Number, default: 500 },
+      requireManagerForPriceOverride: { type: Boolean, default: true }
+    },
 
     // Employment Details
     employment: {

@@ -1,0 +1,82 @@
+const Joi = require('joi');
+
+const createTerminalSchema = Joi.object({
+    name: Joi.string().required().messages({
+        'any.required': 'Terminal name is required',
+    }),
+    branch: Joi.string().required().messages({
+        'any.required': 'Branch ID is required',
+    }),
+    department: Joi.string().optional(),
+    ipAddress: Joi.string().ip().optional(),
+    macAddress: Joi.string().optional(),
+    deviceType: Joi.string().valid("Desktop", "Tablet", "Kiosk", "Mobile").optional(),
+    peripherals: Joi.object({
+        printer: Joi.object({
+            name: Joi.string().optional(),
+            connectionType: Joi.string().valid("USB", "Ethernet", "Bluetooth", "None").optional(),
+            status: Joi.string().valid("Connected", "Disconnected", "Error").optional()
+        }).optional(),
+        scanner: Joi.object({
+            name: Joi.string().optional(),
+            connectionType: Joi.string().valid("USB", "Bluetooth", "None").optional(),
+            status: Joi.string().valid("Connected", "Disconnected").optional()
+        }).optional(),
+        scale: Joi.object({
+            name: Joi.string().optional(),
+            connectionType: Joi.string().valid("USB", "Serial", "None").optional(),
+            isCalibrated: Joi.boolean().optional()
+        }).optional()
+    }).optional(),
+    softwareVersion: Joi.string().optional()
+});
+
+const updateTerminalSchema = Joi.object({
+    name: Joi.string().optional(),
+    department: Joi.string().optional(),
+    ipAddress: Joi.string().ip().optional(),
+    macAddress: Joi.string().optional(),
+    deviceType: Joi.string().valid("Desktop", "Tablet", "Kiosk", "Mobile").optional(),
+    status: Joi.string().valid("Available", "Occupied", "Locked", "Closed", "Maintenance").optional(),
+    peripherals: Joi.object({
+        printer: Joi.object({
+            name: Joi.string().optional(),
+            connectionType: Joi.string().valid("USB", "Ethernet", "Bluetooth", "None").optional(),
+            status: Joi.string().valid("Connected", "Disconnected", "Error").optional()
+        }).optional(),
+        scanner: Joi.object({
+            name: Joi.string().optional(),
+            connectionType: Joi.string().valid("USB", "Bluetooth", "None").optional(),
+            status: Joi.string().valid("Connected", "Disconnected").optional()
+        }).optional(),
+        scale: Joi.object({
+            name: Joi.string().optional(),
+            connectionType: Joi.string().valid("USB", "Serial", "None").optional(),
+            isCalibrated: Joi.boolean().optional()
+        }).optional()
+    }).optional(),
+    softwareVersion: Joi.string().optional(),
+    isActive: Joi.boolean().optional()
+});
+
+const openSessionSchema = Joi.object({
+    openingFloat: Joi.number().min(0).required().messages({
+        'any.required': 'Opening float is required',
+        'number.min': 'Opening float cannot be negative'
+    })
+});
+
+const closeSessionSchema = Joi.object({
+    actualCash: Joi.number().min(0).required().messages({
+        'any.required': 'Actual cash count is required',
+        'number.min': 'Actual cash cannot be negative'
+    }),
+    notes: Joi.string().optional()
+});
+
+module.exports = {
+    createTerminalSchema,
+    updateTerminalSchema,
+    openSessionSchema,
+    closeSessionSchema
+};

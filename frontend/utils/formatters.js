@@ -46,3 +46,13 @@ export const formatPhoneNumberForDisplay = (phoneNumber) => {
    // If already formatted or different length, return as is
    return phoneNumber;
 };
+
+export const formatCurrency = (amount) => {
+  if (amount === undefined || amount === null) return 'Rs. 0.00';
+  
+  return new Intl.NumberFormat('en-PK', {
+    style: 'currency',
+    currency: 'PKR',
+    minimumFractionDigits: 2
+  }).format(amount).replace('PKR', 'Rs.');
+};

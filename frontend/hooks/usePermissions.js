@@ -52,6 +52,7 @@ export const usePermissions = () => {
       special: getMenuPermissions('point_of_sale', 'special_items'),
       returns: getMenuPermissions('point_of_sale', 'returns_exchanges'),
       receipts: getMenuPermissions('point_of_sale', 'receipt_management'),
+      terminal_management: getMenuPermissions('point_of_sale', 'terminal_management'),
     },
 
     // Module: Inventory

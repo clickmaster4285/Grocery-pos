@@ -16,6 +16,7 @@ const SYSTEM_HIERARCHY = [
       'Special Items',
       'Returns & Exchanges',
       'Receipt Management',
+      'Terminal Management',
     ],
   },
   {

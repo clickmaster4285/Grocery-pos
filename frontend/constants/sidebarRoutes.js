@@ -80,6 +80,7 @@ export const MENU_METADATA = {
   // 'special_items': { path: '/pos/special', icon: Star },
   'returns_exchanges': { path: '/pos/returns', icon: RotateCcw },
   'receipt_management': { path: '/pos/receipts', icon: Receipt },
+  'terminal_management': { path: '/pos/terminals', icon: Cpu },
 
   // Module: Inventory
   'product_database': { path: '/inventory/products', icon: Package },

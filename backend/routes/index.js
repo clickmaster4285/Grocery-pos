@@ -12,7 +12,8 @@ const saleReturnRoutes = require('./saleReturn.routes');
 const discountRoutes = require('./discount.routes');
 const customerRoutes = require('./customer.routes');
 const settingsRoutes = require('./settings.routes');
-const branchLocationRoutes = require('./branchLocation.routes'); // Added
+const branchLocationRoutes = require('./branchLocation.routes'); 
+const terminalRoutes = require('./terminal.routes');
 const aiRoutes = require('./ai.routes');
 
 const router = express.Router();
@@ -32,6 +33,7 @@ router.use('/discounts', discountRoutes);
 router.use('/customers', customerRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/branch-locations', branchLocationRoutes); 
+router.use('/terminals', terminalRoutes); 
 
 // later ai routes
 router.use('/ai', aiRoutes);

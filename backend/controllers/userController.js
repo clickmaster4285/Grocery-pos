@@ -19,6 +19,8 @@ const createUser = async (req, res, next) => {
       isTwoFactorEnabled = false,
       role = 'general_staff', 
       permissions = [], 
+      allowedTerminals = [],
+      transactionLimits,
       branch_id,
       hireDate,
       designation,
@@ -82,6 +84,8 @@ const createUser = async (req, res, next) => {
       isTwoFactorEnabled,
       role,
       permissions: hasSystemAccess ? permissions : [],
+      allowedTerminals,
+      transactionLimits,
       branch_id,
       // Employment
       employment: {
@@ -121,6 +125,7 @@ const getAllUsers = async (req, res, next) => {
     const [users, total] = await Promise.all([
       User.find({ isDeleted: false, role: { $ne: 'admin' } })
         .populate('branch_id', 'branch_name')
+        .populate('allowedTerminals', 'name terminalId')
         .populate('deletedBy', 'firstName lastName')
         .select('-password')
         .skip(skip)
@@ -146,6 +151,7 @@ const getUserById = async (req, res, next) => {
   try {
     const user = await User.findOne({ _id: req.params.id, isDeleted: false })
       .populate('branch_id', 'branch_name')
+      .populate('allowedTerminals', 'name terminalId')
       .populate('deletedBy', 'firstName lastName')
       .select('-password');
       

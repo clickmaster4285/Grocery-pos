@@ -5,6 +5,7 @@ import { useGetBranchStock } from '@/features/stockTransfer.api';
 import { useCreateSale } from '@/features/sale.api';
 import { useGetAllBranches } from '@/features/branch.api';
 import { useValidateCoupon } from '@/features/discount.api';
+import { useTerminalHook } from '@/hooks/useTerminalHook';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -21,14 +22,17 @@ import {
   Banknote, Landmark, Store, Loader2, Printer, 
   ShieldAlert, QrCode, PackageSearch, Tag, Receipt,
   MapPin, XCircle, Sparkles, User, Wallet, CheckCircle2,
-  Box, History, Info
+  Box, History, Info, Power, MonitorSmartphone, Monitor
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReactToPrint } from 'react-to-print';
 import ReceiptPrint from './ReceiptPrint';
 import QRScannerDialog from './QRScannerDialog';
+import ShiftModal from './ShiftModal';
+import CloseShiftModal from './CloseShiftModal';
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from 'framer-motion';
+import { formatCurrency } from "@/utils/formatters";
 
 import { parseCouponQRPayload } from '@/utils/couponUtils';
 
@@ -43,10 +47,26 @@ const POS = () => {
   const receiptRef = useRef(null);
   const searchContainerRef = useRef(null);
   
-  const [activeBranchId, setActiveBranchId] = useState(user?.branch_id || '');
+  const [activeBranchId, setActiveBranchId] = useState(user?.branch_id?._id || user?.branch_id || '');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const debouncedSearch = useDebounce(searchQuery, 300);
+
+  // Terminal Management
+  const { 
+    terminals, 
+    isTerminalsLoading,
+    openSession, 
+    closeSession, 
+    refetch: refetchTerminals 
+  } = useTerminalHook({ branchId: activeBranchId });
+
+  const activeTerminal = useMemo(() => {
+    return terminals.find(t => t.activeSession?.userId?._id === user?._id || t.activeSession?.userId === user?._id);
+  }, [terminals, user?._id]);
+
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
+  const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
 
   const { data: stock, isLoading: stockLoading, isFetching: stockFetching } = useGetBranchStock(activeBranchId, debouncedSearch);
   const { data: branches } = useGetAllBranches({ enabled: canSelectBranch });
@@ -75,8 +95,14 @@ const POS = () => {
   }, [lastSaleData, handlePrint]);
 
   useEffect(() => {
-    if (searchInputRef.current) searchInputRef.current.focus();
-  }, []);
+    if (!activeTerminal && terminals.length > 0 && !isShiftModalOpen) {
+      setIsShiftModalOpen(true);
+    }
+  }, [activeTerminal, terminals, isShiftModalOpen]);
+
+  useEffect(() => {
+    if (searchInputRef.current && activeTerminal) searchInputRef.current.focus();
+  }, [activeTerminal]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -100,7 +126,7 @@ const POS = () => {
 
   useEffect(() => {
     if (!activeBranchId && user?.branch_id) {
-      setActiveBranchId(user.branch_id);
+      setActiveBranchId(user.branch_id?._id || user.branch_id);
     }
   }, [user, activeBranchId]);
 
@@ -113,6 +139,22 @@ const POS = () => {
     } else {
       setActiveBranchId(branchId);
     }
+  };
+
+  const handleOpenShift = async (terminalId, openingFloat) => {
+    try {
+      await openSession(terminalId, openingFloat);
+      setIsShiftModalOpen(false);
+      refetchTerminals();
+    } catch (err) {}
+  };
+
+  const handleCloseShift = async (actualCash, notes) => {
+    try {
+      await closeSession(activeTerminal._id, actualCash, notes);
+      setIsCloseModalOpen(false);
+      refetchTerminals();
+    } catch (err) {}
   };
 
   const addToCart = (stockItem) => {
@@ -209,10 +251,12 @@ const POS = () => {
     if (!canCreateSale) return toast.error("You don't have permission to finalize sales");
     if (cart.length === 0) return toast.error("Cart is empty");
     if (!activeBranchId) return toast.error("Please select a branch first");
+    if (!activeTerminal) return toast.error("Terminal session is not active");
 
     try {
       const result = await createSaleMutation.mutateAsync({
         branchId: activeBranchId,
+        terminalId: activeTerminal._id,
         items: cart.map(item => ({
           product: item.productId,
           variantId: item.variantId,
@@ -224,6 +268,7 @@ const POS = () => {
       });
       
       toast.success("Sale completed successfully!");
+      refetchTerminals(); // Update drawer balance
       
       if (shouldPrint) {
         setLastSaleData({
@@ -286,6 +331,27 @@ const POS = () => {
               )}
             </div>
 
+            {/* Live Terminal Status Badge */}
+            {activeTerminal && (
+              <div className="flex items-center gap-2 bg-slate-900 px-3 py-2 rounded-xl shadow-lg border border-slate-800 shrink-0 animate-in fade-in slide-in-from-left-2 duration-500">
+                <div className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 leading-none mb-0.5">{activeTerminal.name}</span>
+                  <span className="text-[11px] font-bold text-white leading-none tabular-nums">{formatCurrency(activeTerminal.activeSession.currentDrawerBalance)}</span>
+                </div>
+                <button 
+                  onClick={() => setIsCloseModalOpen(true)}
+                  className="ml-2 p-1.5 rounded-lg bg-white/5 hover:bg-rose-500 text-slate-400 hover:text-white transition-all group"
+                  title="Close Shift"
+                >
+                  <Power className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+
             {/* Search Input with Popover Table */}
             <div className="relative flex-1" ref={searchContainerRef}>
               <div className={cn(
@@ -304,6 +370,7 @@ const POS = () => {
                     setSearchQuery(e.target.value);
                     if (!isSearchFocused) setIsSearchFocused(true);
                   }}
+                  disabled={!activeTerminal}
                 />
                 <AnimatePresence>
                   {searchQuery && (
@@ -378,7 +445,7 @@ const POS = () => {
                                   </TableCell>
                                   <TableCell className="text-right pr-6">
                                     <div className="flex items-center justify-end gap-2">
-                                      <span className="font-semibold text-sm text-slate-700">${price?.toFixed(2)}</span>
+                                      <span className="font-semibold text-sm text-slate-700">{formatCurrency(price)}</span>
                                       {!isOutOfStock && <Plus className="h-3 w-3 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />}
                                     </div>
                                   </TableCell>
@@ -451,8 +518,8 @@ const POS = () => {
                             <span className="text-[9px] text-muted-foreground font-medium uppercase tracking-tighter">{item.sku}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-center font-medium text-slate-500 text-[13px]">
-                          ${item.price.toFixed(2)}
+                        <TableCell className="text-center font-medium text-slate-500 text-[13px] tabular-nums">
+                          {formatCurrency(item.price)}
                         </TableCell>
                         <TableCell className="py-3">
                           <div className="flex items-center justify-center gap-3">
@@ -473,7 +540,7 @@ const POS = () => {
                         </TableCell>
                         <TableCell className="text-right pr-6 py-3">
                           <div className="flex flex-col items-end gap-0.5">
-                            <span className="font-semibold text-sm text-slate-800 tabular-nums">${item.subtotal.toFixed(2)}</span>
+                            <span className="font-semibold text-sm text-slate-800 tabular-nums">{formatCurrency(item.subtotal)}</span>
                             <button 
                               className="text-[9px] font-medium text-slate-400 hover:text-destructive transition-colors uppercase tracking-widest"
                               onClick={() => removeFromCart(item.variantId)}
@@ -514,7 +581,7 @@ const POS = () => {
                 <Wallet className="h-4 w-4 text-primary" />
                 <CardTitle className="text-sm font-semibold text-slate-700">Checkout</CardTitle>
               </div>
-              <Badge variant="outline" className="text-[10px] font-medium text-slate-400 border-slate-200">
+              <Badge variant="outline" className="text-[10px] font-medium text-slate-400 border-slate-200 uppercase tracking-widest">
                 {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
               </Badge>
             </CardHeader>
@@ -523,7 +590,7 @@ const POS = () => {
               {/* Customer Input */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
-                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Customer Info</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Customer Info</Label>
                   <History className="h-3 w-3 text-slate-300 hover:text-primary cursor-pointer transition-colors" />
                 </div>
                 <div className="relative group">
@@ -533,13 +600,14 @@ const POS = () => {
                     onChange={(e) => setCustomerName(e.target.value)} 
                     placeholder="Search or add customer..." 
                     className="pl-10 h-11 text-sm font-medium bg-slate-50/50 border-slate-100 focus-visible:ring-primary/10 rounded-xl"
+                    disabled={!activeTerminal}
                   />
                 </div>
               </div>
 
               {/* Payment Method Selector */}
               <div className="space-y-2">
-                <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 px-1">Payment Method</Label>
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">Payment Method</Label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { id: 'CASH', icon: Banknote, label: 'Cash' },
@@ -555,6 +623,7 @@ const POS = () => {
                           ? "bg-primary/5 border-primary/40 text-primary shadow-sm ring-4 ring-primary/5" 
                           : "bg-white border-slate-100 text-slate-400 hover:bg-slate-50"
                       )}
+                      disabled={!activeTerminal}
                     >
                       <method.icon className="h-5 w-5" />
                       <span className="text-[9px] font-bold uppercase tracking-widest">{method.label}</span>
@@ -568,26 +637,27 @@ const POS = () => {
               {/* Totals & Discounts */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center text-xs font-medium px-1">
-                  <span className="text-slate-400 uppercase tracking-widest text-[10px]">Net Subtotal</span>
-                  <span className="text-slate-600 font-semibold">${total.toFixed(2)}</span>
+                  <span className="text-slate-400 uppercase tracking-widest text-[10px] font-bold">Net Subtotal</span>
+                  <span className="text-slate-600 font-bold tabular-nums">{formatCurrency(total)}</span>
                 </div>
                 
                 <div className="flex items-center justify-between gap-4 px-1">
                   <div className="flex items-center gap-2">
                     <Tag className="h-3.5 w-3.5 text-primary/60" />
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Discount</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Discount</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="relative w-24">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/60">$</span>
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/60">Rs.</span>
                       <Input 
                         type="number" 
-                        className="h-8 pl-6 pr-2 text-right text-[13px] font-semibold bg-slate-50/50 border-slate-100 focus-visible:ring-primary/10 rounded-lg" 
+                        className="h-8 pl-8 pr-2 text-right text-[13px] font-bold bg-slate-50/50 border-slate-100 focus-visible:ring-primary/10 rounded-lg tabular-nums" 
                         value={discount} 
                         onChange={(e) => {
                             setDiscount(parseFloat(e.target.value) || 0);
                             setAppliedCoupon(null);
                         }} 
+                        disabled={!activeTerminal}
                       />
                     </div>
                     <Button 
@@ -595,6 +665,7 @@ const POS = () => {
                       size="icon" 
                       className="h-8 w-8 border-slate-100 text-slate-400 hover:text-primary hover:bg-primary/5 transition-all shadow-none rounded-lg"
                       onClick={() => setIsScannerOpen(true)}
+                      disabled={!activeTerminal}
                     >
                       <QrCode className="h-4 w-4" />
                     </Button>
@@ -609,7 +680,7 @@ const POS = () => {
                   >
                     <div className="flex items-center gap-2">
                       <Sparkles className="h-3 w-3 text-emerald-500" />
-                      <span className="text-[10px] font-semibold text-emerald-700 uppercase tracking-tight">{appliedCoupon.name}</span>
+                      <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-tight">{appliedCoupon.name}</span>
                     </div>
                     <XCircle 
                       className="h-4 w-4 text-emerald-300 hover:text-destructive cursor-pointer transition-colors"
@@ -621,14 +692,13 @@ const POS = () => {
                 {/* Final Amount Display */}
                 <div className="pt-2">
                   <div className="bg-slate-900 p-5 rounded-2xl shadow-xl shadow-slate-200 relative overflow-hidden group">
-                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500">
-                      <Receipt className="h-24 w-24 text-white" />
+                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500 text-white">
+                      <Receipt className="h-24 w-24" />
                     </div>
                     <div className="relative z-10">
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">Final Balance</span>
+                      <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400">Grand Total</span>
                       <div className="flex items-baseline gap-1 mt-1">
-                        <span className="text-3xl font-semibold text-white tabular-nums tracking-tight leading-none">${finalTotal.toFixed(2)}</span>
-                        <span className="text-xs font-medium text-slate-500">USD</span>
+                        <span className="text-3xl font-bold text-white tabular-nums tracking-tight leading-none">{formatCurrency(finalTotal)}</span>
                       </div>
                     </div>
                   </div>
@@ -642,21 +712,23 @@ const POS = () => {
                 variant="outline"
                 className="w-full h-12 font-bold text-[11px] uppercase tracking-widest border-slate-200 text-slate-500 hover:bg-white hover:text-slate-700 transition-all rounded-xl shadow-sm active:scale-[0.98]" 
                 onClick={() => handleCheckout(false)}
-                disabled={cart.length === 0 || createSaleMutation.isLoading || !canCreateSale}
+                disabled={cart.length === 0 || createSaleMutation.isLoading || !canCreateSale || !activeTerminal}
               >
                 {createSaleMutation.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle2 className="h-4 w-4 mr-2" /> Finish Sale Only</>}
               </Button>
               <Button 
                 className="w-full h-14 font-bold text-[11px] uppercase tracking-widest shadow-xl shadow-primary/20 transition-all rounded-xl active:scale-[0.98] gap-2" 
                 onClick={() => handleCheckout(true)}
-                disabled={cart.length === 0 || createSaleMutation.isLoading || !canCreateSale}
+                disabled={cart.length === 0 || createSaleMutation.isLoading || !canCreateSale || !activeTerminal}
               >
                 {createSaleMutation.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Printer className="h-4 w-4" /> Finalize & Print</>}
               </Button>
-              <div className="flex items-center justify-center gap-1.5 opacity-40">
-                <Info className="h-3 w-3" />
-                <span className="text-[9px] font-medium">Verify cart items before final checkout</span>
-              </div>
+              {!activeTerminal && (
+                <div className="flex items-center justify-center gap-1.5 text-rose-500 animate-pulse">
+                  <ShieldAlert className="h-3 w-3" />
+                  <span className="text-[9px] font-bold uppercase tracking-wider">Session Inactive - Open Shift to Begin</span>
+                </div>
+              )}
             </CardFooter>
           </Card>
         </div>
@@ -666,6 +738,22 @@ const POS = () => {
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
         onScanSuccess={handleCouponScanned}
+      />
+
+      <ShiftModal 
+        isOpen={isShiftModalOpen}
+        terminals={terminals}
+        onOpenShift={handleOpenShift}
+        isLoading={isTerminalsLoading}
+        userFirstName={user?.firstName}
+      />
+
+      <CloseShiftModal 
+        isOpen={isCloseModalOpen}
+        onClose={() => setIsCloseModalOpen(false)}
+        activeSession={activeTerminal?.activeSession}
+        onCloseShift={handleCloseShift}
+        isLoading={false}
       />
     </div>
   );
