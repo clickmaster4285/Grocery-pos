@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, MonitorSmartphone, Search, SlidersHorizontal, Cpu, Signal, SignalLow, SignalZero } from "lucide-react";
+import { Plus, MonitorSmartphone, Search, SlidersHorizontal, Cpu } from "lucide-react";
 import { useTerminalHook } from "@/hooks/useTerminalHook";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,21 +29,13 @@ const Terminals = () => {
    const {
       terminals,
       isTerminalsLoading,
-      isFormOpen,
-      editingTerminal,
-      handleOpenForm,
-      handleCloseForm,
-      handleSubmit,
-      isSubmitting,
       handleDelete,
       canCreate,
-      isAdmin,
-      selectedBranchId,
-      setSelectedBranchId
    } = useTerminalHook();
 
    const router = useRouter();
    const params = useParams();
+   const { role } = params;
 
    const [searchQuery, setSearchQuery] = useState("");
    const [statusFilter, setStatusFilter] = useState("all");
@@ -92,7 +84,7 @@ const Terminals = () => {
                </div>
                {canCreate && (
                   <Button
-                     onClick={() => router.push(`/${params.role}/pos/terminals/create`)}
+                     onClick={() => router.push(`/${role}/pos/terminals/create`)}
                      className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm rounded-xl"
                   >
                      <Plus className="h-4 w-4" />
@@ -144,12 +136,10 @@ const Terminals = () => {
 
             <TerminalsTable
                terminals={filteredTerminals}
-               onEdit={(terminal) => router.push(`/${params.role}/pos/terminals/${terminal._id}`)}
+               onEdit={(terminal) => router.push(`/${role}/pos/terminals/${terminal._id}/edit`)}
                onDelete={openDeleteConfirm}
             />
          </main>
-
-         {/* Form now on separate page */}
 
          <AlertDialog open={!!terminalToDelete} onOpenChange={(open) => !open && setTerminalToDelete(null)}>
             <AlertDialogContent className="border-none shadow-2xl rounded-2xl">

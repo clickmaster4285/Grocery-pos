@@ -21,7 +21,8 @@ import {
   History,
   ShieldCheck,
   ShieldAlert,
-  HardDrive
+  HardDrive,
+  Edit
 } from 'lucide-react'; 
 import {
   Table,
@@ -100,17 +101,17 @@ const PeripheralItem = ({ icon: Icon, label, name, status, connectionType }) => 
 const TerminalDetailPage = () => {
   const router = useRouter();
   const params = useParams();
-  const { id } = params;
-  const { currentUserRole, isAdmin } = usePermissions();
+  const { id, role } = params;
+  const { isAdmin } = usePermissions();
 
   const { data: terminalResponse, isLoading, error } = useGetTerminalById(id);
   const terminal = terminalResponse?.data;
 
   useEffect(() => {
     if (error) {
-      router.push(`/${currentUserRole}/pos/terminals`);
+      router.push(`/${role}/pos/terminals`);
     }
-  }, [error, router, currentUserRole]);
+  }, [error, router, role]);
 
   if (isLoading) {
     return (
@@ -141,7 +142,7 @@ const TerminalDetailPage = () => {
         <div className="space-y-2">
           <Button 
             variant="ghost" 
-            onClick={() => router.push(`/${currentUserRole}/pos/terminals`)} 
+            onClick={() => router.push(`/${role}/pos/terminals`)} 
             className="gap-2 -ml-2 text-slate-400 hover:text-slate-900 transition-all font-semibold uppercase tracking-widest text-[10px]"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -170,8 +171,10 @@ const TerminalDetailPage = () => {
            {isAdmin && (
              <Button 
                 variant="outline"
-                className="rounded-xl border-slate-100 shadow-sm font-bold uppercase tracking-widest text-[11px] px-6 h-12"
+                onClick={() => router.push(`/${role}/pos/terminals/${id}/edit`)}
+                className="rounded-xl border-slate-100 shadow-sm font-bold uppercase tracking-widest text-[11px] px-6 h-12 gap-2"
              >
+               <Edit className="h-4 w-4" />
                Configure Hardware
              </Button>
            )}

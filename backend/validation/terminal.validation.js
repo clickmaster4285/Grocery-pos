@@ -29,13 +29,15 @@ const createTerminalSchema = Joi.object({
         }).optional(),
         cashDrawer: Joi.object({
             isConnected: Joi.boolean().optional(),
+            lastOpened: Joi.date().optional()
         }).optional(),
         customerDisplay: Joi.object({
-            isConnected: Joi.boolean().optional(),
+            isConnected: Joi.boolean().optional()
         }).optional()
     }).optional(),
     softwareVersion: Joi.string().optional().allow(''),
-    status: Joi.string().valid("Available", "Occupied", "Locked", "Closed", "Maintenance").optional()
+    status: Joi.string().valid("Available", "Occupied", "Locked", "Closed", "Maintenance").optional(),
+    lastMaintenanceDate: Joi.date().optional().allow('', null),
 });
 
 const updateTerminalSchema = Joi.object({
@@ -63,13 +65,15 @@ const updateTerminalSchema = Joi.object({
         }).optional(),
         cashDrawer: Joi.object({
             isConnected: Joi.boolean().optional(),
+            lastOpened: Joi.date().optional()
         }).optional(),
         customerDisplay: Joi.object({
-            isConnected: Joi.boolean().optional(),
+            isConnected: Joi.boolean().optional()
         }).optional()
     }).optional(),
     softwareVersion: Joi.string().optional().allow(''),
-    isActive: Joi.boolean().optional()
+    isActive: Joi.boolean().optional(),
+    lastMaintenanceDate: Joi.date().optional().allow('', null),
 });
 
 const openSessionSchema = Joi.object({

@@ -12,11 +12,12 @@ import {
    SelectValue,
 } from "@/components/ui/select";
 import { useGetAllBranches } from "@/features/branch.api";
-import { Monitor, Printer, Scan, Scale, Shield, Network, ArrowLeft, Save, Trash2, Cpu, CreditCard, MonitorPlay } from "lucide-react";
+import { Monitor, Printer, Scan, Scale, Shield, Network, ArrowLeft, Save, Trash2, Cpu, CreditCard, MonitorPlay, Calendar } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
 const TerminalForm = ({
    initialData,
@@ -45,6 +46,7 @@ const TerminalForm = ({
       },
       softwareVersion: "1.0.0",
       status: "Closed",
+      lastMaintenanceDate: "",
    });
 
    useEffect(() => {
@@ -65,6 +67,7 @@ const TerminalForm = ({
             },
             softwareVersion: initialData.softwareVersion || "1.0.0",
             status: initialData.status || "Closed",
+            lastMaintenanceDate: initialData.lastMaintenanceDate ? new Date(initialData.lastMaintenanceDate).toISOString().split('T')[0] : "",
          });
       } else {
          setFormData(prev => ({
@@ -118,7 +121,7 @@ const TerminalForm = ({
    };
 
    return (
-      <div className="max-w-5xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
          <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4">
                <Button
@@ -131,9 +134,9 @@ const TerminalForm = ({
                </Button>
                <div>
                   <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                     {initialData ? "Configure Hardware" : "Register New Terminal"}
+                     {initialData ? "Hardware Configuration" : "Register New Terminal"}
                   </h1>
-                  <p className="text-slate-500 font-medium">
+                  <p className="text-slate-500 font-medium text-sm">
                      {initialData ? `Updating configuration for ${initialData.terminalId}` : "Set up a new POS workstation in the network."}
                   </p>
                </div>
@@ -142,14 +145,14 @@ const TerminalForm = ({
                <Button
                   variant="outline"
                   onClick={() => router.back()}
-                  className="rounded-xl font-bold uppercase tracking-widest px-6"
+                  className="rounded-xl font-bold uppercase tracking-widest px-6 h-11 text-xs"
                >
                   Cancel
                </Button>
                <Button
                   onClick={handleFormSubmit}
                   disabled={isSubmitting}
-                  className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold uppercase tracking-widest px-8 shadow-lg shadow-slate-200"
+                  className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold uppercase tracking-widest px-8 h-11 text-xs shadow-lg shadow-slate-200"
                >
                   {isSubmitting ? "Processing..." : initialData ? "Save Config" : "Register Hardware"}
                </Button>
@@ -216,8 +219,10 @@ const TerminalForm = ({
                            </SelectTrigger>
                            <SelectContent className="rounded-xl border-slate-100 shadow-2xl">
                               <SelectItem value="Available">Available / Online</SelectItem>
-                              <SelectItem value="Maintenance">Maintenance Mode</SelectItem>
+                              <SelectItem value="Occupied">Occupied</SelectItem>
+                              <SelectItem value="Locked">Locked</SelectItem>
                               <SelectItem value="Closed">Closed / Locked</SelectItem>
+                              <SelectItem value="Maintenance">Maintenance Mode</SelectItem>
                            </SelectContent>
                         </Select>
                      </div>
@@ -278,6 +283,15 @@ const TerminalForm = ({
                            className="h-12 rounded-xl bg-slate-50 border-slate-100 focus:bg-white transition-all text-sm font-medium"
                         />
                      </div>
+                     <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase tracking-widest text-slate-500">Last Maintenance Date</Label>
+                        <Input
+                           type="date"
+                           value={formData.lastMaintenanceDate}
+                           onChange={(e) => setFormData({ ...formData, lastMaintenanceDate: e.target.value })}
+                           className="h-12 rounded-xl bg-slate-50 border-slate-100 focus:bg-white transition-all text-sm font-medium"
+                        />
+                     </div>
                   </div>
                </div>
             </div>
@@ -300,10 +314,23 @@ const TerminalForm = ({
                               <Printer className="h-4 w-4" />
                               <span className="text-[11px] font-bold uppercase tracking-wider">Receipt Printer</span>
                            </div>
+                           <Select
+                              value={formData.peripherals.printer.status}
+                              onValueChange={(val) => updatePeripheral('printer', 'status', val)}
+                           >
+                              <SelectTrigger className="h-7 w-24 bg-transparent border-none text-[10px] font-bold uppercase text-slate-400">
+                                 <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                 <SelectItem value="Connected">Connected</SelectItem>
+                                 <SelectItem value="Disconnected">Disconnected</SelectItem>
+                                 <SelectItem value="Error">Error</SelectItem>
+                              </SelectContent>
+                           </Select>
                         </div>
                         <div className="space-y-3">
                            <Input
-                              placeholder="Model/Service Name"
+                              placeholder="Model Name"
                               value={formData.peripherals.printer.name}
                               onChange={(e) => updatePeripheral('printer', 'name', e.target.value)}
                               className="h-10 rounded-lg bg-white border-slate-100 text-xs font-medium"
@@ -327,44 +354,84 @@ const TerminalForm = ({
 
                      {/* Barcode Scanner */}
                      <div className="p-4 rounded-xl bg-slate-50/50 border border-slate-100 space-y-4">
-                        <div className="flex items-center gap-2 text-slate-600">
-                           <Scan className="h-4 w-4" />
-                           <span className="text-[11px] font-bold uppercase tracking-wider">Barcode Scanner</span>
+                        <div className="flex items-center justify-between">
+                           <div className="flex items-center gap-2 text-slate-600">
+                              <Scan className="h-4 w-4" />
+                              <span className="text-[11px] font-bold uppercase tracking-wider">Barcode Scanner</span>
+                           </div>
+                           <Select
+                              value={formData.peripherals.scanner.status}
+                              onValueChange={(val) => updatePeripheral('scanner', 'status', val)}
+                           >
+                              <SelectTrigger className="h-7 w-24 bg-transparent border-none text-[10px] font-bold uppercase text-slate-400">
+                                 <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                 <SelectItem value="Connected">Connected</SelectItem>
+                                 <SelectItem value="Disconnected">Disconnected</SelectItem>
+                              </SelectContent>
+                           </Select>
                         </div>
-                        <Select
-                           value={formData.peripherals.scanner.connectionType}
-                           onValueChange={(val) => updatePeripheral('scanner', 'connectionType', val)}
-                        >
-                           <SelectTrigger className="h-10 rounded-lg bg-white border-slate-100 text-xs font-medium">
-                              <SelectValue />
-                           </SelectTrigger>
-                           <SelectContent>
-                              <SelectItem value="None">Disabled</SelectItem>
-                              <SelectItem value="USB">USB / HID Mode</SelectItem>
-                              <SelectItem value="Bluetooth">Wireless Link</SelectItem>
-                           </SelectContent>
-                        </Select>
+                        <div className="space-y-3">
+                           <Input
+                              placeholder="Scanner Model"
+                              value={formData.peripherals.scanner.name || ""}
+                              onChange={(e) => updatePeripheral('scanner', 'name', e.target.value)}
+                              className="h-10 rounded-lg bg-white border-slate-100 text-xs font-medium"
+                           />
+                           <Select
+                              value={formData.peripherals.scanner.connectionType}
+                              onValueChange={(val) => updatePeripheral('scanner', 'connectionType', val)}
+                           >
+                              <SelectTrigger className="h-10 rounded-lg bg-white border-slate-100 text-xs font-medium">
+                                 <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                 <SelectItem value="None">Disabled</SelectItem>
+                                 <SelectItem value="USB">USB / HID Mode</SelectItem>
+                                 <SelectItem value="Bluetooth">Wireless Link</SelectItem>
+                              </SelectContent>
+                           </Select>
+                        </div>
                      </div>
 
                      {/* Digital Scale */}
                      <div className="p-4 rounded-xl bg-slate-50/50 border border-slate-100 space-y-4">
-                        <div className="flex items-center gap-2 text-slate-600">
-                           <Scale className="h-4 w-4" />
-                           <span className="text-[11px] font-bold uppercase tracking-wider">Weight Scale</span>
+                        <div className="flex items-center justify-between">
+                           <div className="flex items-center gap-2 text-slate-600">
+                              <Scale className="h-4 w-4" />
+                              <span className="text-[11px] font-bold uppercase tracking-wider">Weight Scale</span>
+                           </div>
+                           <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-bold text-slate-400 uppercase">Calibrated</span>
+                              <Switch
+                                 checked={formData.peripherals.scale.isCalibrated}
+                                 onCheckedChange={(val) => updatePeripheral('scale', 'isCalibrated', val)}
+                                 className="scale-75"
+                              />
+                           </div>
                         </div>
-                        <Select
-                           value={formData.peripherals.scale.connectionType}
-                           onValueChange={(val) => updatePeripheral('scale', 'connectionType', val)}
-                        >
-                           <SelectTrigger className="h-10 rounded-lg bg-white border-slate-100 text-xs font-medium">
-                              <SelectValue />
-                           </SelectTrigger>
-                           <SelectContent>
-                              <SelectItem value="None">No Scale</SelectItem>
-                              <SelectItem value="USB">USB Protocol</SelectItem>
-                              <SelectItem value="Serial">RS232 Serial</SelectItem>
-                           </SelectContent>
-                        </Select>
+                        <div className="space-y-3">
+                           <Input
+                              placeholder="Scale Model"
+                              value={formData.peripherals.scale.name || ""}
+                              onChange={(e) => updatePeripheral('scale', 'name', e.target.value)}
+                              className="h-10 rounded-lg bg-white border-slate-100 text-xs font-medium"
+                           />
+                           <Select
+                              value={formData.peripherals.scale.connectionType}
+                              onValueChange={(val) => updatePeripheral('scale', 'connectionType', val)}
+                           >
+                              <SelectTrigger className="h-10 rounded-lg bg-white border-slate-100 text-xs font-medium">
+                                 <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                 <SelectItem value="None">No Scale</SelectItem>
+                                 <SelectItem value="USB">USB Protocol</SelectItem>
+                                 <SelectItem value="Serial">RS232 Serial</SelectItem>
+                              </SelectContent>
+                           </Select>
+                        </div>
                      </div>
 
                      {/* Additional Options */}
@@ -406,15 +473,12 @@ const TerminalForm = ({
 
                <div className="bg-slate-900 p-6 rounded-2xl text-white space-y-4 relative overflow-hidden shadow-xl shadow-slate-200">
                   <div className="relative z-10">
-                     <h4 className="font-bold text-sm tracking-widest uppercase mb-2 text-indigo-400 flex items-center gap-2">
-                        <Shield className="h-3 w-3" /> Security Note
+                     <h4 className="font-bold text-xs tracking-widest uppercase mb-2 text-indigo-400 flex items-center gap-2">
+                        <Shield className="h-3 w-3" /> Security Policy
                      </h4>
                      <p className="text-[11px] leading-relaxed text-slate-300 font-medium">
-                        IP and MAC binding ensures that only authorized hardware can process financial transactions. Changes to these parameters will require a security re-authorization by an administrator.
+                        Network binding (IP/MAC) is enforced. Only authorized hardware can process sales. Modifications trigger an automated security audit.
                      </p>
-                  </div>
-                  <div className="absolute -right-8 -bottom-8 opacity-10">
-                     <Database className="h-32 w-32" />
                   </div>
                </div>
             </div>
