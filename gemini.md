@@ -61,20 +61,25 @@ To generate unique, human-readable, and scalable transaction IDs, we avoid seque
 
 ---
 
-## 3. The POS Smart-Search Engine
+## 3. Search & Filtering Engines
 
-The POS search must handle thousands of SKUs with sub-50ms latency.
+The system employs multiple search strategies optimized for specific use cases (high-volume SKU search vs. human-readable entity search).
 
-### 3.1. Tier 1: Multi-Token Regex Lookahead
+### 3.1. POS Product Search (High-Frequency)
 When a user types "Blue Nike Shoe," the backend tokenizes the string into `['blue', 'nike', 'shoe']`. It then constructs a MongoDB query using **Positive Lookaheads**:
 ```javascript
 const regex = new RegExp(tokens.map(t => `(?=.*${t})`).join(''), 'i');
 // Matches any string containing all three words in any order.
 ```
-This is significantly faster than standard `OR` queries and provides a "Google-like" search experience.
+This is significantly faster than standard `OR` queries. If the Regex returns `[]`, **Fuse.js** performs bitap-based fuzzy matching locally.
 
-### 3.2. Tier 2: Fuse.js Fuzzy Logic
-If the Regex returns `[]` (zero results), the system assumes a typo. It fetches the branch's local SKU list (cached on the server) and uses **Fuse.js** to perform bitap-based fuzzy matching. This allows "Shrt" to find "Shirt."
+### 3.2. Terminal Report Smart-Search (Admin & Audit)
+To enable efficient auditing of staff performance:
+-   **Field Tokenization**: Search queries for "User Name" and "Branch Name" are tokenized (split by whitespace) and applied via Regex to matched fields (e.g., `user.firstName`, `user.lastName`, `branch.branch_name`).
+-   **Debounce Strategy**: Frontend inputs use a **500ms debounce** via `useDebounce` hook to prevent API thrashing during typing.
+-   **Role-Based Filters**: 
+    -   **Admins**: Can search by `branchName` across the entire network.
+    -   **Staff**: Restricted to their assigned `branch_id`; the branch search input is hidden.
 
 ### 3.3. Barcode Auto-Add Mechanics
 The frontend listens to input changes. If `results.length === 1` AND `input === results[0].sku`, the system assumes a barcode scanner input. It bypasses the UI selection and adds the item to the cart instantly, clearing the buffer for the next scan.

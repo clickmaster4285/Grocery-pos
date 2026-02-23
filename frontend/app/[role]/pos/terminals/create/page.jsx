@@ -26,7 +26,7 @@ const CreateTerminalPage = () => {
    };
 
    return (
-      <div className="p-6">
+      <div>
          <TerminalForm
             initialData={null}
             onSubmit={handleOnSubmit}

@@ -54,7 +54,7 @@ const EditTerminalPage = () => {
    }
 
    return (
-      <div className="p-6">
+      <div>
          <TerminalForm
             initialData={editingTerminal}
             onSubmit={handleOnSubmit}
