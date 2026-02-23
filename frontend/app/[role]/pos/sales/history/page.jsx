@@ -41,7 +41,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const SalesHistory = () => {
+const SalesHistory = ({ 
+  title = "Transaction History", 
+  description = "View and manage all past sales and transactions." 
+}) => {
   const { user } = useAuth();
   const { role } = useParams();
   const router = useRouter();
@@ -112,11 +115,14 @@ const SalesHistory = () => {
           <Button variant="outline" size="icon" onClick={() => router.push(`/${role}/pos/sales`)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight text-primary k uppercase italic">Transaction History</h1>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-primary uppercase italic leading-none">{title}</h1>
+            <p className="text-muted-foreground text-sm mt-1">{description}</p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
-          <Calendar className="h-4 w-4" />
+        <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium bg-muted/50 px-4 py-2 rounded-full border">
+          <Calendar className="h-4 w-4 text-primary" />
           <span>{startDate === endDate ? `Records for ${startDate}` : `${startDate} to ${endDate}`}</span>
         </div>
       </div>

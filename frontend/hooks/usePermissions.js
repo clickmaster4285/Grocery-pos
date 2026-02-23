@@ -52,6 +52,7 @@ export const usePermissions = () => {
       special: getMenuPermissions('point_of_sale', 'special_items'),
       returns: getMenuPermissions('point_of_sale', 'returns_exchanges'),
       receipts: getMenuPermissions('point_of_sale', 'receipt_management'),
+      terminal_management: getMenuPermissions('point_of_sale', 'terminal_management'),
     },
 
     // Module: Inventory
@@ -59,6 +60,7 @@ export const usePermissions = () => {
       products: getMenuPermissions('inventory', 'product_database'),
       stock: getMenuPermissions('inventory', 'stock_management'),
       po: getMenuPermissions('inventory', 'purchase_orders'),
+      location: getMenuPermissions('inventory', 'location_database'), 
       suppliers: getMenuPermissions('inventory', 'vendor_management'),
       categories: getMenuPermissions('inventory', 'categories_departments'),
       brands: getMenuPermissions('inventory', 'brands'),
@@ -91,6 +93,7 @@ export const usePermissions = () => {
       finance: getMenuPermissions('reporting_analytics', 'financial_reports'),
       employees: getMenuPermissions('reporting_analytics', 'employee_reports'),
       custom: getMenuPermissions('reporting_analytics', 'custom_reports'),
+      shift_reports: getMenuPermissions('reporting_analytics', 'terminal_shift_reports'),
     },
 
     // Module: Promotions

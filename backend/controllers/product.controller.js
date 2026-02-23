@@ -397,27 +397,9 @@ const updateProduct = async (req, res, next) => {
         }
         parsedProductData = transformEmptyStringsToNull(parsedProductData);
 
-        // Recursively remove null properties from variants and other top-level optional fields
-        if (parsedProductData.variants && Array.isArray(parsedProductData.variants)) {
-            parsedProductData.variants = parsedProductData.variants.map(variant => {
-                const newVariant = { ...variant };
-                for (const key in newVariant) {
-                    if (newVariant[key] === null) {
-                        delete newVariant[key];
-                    }
-                }
-                return newVariant;
-            });
-        }
-        // Also remove nulls from top-level fields that are optional
-        for (const key in parsedProductData) {
-            if (parsedProductData[key] === null) {
-                delete parsedProductData[key];
-            }
-        }
-
         const { error, value } = updateProductSchema.validate(parsedProductData, { abortEarly: false });
         if (error) {
+            console.error('Update Product Validation Error:', error.details.map(d => d.message));
             return res.status(400).json({
                 message: 'Validation failed',
                 details: error.details.map(detail => detail.message)
@@ -529,7 +511,25 @@ const updateProduct = async (req, res, next) => {
         });
 
         await product.save();
-        res.status(200).json(product);
+        
+        // Re-populate the product after saving to ensure descriptive user info is returned
+        const updatedProduct = await Product.findById(product._id)
+            .populate('category')
+            .populate('brand')
+            .populate({
+                path: 'variants.supplier',
+                select: 'name'
+            })
+            .populate({
+                path: 'variants.stockHistory.performedBy',
+                select: 'firstName lastName'
+            })
+            .populate({
+                path: 'variants.priceHistory.changedBy',
+                select: 'firstName lastName'
+            });
+
+        res.status(200).json(updatedProduct);
 
     } catch (error) {
         cleanupUploadedFiles(req.files);

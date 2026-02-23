@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const Branch = require('../models/branch.model');
+const BranchLocation = require('../models/branchLocation.model');
 const { generateUserId } = require('../utils/userIdGenerator');
 const { hashPassword } = require('../utils/password');
 const { PERMISSIONS } = require('./permissions'); 
@@ -75,4 +77,30 @@ const initializeAdminAccount = async () => {
   }
 };
 
-module.exports = { initializeAdminAccount };
+const initializeBranchLocations = async () => {
+  try {
+    const branches = await Branch.find({ isDeleted: false });
+    
+    for (const branch of branches) {
+      const existingBackroom = await BranchLocation.findOne({
+        branch: branch._id,
+        type: 'BACKROOM'
+      });
+
+      if (!existingBackroom) {
+        await BranchLocation.create({
+          branch: branch._id,
+          name: 'Default Backroom',
+          type: 'BACKROOM',
+          floor: 0,
+          capacity: 0 // Unlimited
+        });
+        console.log(`✅ Created Default Backroom for branch: ${branch.branch_name}`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error initializing branch locations:', error.message);
+  }
+};
+
+module.exports = { initializeAdminAccount, initializeBranchLocations };

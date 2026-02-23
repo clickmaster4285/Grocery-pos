@@ -1,19 +1,8 @@
 const Brand = require('../models/brand.model');
 const Counter = require('../models/counter.model');
 const mongoose = require('mongoose');
-const fs = require('fs');
-const path = require('path');
 const { createBrandSchema, updateBrandSchema } = require('../validation/brand.validation');
-
-// Helper to delete old logo
-const deleteOldLogo = (logoPath) => {
-    if (logoPath) {
-        const fullPath = path.join(__dirname, '..', logoPath);
-        if (fs.existsSync(fullPath)) {
-            fs.unlinkSync(fullPath);
-        }
-    }
-};
+const { deleteFile } = require('../utils/file.utils');
 
 // Helper to generate brand code: BRD-[BASE36_SERIAL]
 const generateBrandCode = async () => {
@@ -39,7 +28,7 @@ exports.createBrand = async (req, res, next) => {
   try {
     const { error, value } = createBrandSchema.validate(req.body, { abortEarly: false });
     if (error) {
-      if (req.file) deleteOldLogo(`uploads/brands/${req.file.filename}`);
+      if (req.file) deleteFile(`uploads/brands/${req.file.filename}`);
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
@@ -53,7 +42,7 @@ exports.createBrand = async (req, res, next) => {
     });
     
     if (existingBrand) {
-      if (req.file) deleteOldLogo(`uploads/brands/${req.file.filename}`);
+      if (req.file) deleteFile(`uploads/brands/${req.file.filename}`);
       return res.status(409).json({ 
         success: false,
         message: 'Brand with this name already exists.' 
@@ -88,7 +77,7 @@ exports.createBrand = async (req, res, next) => {
       data: brand
     });
   } catch (error) {
-    if (req.file) deleteOldLogo(`uploads/brands/${req.file.filename}`);
+    if (req.file) deleteFile(`uploads/brands/${req.file.filename}`);
     next(error);
   }
 };
@@ -170,7 +159,7 @@ exports.updateBrand = async (req, res, next) => {
 
     const { error, value } = updateBrandSchema.validate(req.body, { abortEarly: false });
     if (error) {
-      if (req.file) deleteOldLogo(`uploads/brands/${req.file.filename}`);
+      if (req.file) deleteFile(`uploads/brands/${req.file.filename}`);
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
@@ -180,7 +169,7 @@ exports.updateBrand = async (req, res, next) => {
 
     const existingDoc = await Brand.findOne({ _id: id, isDeleted: false });
     if (!existingDoc) {
-      if (req.file) deleteOldLogo(`uploads/brands/${req.file.filename}`);
+      if (req.file) deleteFile(`uploads/brands/${req.file.filename}`);
       return res.status(404).json({ 
         success: false,
         message: 'Brand not found.' 
@@ -194,7 +183,7 @@ exports.updateBrand = async (req, res, next) => {
         isDeleted: false 
       });
       if (duplicateBrand) {
-        if (req.file) deleteOldLogo(`uploads/brands/${req.file.filename}`);
+        if (req.file) deleteFile(`uploads/brands/${req.file.filename}`);
         return res.status(409).json({ 
           success: false,
           message: 'Brand with this name already exists.' 
@@ -216,7 +205,7 @@ exports.updateBrand = async (req, res, next) => {
     if (req.file) {
         // Delete old logo if it exists
         if (existingDoc.logo) {
-            deleteOldLogo(existingDoc.logo);
+            deleteFile(existingDoc.logo);
         }
         value.logo = `uploads/brands/${req.file.filename}`;
     } else {
@@ -247,7 +236,7 @@ exports.updateBrand = async (req, res, next) => {
       data: brand
     });
   } catch (error) {
-    if (req.file) deleteOldLogo(`uploads/brands/${req.file.filename}`);
+    if (req.file) deleteFile(`uploads/brands/${req.file.filename}`);
     next(error);
   }
 };

@@ -2,26 +2,22 @@ const Sale = require('../models/sale.model');
 const BranchStock = require('../models/branchStock.model');
 const Product = require('../models/product.model');
 const Counter = require('../models/counter.model');
+const Terminal = require('../models/terminal.model');
 const mongoose = require('mongoose');
+const BranchStockLocation = require('../models/branchStockLocation.model'); 
+const BranchLocation = require('../models/branchLocation.model'); 
+const { deductStockFromLocations } = require('../utils/inventory.utils'); 
 
 // Helper to generate bill number: SALE-YYYYMMDD-[BASE36_SERIAL]
-// Base-36 uses 0-9 and A-Z, allowing 1,679,616 unique IDs in just 4 characters.
 const generateBillNumber = async () => {
-    // 1. Get current date in YYYYMMDD format for the bill prefix
     const today = new Date();
     const dateStr = today.toISOString().slice(0, 10).replace(/-/g, ''); 
     
-    // 2. ATOMIC COUNTER UPDATE
-    // We use findOneAndUpdate with an aggregation pipeline to ensure atomicity.
-    // This prevents "race conditions" where two sales get the same number.
     const counter = await Counter.findOneAndUpdate(
         { id: 'sale_bill' },
         [
             {
                 $set: {
-                    // 3. DAILY RESET LOGIC
-                    // If the stored 'lastDate' matches today, increment the sequence.
-                    // Otherwise, it's a new day, so we reset the counter to 1.
                     seq: {
                         $cond: {
                             if: { $eq: ["$lastDate", dateStr] },
@@ -36,47 +32,51 @@ const generateBillNumber = async () => {
         { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    // 4. BASE-36 CONVERSION
-    // .toString(36) converts the number (e.g., 1234) into alphanumeric (e.g., 'ya').
-    // .toUpperCase() ensures the bill looks professional (e.g., 'YA').
-    // .padStart(4, '0') ensures the length is always 4 characters (e.g., '00YA').
     const serial = counter.seq.toString(36).toUpperCase().padStart(4, '0');
-
-    // Result Example: SALE-20260213-0A2F
     return `SALE-${dateStr}-${serial}`;
 };
 
 // Create a new sale
 exports.createSale = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
-        const { branchId, items, discount, paymentMethod, customerName, customerPhone } = req.body;
+        const { branchId, terminalId, items, discount, paymentMethod, customerName, customerPhone } = req.body;
         const cashierId = req.user._id;
 
         if (!items || items.length === 0) {
-            return res.status(400).json({ success: false, message: 'No items in the sale.' });
+            throw new Error('No items in the sale.');
+        }
+
+        // 1. Terminal Validation
+        if (!terminalId) {
+            throw new Error('Terminal ID is required for POS transactions.');
+        }
+
+        const terminal = await Terminal.findById(terminalId).session(session);
+        if (!terminal) throw new Error('Terminal not found.');
+        
+        if (terminal.status !== 'Available') {
+            throw new Error(`Terminal is currently ${terminal.status}. Please open a session or unlock terminal.`);
+        }
+
+        if (!terminal.activeSession || terminal.activeSession.userId.toString() !== cashierId.toString()) {
+            throw new Error('You do not have an active session on this terminal.');
         }
 
         let totalAmount = 0;
         const processedItems = [];
 
-        // Validate items and check branch stock
         for (const item of items) {
-            const product = await Product.findById(item.product);
-            if (!product) throw new Error(`Product ${item.product} not found`);
+            const product = await Product.findById(item.product).session(session);
+            if (!product) throw new Error(`Product ${item.product} not found.`);
 
             const variant = product.variants.id(item.variantId);
-            if (!variant) throw new Error(`Variant ${item.variantId} not found`);
+            if (!variant) throw new Error(`Variant ${item.variantId} not found for product ${product.productName}.`);
 
-            // Check Branch Stock
-            const branchStock = await BranchStock.findOne({
-                branch: branchId,
-                product: item.product,
-                variantId: item.variantId
-            });
-
-            if (!branchStock || branchStock.quantity < item.quantity) {
-                throw new Error(`Insufficient stock in branch for ${product.productName} (${variant.sku})`);
-            }
+            // Deduct stock from BranchStockLocations using the utility function
+            await deductStockFromLocations(branchId, item.product, item.variantId, item.quantity, session);
 
             // Get latest price
             const latestPrice = variant.priceHistory[variant.priceHistory.length - 1].sellingPrice;
@@ -92,10 +92,6 @@ exports.createSale = async (req, res) => {
                 unitPrice: latestPrice,
                 subtotal: itemSubtotal
             });
-
-            // Deduct from Branch Stock
-            branchStock.quantity -= item.quantity;
-            await branchStock.save();
         }
 
         const finalAmount = totalAmount - (discount || 0);
@@ -104,6 +100,7 @@ exports.createSale = async (req, res) => {
         const sale = new Sale({
             billNumber,
             branch: branchId,
+            terminal: terminalId, // Linked to terminal
             items: processedItems,
             totalAmount,
             discount: discount || 0,
@@ -114,12 +111,29 @@ exports.createSale = async (req, res) => {
             customerPhone
         });
 
-        await sale.save();
+        await sale.save({ session });
 
+        // 2. Update Terminal Session State
+        const drawerUpdate = paymentMethod === 'CASH' ? finalAmount : 0;
+        
+        await Terminal.findByIdAndUpdate(terminalId, {
+            $inc: {
+                'activeSession.currentDrawerBalance': drawerUpdate,
+                'activeSession.transactionCount': 1
+            },
+            $set: {
+                'activeSession.lastTransactionId': sale.billNumber
+            }
+        }, { session });
+
+        await session.commitTransaction();
         res.status(201).json({ success: true, data: sale });
 
     } catch (error) {
+        await session.abortTransaction();
         res.status(400).json({ success: false, message: error.message });
+    } finally {
+        session.endSession();
     }
 };
 
@@ -129,6 +143,7 @@ exports.getBranchSales = async (req, res) => {
         const { branchId } = req.params;
         const sales = await Sale.find({ branch: branchId })
             .populate('cashier', 'firstName lastName')
+            .populate('branch', 'branch_name') // Added populate for branch
             .sort({ createdAt: -1 });
         
         res.status(200).json({ success: true, data: sales });

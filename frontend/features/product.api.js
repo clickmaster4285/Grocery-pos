@@ -59,8 +59,17 @@ const processProductData = (productData) => {
   const formData = new FormData();
   const processedProductData = { ...productData };
 
+  // Strip read-only or calculated fields from top level
+  delete processedProductData.totalStock;
+  delete processedProductData.lastRestocked;
+  delete processedProductData.createdAt;
+  delete processedProductData.updatedAt;
+  delete processedProductData.__v;
+
   processedProductData.variants = productData.variants?.map((variant, variantIndex) => {
-    const newVariant = { ...variant };
+    // eslint-disable-next-line no-unused-vars
+    const { priceHistory, stockHistory, createdAt, updatedAt, __v, ...rest } = variant;
+    const newVariant = { ...rest };
 
     if (newVariant.supplier === '') {
       newVariant.supplier = null;
@@ -82,7 +91,7 @@ const processProductData = (productData) => {
     newVariant.images = existingImageUrls;
 
     return newVariant;
-  }) || []; // Default to empty array if productData.variants is null/undefined
+  }) || [];
 
   if (processedProductData.category === '') {
     processedProductData.category = null;

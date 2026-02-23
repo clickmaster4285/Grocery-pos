@@ -1,14 +1,17 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { StaffForm } from '@/components/shared-components/employees/StaffForm';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useUsersHook } from '@/hooks/useUsersHook';
 import { ROLES } from '@/constants/roles';
 import { useGetAllBranches } from '@/features/branch.api';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft } from 'lucide-react';
 
 const EmployeeEditPage = () => {
   const params = useParams();
+  const router = useRouter();
   const { id } = params;
 
   const {
@@ -22,7 +25,7 @@ const EmployeeEditPage = () => {
     createUserMutation,
     updateUserMutation,
     isEditMode,
-  } = useUsersHook(id); 
+  } = useUsersHook(id);
 
   const { data: branchesData, isLoading: branchesLoading } = useGetAllBranches();
   const branches = branchesData?.data || [];
@@ -32,23 +35,28 @@ const EmployeeEditPage = () => {
   }
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Edit Employee</h1>
-        <p className="text-muted-foreground">
-          Update the employee's details and permissions below.
-        </p>
+    <div className='bg-white p-2 rounded-md'>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Edit Employee</h1>
+          <p className="text-muted-foreground">
+            Update the employee's details and permissions below.
+          </p>
+        </div>
+        <Button variant="ghost" onClick={() => router.back()} className="gap-2">
+          <ChevronLeft className="h-4 w-4" /> Back to List
+        </Button>
       </div>
-      
+
       <StaffForm
         formData={formData}
         updateFormField={updateFormField}
         handleSubmit={handleSubmit}
         resetForm={resetForm}
-        editingUser={isEditMode ? { id } : null} 
+        editingUser={isEditMode ? { id } : null}
         createUserMutation={createUserMutation}
         updateUserMutation={updateUserMutation}
-        allPermissions={transformedAllPermissions} 
+        allPermissions={transformedAllPermissions}
         permissionsLoading={permissionsLoading}
         ROLES={ROLES}
         branches={branches}

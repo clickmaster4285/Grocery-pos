@@ -1,15 +1,24 @@
 const mongoose = require('mongoose');
 
 const stockTransferSchema = new mongoose.Schema({
-    fromLocation: {
+    transferType: {
         type: String,
+        enum: ['EXTERNAL', 'INTERNAL'],
+        default: 'EXTERNAL',
         required: true,
-        // Could be 'WAREHOUSE' or a Branch ID
+    },
+    fromLocation: {
+        type: String, // 'WAREHOUSE', Branch ID, or BranchLocation ID (if INTERNAL)
+        required: true,
     },
     toLocation: {
+        type: String, // Branch ID or BranchLocation ID (if INTERNAL)
+        required: true,
+    },
+    branch: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Branch',
-        required: true,
+        // Required for INTERNAL transfers to identify the branch context
     },
     items: [{
         product: {

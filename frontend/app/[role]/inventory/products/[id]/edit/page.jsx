@@ -18,6 +18,11 @@ const EditProductPage = () => {
   const { data: productData, isLoading, isError, error } = useGetProductById(productId);
   const updateProductMutation = useUpdateProduct();
 
+  // Add console.log here
+  if (!isLoading && !isError && productData) {
+    console.log("Whole Product Data on Edit:", productData);
+  }
+
   const handleSubmit = async (data) => {
     try {
       await updateProductMutation.mutateAsync({ id: productId, ...data });

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/useAuth';
+import { useSettings } from '@/hooks/useSettings';
 import Link from 'next/link';
 import {
   ChevronLeft,
@@ -12,6 +13,7 @@ import {
   LogOut,
   ChevronDown,
   Circle,
+  Store,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
@@ -131,6 +133,7 @@ export default function DynamicSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { companyName, logoUrl } = useSettings();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const userPrimaryRole = useMemo(() => {
@@ -141,8 +144,6 @@ export default function DynamicSidebar() {
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
   if (!user || !user.availableModules) return null;
-
-  console.log(user.availableModules);
 
   return (
     <>
@@ -155,11 +156,25 @@ export default function DynamicSidebar() {
         {/* Header */}
         <div className="px-4 py-4 border-b border-gray-300 flex items-center justify-between">
           {!isCollapsed && (
-            <h1 className="text-xl font-extrabold cursor-pointer tracking-tighter truncate" onClick={() => router.push(`/${userPrimaryRole}/dashboard`)}>
-              <span className="text-primary">Super</span>
-              <span className="text-foreground">POS</span>
-            </h1>
+            <div 
+              className="flex items-center gap-3 cursor-pointer overflow-hidden group" 
+              onClick={() => router.push(`/${userPrimaryRole}/dashboard`)}
+            >
+              {logoUrl ? (
+                <div className="h-8 w-8 rounded-lg overflow-hidden border border-gray-200 bg-white shrink-0 group-hover:scale-105 transition-transform">
+                  <img src={logoUrl} alt="Logo" className="h-full w-full object-contain" />
+                </div>
+              ) : (
+                <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+                  <Store className="text-white h-5 w-5" />
+                </div>
+              )}
+              <h1 className="text-lg font-black tracking-tighter truncate text-primary uppercase">
+                {companyName}
+              </h1>
+            </div>
           )}
+          
           <Button variant="ghost" size="sm" onClick={toggleSidebar} className={cn('h-8 w-8 p-0', isCollapsed ? 'mx-auto' : '')}>
             {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </Button>
@@ -182,24 +197,8 @@ export default function DynamicSidebar() {
 
         <Separator />
 
-        {/* Footer Actions */}
-        {/* <div className="p-2">
-          <Button
-            variant="ghost"
-            className={cn(
-              'w-full justify-start gap-3 h-10 px-3 text-destructive hover:text-destructive hover:bg-destructive/10',
-              isCollapsed ? 'justify-center px-0' : ''
-            )}
-            onClick={handleLogout}
-            title={isCollapsed ? 'Logout' : ''}
-          >
-            <LogOut size={18} />
-            {!isCollapsed && <span className="font-medium">Logout</span>}
-          </Button>
-        </div> */}
-
         {!isCollapsed && (
-          <div className="px-4 py-3 border-t border-gray-200 text-[10px] text-muted-foreground uppercase tracking-widest text-center">
+          <div className="px-4 py-3 border-t border-gray-200 text-[10px] text-muted-foreground uppercase tracking-widest text-center font-bold">
             power by Clickmasters
           </div>
         )}

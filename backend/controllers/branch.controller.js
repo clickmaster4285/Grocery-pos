@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Branch = require("../models/branch.model");
 const Counter = require("../models/counter.model");
+const BranchLocation = require("../models/branchLocation.model"); // Added
 
 // Helper to generate branch code: BR-[BASE36_SERIAL]
 const generateBranchCode = async () => {
@@ -53,6 +54,7 @@ exports.getAllBranches = async (req, res) => {
   try {
     const branches = await Branch.find({ isDeleted: { $ne: true } })
       .populate('createdBy', 'firstName lastName')
+      .populate('terminals', 'name terminalId status')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -84,7 +86,8 @@ exports.getBranchById = async (req, res) => {
       isDeleted: { $ne: true }
     })
     .populate('createdBy', 'firstName lastName')
-    .populate('updatedBy', 'firstName lastName');
+    .populate('updatedBy', 'firstName lastName')
+    .populate('terminals', 'name terminalId status');
 
     if (!branch) {
       return res.status(404).json({
@@ -151,6 +154,9 @@ exports.updateBranch = async (req, res) => {
 };
 
 exports.deleteBranch = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { id } = req.params;
 
@@ -161,24 +167,41 @@ exports.deleteBranch = async (req, res) => {
         deletedAt: Date.now(),
         deletedBy: req.user.id
       },
-      { new: true }
+      { new: true, session }
     );
 
     if (!branch) {
-      return res.status(404).json({
-        success: false,
-        message: "Branch not found or already deleted"
-      });
+      throw new Error("Branch not found or already deleted");
     }
+
+    // Soft delete all associated BranchLocations
+    await BranchLocation.updateMany(
+      { branch: id, isActive: true }, // Assuming isActive acts as soft delete for locations
+      { $set: { isActive: false } },
+      { session }
+    );
+
+    // Soft delete all associated BranchStockLocation documents (if using soft delete for stock)
+    // Or, remove them if they are tightly coupled to active branch locations and need to be cleaned up.
+    // For now, let's assume they are tightly coupled and should be removed.
+    await BranchStockLocation.deleteMany(
+      { branch: id },
+      { session }
+    );
+
+    await session.commitTransaction();
 
     res.status(200).json({
       success: true,
-      message: "Branch deleted successfully"
+      message: "Branch and associated locations deleted successfully"
     });
   } catch (error) {
-    res.status(500).json({
+    await session.abortTransaction();
+    res.status(400).json({
       success: false,
       message: error.message
     });
+  } finally {
+    session.endSession();
   }
 };

@@ -16,14 +16,14 @@ const CreateTransferPage = () => {
         <Button 
           variant="outline" 
           size="icon" 
-          onClick={() => router.push(`/${role}/stock`)}
+          onClick={() => router.push(`/${role}/inventory/stock`)}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-3xl font-bold tracking-tight">New Stock Transfer</h1>
       </div>
       
-      <StockTransferForm onSuccess={() => router.push(`/${role}/stock`)} />
+      <StockTransferForm onSuccess={() => router.push(`/${role}/inventory/stock`)} />
     </div>
   );
 };

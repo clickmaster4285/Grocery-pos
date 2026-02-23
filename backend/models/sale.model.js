@@ -57,6 +57,10 @@ const saleSchema = new mongoose.Schema({
         required: true,
         default: 'CASH',
     },
+    terminal: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Terminal',
+    },
     cashier: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

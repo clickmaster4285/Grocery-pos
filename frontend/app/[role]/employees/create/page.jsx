@@ -5,10 +5,14 @@ import { DialogHeader, DialogTitle, DialogDescription, Dialog } from "@/componen
 import { useUsersHook } from '@/hooks/useUsersHook';
 import { ROLES } from '@/constants/roles';
 import { useGetAllBranches } from '@/features/branch.api';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const EmployeeCreatePage = () => {
+  const router = useRouter();
   const {
-    formData, 
+    formData,
     isUserLoading,
     permissionsLoading,
     transformedAllPermissions,
@@ -18,25 +22,30 @@ const EmployeeCreatePage = () => {
     createUserMutation,
     updateUserMutation,
     isEditMode,
-    currentUser, 
-  } = useUsersHook(); 
+    currentUser,
+  } = useUsersHook();
 
   const { data: branchesData, isLoading: branchesLoading } = useGetAllBranches();
   const branches = branchesData?.data || [];
 
   if (isUserLoading || branchesLoading) {
-    return <div>Loading...</div>; 
+    return <div>Loading...</div>;
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Add New Employee</h1>
-        <p className="text-muted-foreground">
-          Fill in the details below to create a new employee account.
-        </p>
+    <div className='bg-white p-2 rounded-md'>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Add New Employee</h1>
+          <p className="text-muted-foreground">
+            Fill in the details below to create a new employee account.
+          </p>
+        </div>
+        <Button variant="ghost" onClick={() => router.back()} className="gap-2">
+          <ChevronLeft className="h-4 w-4" /> Back to List
+        </Button>
       </div>
-      
+
       <StaffForm
         formData={formData}
         updateFormField={updateFormField}

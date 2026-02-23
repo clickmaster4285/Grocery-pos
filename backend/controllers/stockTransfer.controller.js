@@ -1,83 +1,160 @@
 const StockTransfer = require('../models/stockTransfer.model');
 const BranchStock = require('../models/branchStock.model');
+const BranchStockLocation = require('../models/branchStockLocation.model');
+const BranchLocation = require('../models/branchLocation.model');
+const Branch = require('../models/branch.model');
 const Product = require('../models/product.model');
 const mongoose = require('mongoose');
 const Fuse = require('fuse.js');
+const {
+    checkStorageCompatibility,
+    checkCapacity,
+    getDefaultBackroomLocation,
+    deductStockFromLocations,
+    addStockToLocation
+} = require('../utils/inventory.utils');
 
 // Create a new stock transfer
 exports.createTransfer = async (req, res) => {
     try {
-        const { fromLocation, toLocation, items, notes } = req.body;
+        const { transferType, fromLocation, toLocation, items, notes } = req.body;
         const transferredBy = req.user._id;
+        const branchId = req.user.branch_id;
 
-        // items: [{ product, variantId, quantity }]
-        
+        let fromLocObj, toLocObj;
+        let destBranchDefaultBackroom;
+
+        if (transferType === 'INTERNAL') {
+            if (!branchId) {
+                throw new Error('Branch ID is required for internal transfers.');
+            }
+            fromLocObj = await BranchLocation.findById(fromLocation);
+            toLocObj = await BranchLocation.findById(toLocation);
+
+            if (!fromLocObj || !toLocObj) {
+                throw new Error('Invalid source or destination physical location for internal transfer.');
+            }
+            if (!fromLocObj.branch.equals(branchId) || !toLocObj.branch.equals(branchId)) {
+                throw new Error('Internal transfer locations must belong to the user\'s branch.');
+            }
+            if (fromLocObj._id.equals(toLocObj._id)) {
+                throw new Error('Source and destination locations cannot be the same for internal transfer.');
+            }
+        }
+
+        if (transferType === 'EXTERNAL') {
+            // Pre-fetch destination default backroom and check its existence
+            destBranchDefaultBackroom = await getDefaultBackroomLocation(toLocation);
+        }
+
+        // PRE-VALIDATION & DATA PREPARATION
+        const productDocsMap = new Map(); // To group saves and avoid ParallelSaveError
+        const preparedItems = [];
+
         for (const item of items) {
-            const product = await Product.findById(item.product);
-            if (!product) throw new Error(`Product ${item.product} not found`);
+            const productId = item.productId || item.product;
+            if (!productId) throw new Error('Product ID is required for transfer items.');
 
-            const variant = product.variants.id(item.variantId);
-            if (!variant) throw new Error(`Variant ${item.variantId} not found`);
-
-            if (fromLocation === 'WAREHOUSE') {
-                // Check if warehouse has enough stock
-                if (variant.stock < item.quantity) {
-                    throw new Error(`Insufficient stock in Warehouse for ${product.productName} (${variant.sku || 'Variant'})`);
-                }
-
-                // Deduct from Warehouse
-                variant.stock -= item.quantity;
-                variant.stockHistory.push({
-                    change: -item.quantity,
-                    type: 'TRANSFER_OUT',
-                    reason: `Transfer to branch ${toLocation}`,
-                    performedBy: transferredBy
-                });
-                await product.save();
-
-            } else {
-                // Deduct from another Branch
-                const sourceBranchStock = await BranchStock.findOne({
-                    branch: fromLocation,
-                    product: item.product,
-                    variantId: item.variantId
-                });
-
-                if (!sourceBranchStock || sourceBranchStock.quantity < item.quantity) {
-                    throw new Error(`Insufficient stock in source branch for ${product.productName}`);
-                }
-
-                sourceBranchStock.quantity -= item.quantity;
-                await sourceBranchStock.save();
+            // Reuse product docs to avoid version conflicts and multiple saves
+            let productDoc = productDocsMap.get(productId);
+            if (!productDoc) {
+                productDoc = await Product.findById(productId);
+                if (!productDoc) throw new Error(`Product not found with ID: ${productId}`);
+                productDocsMap.set(productId, productDoc);
             }
 
-            // Add to Destination Branch
-            let destBranchStock = await BranchStock.findOne({
-                branch: toLocation,
-                product: item.product,
-                variantId: item.variantId
+            const variant = productDoc.variants.id(item.variantId);
+            if (!variant) throw new Error(`Variant ${item.variantId} not found for product ${productDoc.productName}.`);
+
+            // Check stock availability
+            if (transferType === 'EXTERNAL') {
+                if (fromLocation === 'WAREHOUSE') {
+                    if (variant.stock < item.quantity) {
+                        throw new Error(`Insufficient stock in Warehouse for ${productDoc.productName} (${variant.sku}). Available: ${variant.stock}, Requested: ${item.quantity}`);
+                    }
+                } else {
+                    // Branch to Branch / Warehouse: Check source branch's total availability
+                    const branchStock = await BranchStock.findOne({ branch: fromLocation, product: productId, variantId: item.variantId });
+                    if (!branchStock || branchStock.quantity < item.quantity) {
+                        throw new Error(`Insufficient total stock in source branch for ${productDoc.productName} (${variant.sku}). Available: ${branchStock?.quantity || 0}, Requested: ${item.quantity}`);
+                    }
+                }
+
+                // Check capacity at destination
+                if (destBranchDefaultBackroom) {
+                    await checkCapacity(destBranchDefaultBackroom._id, item.quantity);
+                }
+
+            } else if (transferType === 'INTERNAL') {
+                // Strict check: Availability at the SPECIFIC source location (e.g., Storeroom)
+                const sourceStockLocation = await BranchStockLocation.findOne({ 
+                    branch: branchId, 
+                    product: productId, 
+                    variantId: item.variantId, 
+                    location: fromLocation 
+                });
+
+                if (!sourceStockLocation || sourceStockLocation.quantity < item.quantity) {
+                    throw new Error(`Insufficient stock in source location "${fromLocObj.name}" for ${productDoc.productName}. Available: ${sourceStockLocation?.quantity || 0}, Requested: ${item.quantity}`);
+                }
+
+                // Check storage compatibility and capacity
+                checkStorageCompatibility(productDoc.storageRequirement, toLocObj.type);
+                await checkCapacity(toLocObj._id, item.quantity);
+            }
+
+            preparedItems.push({
+                productDoc,
+                variantId: item.variantId,
+                quantity: item.quantity,
+                productId
             });
+        }
 
-            if (destBranchStock) {
-                destBranchStock.quantity += item.quantity;
-                destBranchStock.lastUpdated = Date.now();
-                await destBranchStock.save();
-            } else {
-                destBranchStock = new BranchStock({
-                    branch: toLocation,
-                    product: item.product,
-                    variantId: item.variantId,
-                    quantity: item.quantity
-                });
-                await destBranchStock.save();
+        // MUTATION PASS
+        const transferItems = [];
+        for (const preparedItem of preparedItems) {
+            const { productDoc, variantId, quantity, productId } = preparedItem;
+            const variant = productDoc.variants.id(variantId);
+
+            if (transferType === 'EXTERNAL') {
+                if (fromLocation === 'WAREHOUSE') {
+                    variant.stock -= quantity;
+                    variant.stockHistory.push({
+                        change: -quantity,
+                        type: 'TRANSFER_OUT',
+                        reason: `External transfer to branch ${toLocation}`,
+                        performedBy: transferredBy
+                    });
+                    // Note: Doc is saved at the end of the logic to handle multi-variant updates safely
+                } else {
+                    await deductStockFromLocations(fromLocation, productId, variantId, quantity);
+                }
+
+                // Add to destination branch's default backroom
+                await addStockToLocation(toLocation, productId, variantId, destBranchDefaultBackroom._id, quantity);
+
+            } else if (transferType === 'INTERNAL') {
+                // Deduct from SPECIFIC source location and add to specific target location
+                await deductStockFromLocations(branchId, productId, variantId, quantity, null, fromLocation);
+                await addStockToLocation(branchId, productId, variantId, toLocObj._id, quantity);
             }
+
+            transferItems.push({ product: productId, variantId, quantity });
+        }
+
+        // Finalize all product document changes (Warehouse stock reductions)
+        for (const doc of productDocsMap.values()) {
+            await doc.save();
         }
 
         // Record the transfer
         const transfer = new StockTransfer({
-            fromLocation,
-            toLocation,
-            items,
+            transferType,
+            fromLocation: transferType === 'EXTERNAL' ? fromLocation : fromLocObj._id,
+            toLocation: transferType === 'EXTERNAL' ? toLocation : toLocObj._id,
+            branch: transferType === 'INTERNAL' ? branchId : undefined,
+            items: transferItems,
             notes,
             transferredBy,
             status: 'COMPLETED'
@@ -87,21 +164,77 @@ exports.createTransfer = async (req, res) => {
         res.status(201).json({ success: true, data: transfer });
 
     } catch (error) {
+        console.error('Stock Transfer Error:', error.message);
         res.status(400).json({ success: false, message: error.message });
     }
 };
 
-// Get all transfers
+// Get all transfers with role-based filtering
 exports.getTransfers = async (req, res) => {
     try {
-        const transfers = await StockTransfer.find()
-            .populate('toLocation', 'branch_name')
+        const { role, branch_id } = req.user;
+        const isAdmin = role === 'admin';
+
+        let query = {};
+
+        if (isAdmin) {
+            // Admins see all EXTERNAL transfers (Warehouse -> Branch, Branch -> Branch)
+            query = { transferType: 'EXTERNAL' };
+        } else {
+            // Staff see only INTERNAL transfers within their own branch
+            if (!branch_id) {
+                return res.status(200).json({ success: true, data: [] });
+            }
+            query = {
+                transferType: 'INTERNAL',
+                branch: branch_id
+            };
+        }
+
+        const transfers = await StockTransfer.find(query)
+            .populate('branch', 'branch_name')
             .populate('transferredBy', 'firstName lastName')
             .populate('items.product', 'productName')
             .sort({ createdAt: -1 });
-        
-        res.status(200).json({ success: true, data: transfers });
+
+        const populatedTransfers = await Promise.all(transfers.map(async (transfer) => {
+            let fromLocationDisplay = transfer.fromLocation;
+            let toLocationDisplay = transfer.toLocation;
+
+            // Handle fromLocation display
+            if (transfer.fromLocation === 'WAREHOUSE') {
+                fromLocationDisplay = 'Main Warehouse';
+            } else if (mongoose.Types.ObjectId.isValid(transfer.fromLocation)) {
+                if (transfer.transferType === 'EXTERNAL') {
+                    const fromBranch = await Branch.findById(transfer.fromLocation).select('branch_name');
+                    fromLocationDisplay = fromBranch ? fromBranch.branch_name : 'Unknown Branch';
+                } else {
+                    const fromLoc = await BranchLocation.findById(transfer.fromLocation).select('name');
+                    fromLocationDisplay = fromLoc ? fromLoc.name : 'Unknown Location';
+                }
+            }
+
+            // Handle toLocation display
+            if (mongoose.Types.ObjectId.isValid(transfer.toLocation)) {
+                if (transfer.transferType === 'EXTERNAL') {
+                    const toBranch = await Branch.findById(transfer.toLocation).select('branch_name');
+                    toLocationDisplay = toBranch ? toBranch.branch_name : 'Unknown Branch';
+                } else {
+                    const toLoc = await BranchLocation.findById(transfer.toLocation).select('name');
+                    toLocationDisplay = toLoc ? toLoc.name : 'Unknown Location';
+                }
+            }
+
+            return {
+                ...transfer.toObject(),
+                fromLocationDisplay,
+                toLocationDisplay,
+            };
+        }));
+
+        res.status(200).json({ success: true, data: populatedTransfers });
     } catch (error) {
+        console.error('Get Transfers Error:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -111,43 +244,44 @@ exports.getBranchStock = async (req, res) => {
     try {
         const { branchId } = req.params;
         const { search } = req.query;
-        
-        // Return empty if no search term is provided (to keep catalog empty initially)
-        if (!search || search.trim() === '') {
+
+        if (!branchId || branchId === 'undefined' || !mongoose.Types.ObjectId.isValid(branchId)) {
             return res.status(200).json({ success: true, data: [] });
         }
 
-        const searchTerms = search.trim().split(/\s+/);
-        // Create a regex that ensures all search terms are present (order-independent)
-        const smartRegex = new RegExp(searchTerms.map(term => `(?=.*${term})`).join(''), 'i');
-
+        const searchTerms = (search || '').trim().split(/\s+/).filter(t => t !== '');
         let query = { branch: branchId };
-        
-        // First, attempt a high-performance DB search using regex
-        let stock = await BranchStock.find(query)
-            .populate({
-                path: 'product',
-                select: 'productName category brand variants',
-                match: {
-                    $or: [
-                        { productName: { $regex: smartRegex } },
-                        { 'variants.sku': { $regex: smartRegex } }
-                    ]
-                }
-            })
-            .populate('branch', 'branch_name');
-        
-        // Filter out items where the product didn't match the regex criteria
-        let finalResults = stock.filter(item => item.product !== null);
 
-        // If no results found with regex, use Fuse.js for fuzzy matching
-        if (finalResults.length === 0) {
-            // Fetch all stock for this branch to perform fuzzy search in memory
+        // 1. Fetch Aggregated Stock first to use Smart Regex / Fuzzy Search
+        let stock;
+        if (searchTerms.length > 0) {
+            const smartRegex = new RegExp(searchTerms.map(term => `(?=.*${term})`).join(''), 'i');
+            stock = await BranchStock.find(query)
+                .populate({
+                    path: 'product',
+                    select: 'productName category brand variants',
+                    match: {
+                        $or: [
+                            { productName: { $regex: smartRegex } },
+                            { 'variants.sku': { $regex: smartRegex } }
+                        ]
+                    }
+                })
+                .populate('branch', 'branch_name');
+        } else {
+            stock = await BranchStock.find(query)
+                .populate('product', 'productName category brand variants')
+                .populate('branch', 'branch_name');
+        }
+
+        let filteredStock = stock.filter(item => item.product !== null);
+
+        // 2. Fallback to Fuzzy Search if needed
+        if (searchTerms.length > 0 && filteredStock.length === 0) {
             const allStock = await BranchStock.find(query)
                 .populate('product', 'productName variants')
                 .populate('branch', 'branch_name');
-            
-            // Prepare data for Fuse - flatten nested fields for searching
+
             const searchData = allStock.map(item => {
                 const variant = item.product?.variants.find(v => v._id.toString() === item.variantId.toString());
                 return {
@@ -159,16 +293,45 @@ exports.getBranchStock = async (req, res) => {
 
             const fuse = new Fuse(searchData, {
                 keys: ['searchableName', 'searchableSku'],
-                threshold: 0.3, // 0.0 is perfect match, 1.0 matches everything
+                threshold: 0.3,
                 distance: 100
             });
 
             const fuseResults = fuse.search(search);
-            finalResults = fuseResults.map(result => result.item);
+            filteredStock = fuseResults.map(result => result.item);
         }
-        
+
+        // 3. Re-hydrate with Location Details for the final results
+        const finalResults = await Promise.all(filteredStock.map(async (item) => {
+            const itemObj = item.toObject ? item.toObject() : item;
+
+            // Find all physical locations for this variant
+            const locations = await BranchStockLocation.find({
+                branch: branchId,
+                product: item.product._id,
+                variantId: item.variantId,
+                quantity: { $gt: 0 }
+            }).populate('location', 'name type');
+
+            // Format location string (e.g., "Aisle 1, Backroom")
+            itemObj.locationDisplay = locations.length > 0
+                ? locations.map(l => l.location.name).join(', ')
+                : 'NAN';
+
+            // Send full location objects for richer UI icons/badges
+            itemObj.locations = locations.map(l => ({
+                locationId: l.location._id,
+                name: l.location.name,
+                type: l.location.type,
+                quantity: l.quantity
+            }));
+
+            return itemObj;
+        }));
+
         res.status(200).json({ success: true, data: finalResults });
     } catch (error) {
+        console.error('Get Branch Stock Error:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };

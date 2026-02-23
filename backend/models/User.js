@@ -16,14 +16,13 @@ const userSchema = new mongoose.Schema(
     },
     lastName: {
       type: String,
-      // required: [true, 'Last name is required'],
       trim: true,
       maxlength: [50, 'Last name cannot be more than 50 characters'],
     },
     email: {
       type: String,
-      required: [true, 'Email is required'],
       unique: true,
+      sparse: true,
       lowercase: true,
       trim: true,
       match: [
@@ -31,31 +30,149 @@ const userSchema = new mongoose.Schema(
         'Please enter a valid email address',
       ],
     },
+    phone: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+    },
+    // System Access & Security
+    hasSystemAccess: {
+      type: Boolean,
+      default: false,
+    },
     password: {
       type: String,
-      required: [true, 'Password is required'],
-      select: false, // Do not return password by default
+      select: false,
     },
-    phone: {
-      type: Number,
-      // required: [true, 'Phone number is required'],
-      unique: true, 
-      trim: true,
-      match: [
-        /^\+?[1-9]\d{1,14}$/,
-        'Please enter a valid phone number',
-      ],
+    pin: {
+      type: String,
+      // required: [true, 'PIN is required for attendance tracking'], it is not required for now because we also got some gereral staff
+      select: false,
+    },
+    isTwoFactorEnabled: {
+      type: Boolean,
+      default: false,
     },
 
+    // Role & Permissions
     role: {
       type: String,
       required: true,
-      default: 'customer',
+      default: 'general_staff',
     },
     permissions: {
       type: [String],
       default: [],
     },
+    allowedTerminals: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Terminal',
+      }
+    ],
+    transactionLimits: {
+      maxDiscountPercent: { type: Number, default: 10 },
+      maxVoidAmount: { type: Number, default: 500 },
+      requireManagerForPriceOverride: { type: Boolean, default: true }
+    },
+
+    // Employment Details
+    employment: {
+      hireDate: {
+        type: Date,
+        default: Date.now,
+      },
+      terminationDate: {
+        type: Date,
+      },
+      designation: {
+        type: String,
+        trim: true,
+      },
+      department: {
+        type: String,
+        trim: true,
+      },
+      status: {
+        type: String,
+        enum: ['ACTIVE', 'INACTIVE', 'ON_LEAVE', 'TERMINATED'],
+        default: 'ACTIVE',
+      },
+    },
+
+    // Current Shift Configuration
+    shift: {
+      startTime: String, // e.g. "09:00"
+      endTime: String,   // e.g. "17:00"
+      workDays: [String], // e.g. ["Monday", "Tuesday"]
+    },
+
+    // Financial / Salary Management
+    salary: {
+      baseAmount: {
+        type: Number,
+        default: 0,
+      },
+      payType: {
+        type: String,
+        enum: ['HOURLY', 'SALARY', 'FIXED'],
+        default: 'SALARY',
+      },
+      paymentMethod: {
+        type: String,
+        enum: ['CASH', 'BANK_TRANSFER', 'CHECK'],
+        default: 'CASH',
+      },
+      bankDetails: {
+        bankName: String,
+        accountNumber: String,
+        iban: String,
+      }
+    },
+
+    // Historical Records
+    salaryHistory: [
+      {
+        baseAmount: Number,
+        payType: String,
+        effectiveDate: { type: Date, default: Date.now },
+        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+      }
+    ],
+    designationHistory: [
+      {
+        designation: String,
+        department: String,
+        effectiveDate: { type: Date, default: Date.now },
+        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+      }
+    ],
+    shiftHistory: [
+      {
+        startTime: String,
+        endTime: String,
+        workDays: [String],
+        effectiveDate: { type: Date, default: Date.now },
+        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+      }
+    ],
+
+    // Personal & Emergency
+    address: {
+      street: String,
+      city: String,
+      state: String,
+      zip: String,
+      country: String,
+    },
+    emergencyContact: {
+      name: String,
+      relationship: String,
+      phone: String,
+    },
+
+    // Metadata
     isActive: {
       type: Boolean,
       default: true,

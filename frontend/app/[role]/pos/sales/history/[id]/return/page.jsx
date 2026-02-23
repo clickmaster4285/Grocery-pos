@@ -52,8 +52,6 @@ const ProcessReturnPage = () => {
 
     const { data: productsData } = useGetAllProducts({ search: debouncedExchangeSearch, limit: 5 });
 
-    console.log({ productsData })
-
     const handlePrint = useReactToPrint({
         contentRef: receiptRef,
         documentTitle: `ReturnReceipt-${newReturnData?.returnNumber}`,

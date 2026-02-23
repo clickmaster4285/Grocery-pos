@@ -31,19 +31,21 @@ const login = async (req, res, next) => {
     const token = generateToken({
       userId: user.userId,
       role: user.role,
-      permissions: userPermissions,
-      availableModules: availableModules, // Add structured modules to JWT
+      // permissions: userPermissions,
+      // availableModules: availableModules, // Add structured modules to JWT
     });
 
     res.json({
       message: 'Login successful',
       token,
       user: {
+        _id: user._id,
         userId: user.userId,
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
         role: user.role,
+        branch_id: user.branch_id,
         permissions: userPermissions,
         availableModules: availableModules, // Add structured modules to response
       },

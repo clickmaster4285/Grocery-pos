@@ -109,6 +109,16 @@ const variantSchema = new mongoose.Schema({
         type: Date,
         default: null,
     },
+    minStockLevel: {
+        type: Number,
+        default: 0,
+        min: [0, 'Minimum stock level cannot be negative.'],
+    },
+    maxStockLevel: {
+        type: Number,
+        default: 0,
+        min: [0, 'Maximum stock level cannot be negative.'],
+    },
 }, { timestamps: true });
 
 const productSchema = new mongoose.Schema({
@@ -130,6 +140,21 @@ const productSchema = new mongoose.Schema({
     brand: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Brand',
+    },
+    unit: {
+        type: String,
+        enum: ['PIECE', 'KG', 'GRAM', 'LITER', 'ML', 'PACK', 'DOZEN'],
+        default: 'PIECE',
+    },
+    storageRequirement: {
+        type: String,
+        enum: ['AMBIENT', 'REFRIGERATED', 'FROZEN'],
+        default: 'AMBIENT',
+    },
+    taxRate: {
+        type: Number,
+        default: 0,
+        min: [0, 'Tax rate cannot be negative.'],
     },
     totalStock: {
         type: Number,

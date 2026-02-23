@@ -39,7 +39,14 @@ const brandUpload = multer({
   fileFilter: fileFilter,
 });
 
+const settingsUpload = multer({
+  storage: getStorage('settings'),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit for settings logo
+  fileFilter: fileFilter,
+});
+
 module.exports = {
   productUpload,
-  brandUpload
+  brandUpload,
+  settingsUpload
 };
