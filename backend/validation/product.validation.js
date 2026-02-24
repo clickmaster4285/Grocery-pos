@@ -72,11 +72,7 @@ const variantSchemaForUpdate = variantSchema.keys({
       is: Joi.number().not(0).exist().not(null),
       then: Joi.required(),
     }),
-  stockChangeReason: Joi.string().trim().max(200).allow(null, '')
-    .when('stockChangeAmount', {
-      is: Joi.number().not(0).exist().not(null),
-      then: Joi.required(),
-    }),
+  stockChangeReason: Joi.string().trim().max(200).allow(null, '').optional(),
 }).unknown(true);
 
 const createProductSchema = Joi.object({
