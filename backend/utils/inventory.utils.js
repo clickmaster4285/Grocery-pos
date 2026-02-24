@@ -4,6 +4,23 @@ const Product = require('../models/product.model');
 const BranchStockLocation = require('../models/branchStockLocation.model');
 const BranchStock = require('../models/branchStock.model');
 
+// Define location type priority for sorting (consistent with stockTransfer.controller.js)
+const LOCATION_TYPE_PRIORITY = [
+    'SALES_FLOOR',
+    'AISLE',
+    'SHELF',
+    'REFRIGERATOR',
+    'FREEZER',
+    'BACKROOM',
+    'STORAGE'
+];
+
+// Helper to get priority index
+const getLocationTypePriority = (type) => {
+    const index = LOCATION_TYPE_PRIORITY.indexOf(type);
+    return index === -1 ? LOCATION_TYPE_PRIORITY.length : index; // Unknown types get lowest priority
+};
+
 // Helper function to check storage compatibility
 const checkStorageCompatibility = (productStorageReq, locationType) => {
     const compatibilityMap = {
@@ -62,7 +79,7 @@ const syncBranchStock = async (branchId, productId, variantId) => {
 };
 
 // Helper function to deduct stock
-const deductStockFromLocations = async (branchId, productId, variantId, quantityToDeduct, specificLocationId = null) => {
+const deductStockFromLocations = async (branchId, productId, variantId, quantityToDeduct, specificLocationId = null, sourceLocationId = null) => {
     const query = {
         branch: branchId,
         product: productId,
@@ -73,16 +90,28 @@ const deductStockFromLocations = async (branchId, productId, variantId, quantity
     if (specificLocationId) {
         query.location = specificLocationId;
     }
+    if (sourceLocationId) { // For internal transfers from a specific location
+        query.location = sourceLocationId;
+    }
 
-    const stockLocations = await BranchStockLocation.find(query)
-    .populate('location')
-    .sort({ 'location.type': 1, 'updatedAt': 1 });
+    let stockLocations = await BranchStockLocation.find(query)
+    .populate('location');
+
+    // Custom sort based on priority and then FIFO
+    stockLocations.sort((a, b) => {
+        const priorityA = getLocationTypePriority(a.location.type);
+        const priorityB = getLocationTypePriority(b.location.type);
+        if (priorityA === priorityB) {
+            return new Date(a.updatedAt) - new Date(b.updatedAt); // FIFO for same priority
+        }
+        return priorityA - priorityB;
+    });
 
     let remainingQuantityToDeduct = quantityToDeduct;
     let currentTotalStock = stockLocations.reduce((sum, loc) => sum + loc.quantity, 0);
 
     if (currentTotalStock < quantityToDeduct) {
-        const locationInfo = specificLocationId ? `in specified location` : `in branch`;
+        const locationInfo = specificLocationId || sourceLocationId ? `in specified location` : `in branch`;
         throw new Error(`Insufficient stock ${locationInfo} for variant ${variantId}. Requested: ${quantityToDeduct}, Available: ${currentTotalStock}`);
     }
 

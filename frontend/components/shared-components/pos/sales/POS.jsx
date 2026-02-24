@@ -9,21 +9,7 @@ import { useTerminalHook } from '@/hooks/useTerminalHook';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDebounce } from '@/hooks/useDebounce';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import {
-  Trash2, Plus, Minus, Search, ShoppingCart, CreditCard,
-  Banknote, Landmark, Store, Loader2, Printer,
-  ShieldAlert, QrCode, PackageSearch, Tag, Receipt,
-  MapPin, XCircle, Sparkles, User, Wallet, CheckCircle2,
-  Box, History, Info, Power, MonitorSmartphone, Monitor
-} from 'lucide-react';
+import { ShieldAlert, Search, XCircle } from 'lucide-react'; // Added Search and XCircle
 import { toast } from 'sonner';
 import { useReactToPrint } from 'react-to-print';
 import ReceiptPrint from './ReceiptPrint';
@@ -33,11 +19,13 @@ import CloseShiftModal from './CloseShiftModal';
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency } from "@/utils/formatters";
+import { Input } from '@/components/ui/input'; // Added Input component
 
 import { parseCouponQRPayload } from '@/utils/couponUtils';
 import TerminalSearchArea from './components/TerminalSearchArea';
 import BillingTable from './components/BillingTable';
 import CheckoutSidebar from './components/CheckoutSidebar';
+import SearchDropdown from './components/SearchDropdown'; // Make sure this is imported
 
 const POS = () => {
   const { user } = useAuth();
@@ -48,13 +36,14 @@ const POS = () => {
 
   const searchInputRef = useRef(null);
   const receiptRef = useRef(null);
-  const searchContainerRef = useRef(null);
-
+  const searchContainerRef = useRef(null); // Ref for the top row containing branch select and search input
+  const leftColumnRef = useRef(null); // Ref for the left column (BillingTable)
+  const rightColumnRef = useRef(null); // Ref for the right column (CheckoutSidebar)
   const [activeBranchId, setActiveBranchId] = useState(user?.branch_id?._id || user?.branch_id || '');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const debouncedSearch = useDebounce(searchQuery, 300);
-
+  
   // Terminal Management
   const {
     terminals,
@@ -85,7 +74,7 @@ const POS = () => {
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
 
   const { data: stock, isLoading: stockLoading, isFetching: stockFetching } = useGetBranchStock(activeBranchId, debouncedSearch);
-  const { data: branches } = useGetAllBranches({ 
+  const { data: branches } = useGetAllBranches({
     enabled: canSelectBranch || !!user?.branch_id, // Always enabled if not admin, to get user's branch
     filterBranchId: isAdmin ? undefined : (user?.branch_id?._id || user?.branch_id),
   });
@@ -115,7 +104,7 @@ const POS = () => {
   }, [lastSaleData, handlePrint]);
 
   useEffect(() => {
-    // Only open the shift modal if loading is finished, no terminal is active, 
+    // Only open the shift modal if loading is finished, no terminal is active,
     // and there are terminals available to select from.
     if (!isTerminalsLoading && !activeTerminal && terminals.length > 0 && !isShiftModalOpen) {
       setIsShiftModalOpen(true);
@@ -123,62 +112,12 @@ const POS = () => {
   }, [activeTerminal, terminals, isShiftModalOpen, isTerminalsLoading]);
 
   useEffect(() => {
-    if (searchInputRef.current && activeTerminal) searchInputRef.current.focus();
-  }, [activeTerminal]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
-        setIsSearchFocused(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (stock && stock.length === 1 && searchQuery.trim() !== '') {
-      const item = stock[0];
-      const variant = item.product.variants.find(v => v._id === item.variantId);
-      if (variant && (variant.sku.toLowerCase() === searchQuery.toLowerCase() || variant.barcode === searchQuery)) {
-        addToCart(item);
-      }
-    }
-  }, [stock]);
-
-  useEffect(() => {
     if (!activeBranchId && user?.branch_id) {
       setActiveBranchId(user.branch_id?._id || user.branch_id);
     }
   }, [user, activeBranchId]);
 
-  const handleBranchChange = (branchId) => {
-    if (cart.length > 0) {
-      if (window.confirm("Changing branch will clear your current cart. Continue?")) {
-        setActiveBranchId(branchId);
-        setCart([]);
-      }
-    } else {
-      setActiveBranchId(branchId);
-    }
-  };
-
-  const handleOpenShift = async (terminalId, openingFloat) => {
-    try {
-      await openSession(terminalId, openingFloat);
-      await refetchTerminals();
-      setIsShiftModalOpen(false);
-    } catch (err) { }
-  };
-
-  const handleCloseShift = async (actualCash, notes) => {
-    try {
-      await closeSession(activeTerminal._id, actualCash, notes);
-      await refetchTerminals();
-      setIsCloseModalOpen(false);
-    } catch (err) { }
-  };
-
+  // Function to add item to cart
   const addToCart = (stockItem) => {
     const variant = stockItem.product.variants.find(v => v._id === stockItem.variantId);
     const existingItem = cart.find(item => item.variantId === stockItem.variantId);
@@ -208,6 +147,59 @@ const POS = () => {
     setSearchQuery('');
     setIsSearchFocused(false);
     if (searchInputRef.current) searchInputRef.current.focus();
+  };
+
+  // Effects related to search and auto-add to cart
+  useEffect(() => {
+    if (searchInputRef.current && activeTerminal) searchInputRef.current.focus();
+  }, [activeTerminal, searchInputRef]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        setIsSearchFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [searchContainerRef]);
+
+  useEffect(() => {
+    if (stock && stock.length === 1 && searchQuery.trim() !== '') {
+      const item = stock[0];
+      const variant = item.product.variants.find(v => v._id === item.variantId);
+      if (variant && (variant.sku.toLowerCase() === searchQuery.toLowerCase() || variant.barcode === searchQuery)) {
+        addToCart(item);
+      }
+    }
+  }, [stock, searchQuery, addToCart]); // Add addToCart to dependencies
+
+
+  const handleBranchChange = (branchId) => {
+    if (cart.length > 0) {
+      if (window.confirm("Changing branch will clear your current cart. Continue?")) {
+        setActiveBranchId(branchId);
+        setCart([]);
+      }
+    } else {
+      setActiveBranchId(branchId);
+    }
+  };
+
+  const handleOpenShift = async (terminalId, openingFloat) => {
+    try {
+      await openSession(terminalId, openingFloat);
+      await refetchTerminals();
+      setIsShiftModalOpen(false);
+    } catch (err) { }
+  };
+
+  const handleCloseShift = async (actualCash, notes) => {
+    try {
+      await closeSession(activeTerminal._id, actualCash, notes);
+      await refetchTerminals();
+      setIsCloseModalOpen(false);
+    } catch (err) { }
   };
 
   const updateQuantity = (variantId, delta) => {
@@ -303,8 +295,9 @@ const POS = () => {
       setCustomerName('');
       setDiscount(0);
       setAppliedCoupon(null);
-      setSearchQuery('');
-      if (searchInputRef.current) searchInputRef.current.focus();
+      setSearchQuery(''); // Re-added after being commented out.
+      setIsSearchFocused(false); // Re-added after being commented out.
+      if (searchInputRef.current) searchInputRef.current.focus(); // Re-added after being commented out.
     } catch (err) {
       toast.error(err.response?.data?.message || "Checkout failed");
     }
@@ -321,7 +314,7 @@ const POS = () => {
   }
 
   const activeBranch = branches?.data?.find(b => b._id === activeBranchId);
-  console.log("the activeBranch is ", activeBranch)
+  // console.log("the activeBranch is ", activeBranch)
   return (
     <>
       <div className="flex flex-col gap-4 h-[calc(100vh-140px)] relative text-slate-600">
@@ -329,33 +322,59 @@ const POS = () => {
           <ReceiptPrint ref={receiptRef} sale={lastSaleData} branch={activeBranch} />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 overflow-hidden">
+        {/* Top Row: Branch, Terminal, Search Input */}
+        <div className="flex gap-3 items-center" ref={searchContainerRef}>
+          <TerminalSearchArea
+            user={user}
+            isAdmin={isAdmin}
+            canSelectBranch={canSelectBranch}
+            activeBranchId={activeBranchId}
+            setActiveBranchId={setActiveBranchId}
+            handleBranchChange={handleBranchChange}
+            activeTerminal={activeTerminal}
+            setIsCloseModalOpen={setIsCloseModalOpen}
+            branches={branches}
+          />
+          {/* Search Input for Products */}
+          <div className="relative flex-1">
+            <div className={cn(
+              "flex items-center gap-3 px-4 h-11 bg-white rounded-xl shadow-sm border transition-all duration-200",
+              isSearchFocused ? "ring-2 ring-primary/10 border-primary/30" : "border-slate-100"
+            )}>
+              <Search className={cn("h-4 w-4 transition-colors", isSearchFocused ? "text-primary" : "text-muted-foreground/60")} />
+              <Input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Scan or type to search products..."
+                className="flex-1 bg-transparent border-none focus:outline-none text-sm font-medium placeholder:text-muted-foreground/40"
+                value={searchQuery}
+                onFocus={() => setIsSearchFocused(true)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  if (!isSearchFocused) setIsSearchFocused(true);
+                }}
+                disabled={!activeTerminal}
+              />
+              <AnimatePresence>
+                {searchQuery && (
+                  <motion.button
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.5, opacity: 0 }}
+                    onClick={() => { setSearchQuery(''); setIsSearchFocused(false); }}
+                    className="p-1 hover:bg-slate-50 rounded-full transition-colors"
+                  >
+                    <XCircle className="h-4 w-4 text-muted-foreground/40 hover:text-destructive" />
+                  </motion.button>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
 
-          {/* LEFT SECTION: Search & Billing */}
-          <div className="lg:col-span-8 flex flex-col gap-4">
-
-            <TerminalSearchArea
-              user={user}
-              isAdmin={isAdmin}
-              canSelectBranch={canSelectBranch}
-              activeBranchId={activeBranchId}
-              setActiveBranchId={setActiveBranchId}
-              handleBranchChange={handleBranchChange}
-              activeTerminal={activeTerminal}
-              setIsCloseModalOpen={setIsCloseModalOpen}
-              branches={branches}
-              stock={stock}
-              stockLoading={stockLoading}
-              stockFetching={stockFetching}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              isSearchFocused={isSearchFocused}
-              setIsSearchFocused={setIsSearchFocused}
-              searchInputRef={searchInputRef}
-              searchContainerRef={searchContainerRef}
-              addToCart={addToCart}
-            />
-            {/* Billing Table Container */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+          {/* LEFT SECTION: Billing */}
+          <div className="lg:col-span-8 flex flex-col gap-4" ref={leftColumnRef}>
             <BillingTable
               cart={cart}
               setCart={setCart}
@@ -365,7 +384,7 @@ const POS = () => {
           </div>
 
           {/* RIGHT SECTION: Checkout Sidebar */}
-          <div className="lg:col-span-4 flex flex-col gap-4">
+          <div className="lg:col-span-4 flex flex-col gap-4" ref={rightColumnRef}>
             <CheckoutSidebar
               user={user}
               activeTerminal={activeTerminal}
@@ -387,6 +406,22 @@ const POS = () => {
           </div>
         </div>
       </div>
+
+      {/* Search Dropdown - rendered globally */}
+      <SearchDropdown
+        searchInputRef={searchInputRef}
+        searchContainerRef={searchContainerRef}
+        searchQuery={searchQuery}
+        isSearchFocused={isSearchFocused}
+        stock={stock}
+        stockLoading={stockLoading}
+        addToCart={addToCart}
+        setSearchQuery={setSearchQuery}
+        setIsSearchFocused={setIsSearchFocused}
+        activeTerminal={activeTerminal}
+        leftColumnRef={leftColumnRef}
+        rightColumnRef={rightColumnRef}
+      />
 
       <QRScannerDialog
         isOpen={isScannerOpen}

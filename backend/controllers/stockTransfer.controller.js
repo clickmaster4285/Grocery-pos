@@ -239,7 +239,7 @@ exports.getTransfers = async (req, res) => {
     }
 };
 
-// Get stock for a specific branch
+        // Get stock for a specific branch
 exports.getBranchStock = async (req, res) => {
     try {
         const { branchId } = req.params;
@@ -251,6 +251,23 @@ exports.getBranchStock = async (req, res) => {
 
         const searchTerms = (search || '').trim().split(/\s+/).filter(t => t !== '');
         let query = { branch: branchId };
+
+        // Define location type priority for sorting
+        const LOCATION_TYPE_PRIORITY = [
+            'SALES_FLOOR',
+            'AISLE',
+            'SHELF',
+            'REFRIGERATOR',
+            'FREEZER',
+            'BACKROOM',
+            'STORAGE'
+        ];
+
+        // Helper to get priority index
+        const getLocationTypePriority = (type) => {
+            const index = LOCATION_TYPE_PRIORITY.indexOf(type);
+            return index === -1 ? LOCATION_TYPE_PRIORITY.length : index; // Unknown types get lowest priority
+        };
 
         // 1. Fetch Aggregated Stock first to use Smart Regex / Fuzzy Search
         let stock;
@@ -312,6 +329,16 @@ exports.getBranchStock = async (req, res) => {
                 variantId: item.variantId,
                 quantity: { $gt: 0 }
             }).populate('location', 'name type');
+
+            // Sort locations by priority type
+            locations.sort((a, b) => {
+                const priorityA = getLocationTypePriority(a.location.type);
+                const priorityB = getLocationTypePriority(b.location.type);
+                if (priorityA === priorityB) {
+                    return new Date(a.updatedAt) - new Date(b.updatedAt); // FIFO for same priority
+                }
+                return priorityA - priorityB;
+            });
 
             // Format location string (e.g., "Aisle 1, Backroom")
             itemObj.locationDisplay = locations.length > 0
