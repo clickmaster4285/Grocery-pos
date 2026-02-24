@@ -218,7 +218,7 @@ const TerminalForm = ({
                               <SelectValue />
                            </SelectTrigger>
                            <SelectContent className="rounded-xl border-slate-100 shadow-2xl">
-                              <SelectItem value="Available">Available / Online</SelectItem>
+                              {/* <SelectItem value="Available">Available / Online</SelectItem> */}
                               <SelectItem value="Occupied">Occupied</SelectItem>
                               <SelectItem value="Locked">Locked</SelectItem>
                               <SelectItem value="Closed">Closed / Locked</SelectItem>

@@ -2,15 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { 
-    ChevronLeft, 
-    Building2, 
-    Hash, 
-    MapPin, 
-    Clock, 
-    Globe, 
-    ShieldCheck, 
-    Save, 
+import {
+    ChevronLeft,
+    Building2,
+    Hash,
+    MapPin,
+    Clock,
+    Globe,
+    ShieldCheck,
+    Save,
     X,
     LayoutDashboard,
     Loader2
@@ -147,7 +147,7 @@ const BranchFormPage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         const toastId = toast.loading(isEditMode ? 'Synchronizing branch data...' : 'Registering new branch Branch...');
-        
+
         try {
             if (isEditMode) {
                 await updateBranchMutation.mutateAsync({ id, branchData: formData });
@@ -181,16 +181,16 @@ const BranchFormPage = () => {
             {/* Elegant Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border/50 pb-8">
                 <div className="space-y-4">
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => router.back()} 
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => router.back()}
                         className="group -ml-2 text-muted-foreground hover:text-foreground transition-all px-2"
                     >
                         <ChevronLeft className="mr-1 h-4 w-4 transition-transform group-hover:-translate-x-1" />
                         <span className="text-xs font-bold uppercase tracking-widest">Back to Network</span>
                     </Button>
-                   <div className="space-y-1">
+                    <div className="space-y-1">
                         <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center border border-primary/20">
                                 <Building2 className="h-5 w-5 text-primary" />
@@ -200,21 +200,11 @@ const BranchFormPage = () => {
                             </h1>
                         </div>
                         <p className="text-sm font-medium text-muted-foreground max-w-md ml-13">
-                            {isEditMode 
-                                ? `Updating configuration for ${formData.branch_name}. Changes will propagate instantly across the grid.` 
+                            {isEditMode
+                                ? `Updating configuration for ${formData.branch_name}. Changes will propagate instantly across the grid.`
                                 : 'Initialize a new storefront location with global identification and regional logistics parameters.'}
                         </p>
                     </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <Button variant="outline" oClick={() => router.back()} className="font-semibold text-xs tracking-widest rounded-md">
-                        Cancel
-                    </Button>
-                   <Button onClick={handleSubmit} className="bg-primary hover:bg-primary/90 font-semibold text-xs tracking-widest rounded-md shadow-lg shadow-primary/20 gap-2">
-                        <Save className="h-4 w-4" />
-                        {isEditMode ? 'Sync Records' : 'Create Branch'}
-                    </Button>
                 </div>
             </div>
 
@@ -227,7 +217,7 @@ const BranchFormPage = () => {
                             <Badge variant="outline" className="h-6 w-6 rounded-full p-0 flex items-center justify-center border-primary/30 text-primary text-[10px] font-bold">1</Badge>
                             <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-foreground">Core Identity</h2>
                         </div>
-                        
+
                         <Card className="border-none shadow-none bg-muted/20 rounded-2xl">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2.5">
@@ -236,7 +226,7 @@ const BranchFormPage = () => {
                                         <Input
                                             value={formData.branch_name}
                                             onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
-                                            placeholder="e.g., Central Plaza Hub"  
+                                            placeholder="e.g., Central Plaza Hub"
                                             required
                                         />
                                     </div>
@@ -269,11 +259,11 @@ const BranchFormPage = () => {
                                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Branch Status</Label>
                                     <Select
                                         value={formData.status}
-                                        onValueChange={(value) => setFormData({ ...formData, status: vaue })}
+                                        onValueChange={(value) => setFormData({ ...formData, status: value })}
                                     >
                                         <SelectTrigger className="h-12  border-border/50 font-bold rounded-md px-4">
                                             <SelectValue />
-                                       </SelectTrigger>
+                                        </SelectTrigger>
                                         <SelectContent className="rounded-md border-border/50 shadow-xl">
                                             <SelectItem value="ACTIVE" className="font-bold text-emerald-600 focus:text-emerald-700 py-3 cursor-pointer">ACTIVE Branch</SelectItem>
                                             <SelectItem value="INACTIVE" className="font-bold text-muted-foreground focus:text-foreground py-3 cursor-pointer">INACTIVE Branch</SelectItem>
@@ -290,7 +280,7 @@ const BranchFormPage = () => {
                             <Badge variant="outline" className="h-6 w-6 rounded-full p-0 flex items-center justify-center border-primary/30 text-primary text-[10px] font-bold">2</Badge>
                             <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-foreground">Geographical Positioning</h2>
                         </div>
-                        
+
                         <Card className="border-none shadow-none bg-muted/20 rounded-2xl p-4 space-y-4">
                             <div className="space-y-2.5">
                                 <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Street Deployment</Label>
@@ -355,7 +345,7 @@ const BranchFormPage = () => {
                             <Badge variant="outline" className="h-6 w-6 rounded-full p-0 flex items-center justify-center border-primary/30 text-primary text-[10px] font-bold">3</Badge>
                             <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-foreground">Operational Dynamics</h2>
                         </div>
-                        
+
                         <Card className="border-none shadow-none bg-muted/20 rounded-2xl p-8">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                                 <div className="space-y-2.5">
@@ -391,7 +381,7 @@ const BranchFormPage = () => {
                                 <LayoutDashboard className="h-4 w-4 text-primary" />
                                 <h3 className="text-xs font-bold uppercase tracking-widest text-primary italic">Live Branch Preview</h3>
                             </div>
-                            
+
                             <div className="space-y-6">
                                 <div className=" rounded-2xl p-6 border border-border/50 shadow-sm space-y-4">
                                     <div className="flex justify-between items-start">
@@ -403,7 +393,7 @@ const BranchFormPage = () => {
                                             {formData.status}
                                         </Badge>
                                     </div>
-                                    
+
                                     <div className="space-y-2">
                                         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                                             <MapPin className="h-3.5 w-3.5 opacity-50" />
@@ -434,6 +424,23 @@ const BranchFormPage = () => {
                         </div>
                     </Card>
                 </div>
+                <div className="lg:col-span-12 flex items-center justify-end gap-3 pt-6 border-t border-border/50">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => router.back()}
+                        className="font-semibold text-xs tracking-widest rounded-md px-6 py-6"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="submit"
+                        className="bg-primary hover:bg-primary/90 font-semibold text-xs tracking-widest rounded-md shadow-lg shadow-primary/20 gap-2 px-8 py-6"
+                    >
+                        <Save className="h-4 w-4" />
+                        {isEditMode ? 'Sync Records' : 'Create Branch'}
+                    </Button>
+                </div>
             </form>
         </div>
     );
@@ -441,16 +448,16 @@ const BranchFormPage = () => {
 
 // Helper Icon for Info
 const Info = ({ className }) => (
-    <svg 
-        xmlns="http://www.w3.org/2000/svg" 
-        width="24" 
-        height="24" 
-        viewBox="0 0 24 24" 
-        fill="none" 
-        stroke="currentColor" 
-        strokeWidth="2" 
-        strokeLinecap="round" 
-        strokeLinejoin="round" 
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
         className={className}
     >
         <circle cx="12" cy="12" r="10" />

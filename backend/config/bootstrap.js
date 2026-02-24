@@ -6,6 +6,33 @@ const { generateUserId } = require('../utils/userIdGenerator');
 const { hashPassword } = require('../utils/password');
 const { PERMISSIONS } = require('./permissions'); 
 
+const initializeDefaultBranch = async () => {
+  try {
+    let defaultBranch = await Branch.findOne({ isDeleted: false });
+
+    if (!defaultBranch) {
+      console.log('No branches found. Creating default branch...');
+      defaultBranch = await Branch.create({
+        branch_code: 'BR-MAIN',
+        branch_name: 'Main Branch',
+        status: 'ACTIVE',
+        address: {
+          city: 'Default City',
+          state: 'Default State',
+          country: 'Default Country',
+          street: 'Default Street',
+          zipCode: '00000'
+        }
+      });
+      console.log('✅ Default branch created successfully.');
+    }
+
+    return defaultBranch;
+  } catch (error) {
+    console.error('❌ Error initializing default branch:', error.message);
+  }
+};
+
 const initializeAdminAccount = async () => {
   const {
     ADMIN_FIRST_NAME,
@@ -22,6 +49,8 @@ const initializeAdminAccount = async () => {
   }
 
   try {
+    const defaultBranch = await initializeDefaultBranch();
+
     const existingAdmin = await User.findOne({
       role: ADMIN_ROLE, 
       isDeleted: false,
@@ -29,16 +58,28 @@ const initializeAdminAccount = async () => {
 
     if (existingAdmin) {
       console.log('✅ Admin user already exists.');
+      
+      let updated = false;
       const allPermissions = PERMISSIONS.map(p => p.id);
       const existingPermissionsSet = new Set(existingAdmin.permissions);
       const permissionsToAdd = allPermissions.filter(p => !existingPermissionsSet.has(p));
 
       if (permissionsToAdd.length > 0) {
         existingAdmin.permissions = [...existingAdmin.permissions, ...permissionsToAdd];
-        await existingAdmin.save();
+        updated = true;
         console.log(`✅ Updated admin user with new permissions: ${permissionsToAdd.join(', ')}`);
+      }
+
+      if (!existingAdmin.branch_id && defaultBranch) {
+        existingAdmin.branch_id = defaultBranch._id;
+        updated = true;
+        console.log('✅ Assigned existing admin to default branch.');
+      }
+
+      if (updated) {
+        await existingAdmin.save();
       } else {
-        console.log('Admin user permissions are already up to date.');
+        console.log('Admin user is already up to date.');
       }
       return;
     }
@@ -64,6 +105,7 @@ const initializeAdminAccount = async () => {
         role: ADMIN_ROLE,
         permissions: allPermissions, 
         isActive: true,
+        branch_id: defaultBranch ? defaultBranch._id : null
       });
 
     await adminUser.save();
@@ -72,7 +114,6 @@ const initializeAdminAccount = async () => {
     
   } catch (error) {
     console.error('❌ Error during admin user initialization:', error.message);
-    // Exit gracefully without exposing sensitive details
     process.exit(1);
   }
 };
@@ -90,12 +131,12 @@ const initializeBranchLocations = async () => {
       if (!existingBackroom) {
         await BranchLocation.create({
           branch: branch._id,
-          name: 'Default Backroom',
+          name: 'Default Warehouse',
           type: 'BACKROOM',
           floor: 0,
           capacity: 0 // Unlimited
         });
-        console.log(`✅ Created Default Backroom for branch: ${branch.branch_name}`);
+        console.log(`✅ Created Default Warehouse for branch: ${branch.branch_name}`);
       }
     }
   } catch (error) {

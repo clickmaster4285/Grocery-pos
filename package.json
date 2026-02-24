@@ -8,7 +8,7 @@
 ],
 "scripts": {
    "dev": "concurrently \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\" -n \"B,F\" -c \"yellow,cyan\"",
-   "build": "npm run build --workspace=frontend",
+   "build": "npm run build --workspace=frontend && npm run start --workspace=frontend && npm run dev --workspace=backend",
    "start": "npm run start --workspace=backend",
    "install:all": "npm install",
    "clean": "rd /s /q node_modules 2>nul && npm run clean --workspaces",

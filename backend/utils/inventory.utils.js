@@ -35,11 +35,11 @@ const checkCapacity = async (locationId, newQuantity, session) => {
     return location;
 };
 
-// Helper function to find the default backroom
+// Helper function to find the default warehouse
 const getDefaultBackroomLocation = async (branchId, session) => {
     const defaultBackroom = await BranchLocation.findOne({ branch: branchId, type: 'BACKROOM' }).session(session);
     if (!defaultBackroom) {
-        throw new Error(`Default Backroom not found for branch ${branchId}. Please ensure it's initialized.`);
+        throw new Error(`Default Warehouse not found for branch ${branchId}. Please ensure it's initialized.`);
     }
     return defaultBackroom;
 };

@@ -159,16 +159,16 @@ const POS = () => {
   const handleOpenShift = async (terminalId, openingFloat) => {
     try {
       await openSession(terminalId, openingFloat);
+      await refetchTerminals();
       setIsShiftModalOpen(false);
-      refetchTerminals();
     } catch (err) {}
   };
 
   const handleCloseShift = async (actualCash, notes) => {
     try {
       await closeSession(activeTerminal._id, actualCash, notes);
+      await refetchTerminals();
       setIsCloseModalOpen(false);
-      refetchTerminals();
     } catch (err) {}
   };
 

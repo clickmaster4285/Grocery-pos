@@ -42,6 +42,7 @@ const createTerminalSchema = Joi.object({
 
 const updateTerminalSchema = Joi.object({
     name: Joi.string().optional().allow(''),
+    branch: Joi.string().optional().allow(''),
     department: Joi.string().optional().allow(''),
     ipAddress: Joi.string().ip().optional().allow(''),
     macAddress: Joi.string().optional().allow(''),
