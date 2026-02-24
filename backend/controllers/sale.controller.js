@@ -38,9 +38,6 @@ const generateBillNumber = async () => {
 
 // Create a new sale
 exports.createSale = async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
     try {
         const { branchId, terminalId, items, discount, paymentMethod, customerName, customerPhone } = req.body;
         const cashierId = req.user._id;
@@ -54,7 +51,7 @@ exports.createSale = async (req, res) => {
             throw new Error('Terminal ID is required for POS transactions.');
         }
 
-        const terminal = await Terminal.findById(terminalId).session(session);
+        const terminal = await Terminal.findById(terminalId);
         if (!terminal) throw new Error('Terminal not found.');
         
         if (terminal.status !== 'Available') {
@@ -69,14 +66,14 @@ exports.createSale = async (req, res) => {
         const processedItems = [];
 
         for (const item of items) {
-            const product = await Product.findById(item.product).session(session);
+            const product = await Product.findById(item.product);
             if (!product) throw new Error(`Product ${item.product} not found.`);
 
             const variant = product.variants.id(item.variantId);
             if (!variant) throw new Error(`Variant ${item.variantId} not found for product ${product.productName}.`);
 
             // Deduct stock from BranchStockLocations using the utility function
-            await deductStockFromLocations(branchId, item.product, item.variantId, item.quantity, session);
+            await deductStockFromLocations(branchId, item.product, item.variantId, item.quantity);
 
             // Get latest price
             const latestPrice = variant.priceHistory[variant.priceHistory.length - 1].sellingPrice;
@@ -111,7 +108,7 @@ exports.createSale = async (req, res) => {
             customerPhone
         });
 
-        await sale.save({ session });
+        await sale.save();
 
         // 2. Update Terminal Session State
         const drawerUpdate = paymentMethod === 'CASH' ? finalAmount : 0;
@@ -124,16 +121,12 @@ exports.createSale = async (req, res) => {
             $set: {
                 'activeSession.lastTransactionId': sale.billNumber
             }
-        }, { session });
+        });
 
-        await session.commitTransaction();
         res.status(201).json({ success: true, data: sale });
 
     } catch (error) {
-        await session.abortTransaction();
         res.status(400).json({ success: false, message: error.message });
-    } finally {
-        session.endSession();
     }
 };
 
