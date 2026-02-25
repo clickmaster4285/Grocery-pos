@@ -94,15 +94,27 @@ export const useCustomerHook = (initialCustomerData = null) => {
     const toastId = toast.loading(isEditMode ? 'Saving customer...' : 'Creating customer...');
 
     try {
+      let response;
       if (isEditMode) {
-        await updateCustomerMutation.mutateAsync({ id: initialCustomerData._id, customerData: formData });
+        response = await updateCustomerMutation.mutateAsync({ id: initialCustomerData._id, customerData: formData });
         toast.success('Customer updated successfully.', { id: toastId });
       } else {
-        await createCustomerMutation.mutateAsync(formData);
+        response = await createCustomerMutation.mutateAsync(formData);
         toast.success('Customer created successfully.', { id: toastId });
       }
-      if (onSuccessCallback) onSuccessCallback();
+      
+      if (onSuccessCallback) onSuccessCallback(response.data);
+      return response.data;
     } catch (err) {
+      if (err.response?.status === 409 && !isEditMode) {
+        toast.dismiss(toastId);
+        return { 
+          conflict: true, 
+          message: err.response.data.message, 
+          existingCustomer: err.response.data.data 
+        };
+      }
+      
       toast.error('Operation Failed', {
         id: toastId,
         description: err.response?.data?.message || err.message || 'An unexpected error occurred.',

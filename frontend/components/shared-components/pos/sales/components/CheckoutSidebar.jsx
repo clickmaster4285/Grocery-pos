@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { useGetAllCustomers } from '@/features/customer.api';
 import { useDebounce } from '@/hooks/useDebounce';
 import { usePermissions } from '@/hooks/usePermissions';
-import AddCustomerModal from './AddCustomerModal';
+import CustomerForm from '@/components/shared-components/pos/customers/CustomerForm';
 
 const CheckoutSidebar = ({
   user,
@@ -351,12 +351,11 @@ const CheckoutSidebar = ({
         )}
       </CardFooter>
 
-      <AddCustomerModal 
+      <CustomerForm 
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)} 
         onSuccess={(newCustomer) => {
             selectCustomer(newCustomer);
-            setIsAddModalOpen(false);
         }}
       />
     </Card>

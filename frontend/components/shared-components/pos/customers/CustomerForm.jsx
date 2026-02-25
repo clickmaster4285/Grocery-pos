@@ -25,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, User, Phone, Mail, MapPin } from 'lucide-react';
 
-const CustomerForm = ({ isOpen, onClose, customerData = null }) => {
+const CustomerForm = ({ isOpen, onClose, customerData = null, onSuccess }) => {
   const {
     formData,
     updateFormField,
@@ -37,9 +37,24 @@ const CustomerForm = ({ isOpen, onClose, customerData = null }) => {
 
   const isPending = createCustomerMutation.isPending || updateCustomerMutation.isPending;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    handleSave(onClose);
+    try {
+      const result = await handleSave();
+      if (result) {
+        if (result.conflict) {
+          if (window.confirm(`${result.message}\nWould you like to select the existing customer "${result.existingCustomer.firstName} ${result.existingCustomer.lastName}" instead?`)) {
+            if (onSuccess) onSuccess(result.existingCustomer);
+            onClose();
+          }
+        } else {
+          if (onSuccess) onSuccess(result);
+          onClose();
+        }
+      }
+    } catch (err) {
+      // Errors are handled inside hook
+    }
   };
 
   return (

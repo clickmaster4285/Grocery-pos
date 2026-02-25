@@ -13,7 +13,8 @@ import {
     Calendar,
     AlertCircle,
     Package,
-    Printer
+    Printer,
+    UserCircle2
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { useReactToPrint } from 'react-to-print';
