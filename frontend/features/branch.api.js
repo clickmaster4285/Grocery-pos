@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 
 const branchAPI = {
-  getAllBranches: () => api.get('/branches'),
+  getAllBranches: (params) => api.get('/branches', { params }),
   getBranchById: (id) => api.get(`/branches/${id}`),
   createBranch: (branchData) => api.post('/branches', branchData),
   updateBranch: (id, branchData) => api.put(`/branches/${id}`, branchData),
@@ -11,21 +11,23 @@ const branchAPI = {
 
 const branchKeys = {
   all: ['branches'],
-  lists: () => [...branchKeys.all, 'list'],
+  lists: (filterBranchId) => filterBranchId ? [...branchKeys.all, 'list', filterBranchId] : [...branchKeys.all, 'list'],
   details: () => [...branchKeys.all, 'detail'],
   detail: (id) => [...branchKeys.details(), id],
 };
 
 
 export const useGetAllBranches = (options) => {
+  const { filterBranchId, ...restOptions } = options || {};
   return useQuery({
-    queryKey: branchKeys.lists(),
+    queryKey: branchKeys.lists(filterBranchId),
     queryFn: async () => {
-      const response = await branchAPI.getAllBranches();
+      const params = filterBranchId ? { branchId: filterBranchId } : {};
+      const response = await branchAPI.getAllBranches(params);
       return response.data;
     },
     staleTime: 60 * 1000,
-    ...options,
+    ...restOptions,
   });
 };
 

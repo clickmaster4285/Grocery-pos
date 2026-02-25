@@ -13,11 +13,13 @@ import {
     Calendar,
     AlertCircle,
     Package,
-    Printer
+    Printer,
+    UserCircle2
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { useReactToPrint } from 'react-to-print';
 import ReturnReceiptPrint from './ReturnReceiptPrint';
+import { formatCurrency } from "@/utils/formatters";
 
 const BillLifecycle = ({ saleId }) => {
     const { getSaleHistoryQuery } = useSaleReturnHook(saleId);
@@ -79,7 +81,7 @@ const BillLifecycle = ({ saleId }) => {
                         <Badge variant="outline" className="font-mono text-[10px]">{originalSale?.billNumber}</Badge>
                     </div>
                     
-                    <div className="flex items-center gap-4 text-xs font-bold text-muted-foreground bg-muted/50 p-2 rounded-md">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold text-muted-foreground bg-muted/50 p-2 rounded-md">
                         <div className="flex items-center gap-1.5">
                             <Calendar className="h-3.5 w-3.5" />
                             {safeFormat(originalSale?.createdAt)}
@@ -87,6 +89,12 @@ const BillLifecycle = ({ saleId }) => {
                         <div className="flex items-center gap-1.5">
                             <User className="h-3.5 w-3.5" />
                             By: {originalSale?.cashier?.firstName} {originalSale?.cashier?.lastName}
+                        </div>
+                        <div className="flex items-center gap-1.5 border-l border-muted-foreground/20 pl-4">
+                            <UserCircle2 className="h-3.5 w-3.5 text-primary/60" />
+                            Cust: {originalSale?.customer 
+                                ? `${originalSale.customer.firstName} ${originalSale.customer.lastName || ''}`.trim() 
+                                : (originalSale?.customerName || 'Walk-in')}
                         </div>
                     </div>
 
@@ -102,13 +110,13 @@ const BillLifecycle = ({ saleId }) => {
                                                 <p className="text-[10px] opacity-60 font-mono">{item.sku}</p>
                                             </div>
                                         </div>
-                                        <p className="font-black">${item.subtotal?.toFixed(2)}</p>
+                                        <p className="font-black">{formatCurrency(item.subtotal)}</p>
                                     </div>
                                 ))}
                                 <Separator className="my-2" />
                                 <div className="flex justify-between font-black text-sm pt-1">
                                     <span>Total Amount Paid</span>
-                                    <span className="text-primary">${originalSale?.finalAmount?.toFixed(2)}</span>
+                                    <span className="text-primary">{formatCurrency(originalSale?.finalAmount)}</span>
                                 </div>
                             </div>
                         </CardContent>
@@ -179,7 +187,7 @@ const BillLifecycle = ({ saleId }) => {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <p className="font-black text-xs text-red-600">-${(item.unitPrice * item.quantity).toFixed(2)}</p>
+                                            <p className="font-black text-xs text-red-600">-{formatCurrency(item.unitPrice * item.quantity)}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -201,7 +209,7 @@ const BillLifecycle = ({ saleId }) => {
                                                         <p className="text-[9px] opacity-60 font-mono text-uppercase">{item.sku}</p>
                                                     </div>
                                                 </div>
-                                                <p className="font-black text-xs text-amber-600">+${item.subtotal?.toFixed(2)}</p>
+                                                <p className="font-black text-xs text-amber-600">+{formatCurrency(item.subtotal)}</p>
                                             </div>
                                         ))}
                                     </div>
@@ -220,10 +228,10 @@ const BillLifecycle = ({ saleId }) => {
                                         : 'text-green-600'
                                     }`}>
                                         {activity.type === 'RETURN' 
-                                            ? `-$${activity.totalRefundAmount?.toFixed(2)}` 
+                                            ? `-${formatCurrency(activity.totalRefundAmount)}` 
                                             : activity.totalExchangeDifference > 0 
-                                                ? `+$${activity.totalExchangeDifference?.toFixed(2)}`
-                                                : `-$${Math.abs(activity.totalExchangeDifference)?.toFixed(2)}`
+                                                ? `+${formatCurrency(activity.totalExchangeDifference)}`
+                                                : `-${formatCurrency(Math.abs(activity.totalExchangeDifference))}`
                                         }
                                     </p>
                                 </div>

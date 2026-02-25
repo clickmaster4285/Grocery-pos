@@ -67,9 +67,12 @@ export const useTerminalHook = (filters = {}) => {
   const handleSubmit = useCallback(async (formData) => {
     try {
       if (editingTerminal) {
+        // Clean the data for update - omit fields that shouldn't be updated or cause issues
+        const { branch, terminalId, _id, createdAt, updatedAt, ...updateData } = formData;
+        
         await updateMutation.mutateAsync({
           id: editingTerminal._id,
-          data: formData
+          data: updateData
         });
         toast.success('Terminal updated successfully!');
       } else {

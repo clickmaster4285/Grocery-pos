@@ -415,100 +415,112 @@ const updateProduct = async (req, res, next) => {
         Object.assign(product, otherProductData);
 
         const incomingVariantIds = new Set();
+        const existingVariantsData = [];
+        const newVariantsData = [];
 
+        // Separate existing and new variants from the request
         for (const variantData of variants) {
-            const currentVariantId = variantData._id?.toString();
-            incomingVariantIds.add(currentVariantId);
-
-            if (currentVariantId) { // Existing variant
-                const variantToUpdate = product.variants.id(currentVariantId);
-                if (!variantToUpdate || variantToUpdate.isDeleted) {
-                    continue;
-                }
-
-                // For existing variants, 'processedVariant' is essentially the validated 'variantData' from the request.
-                // _processVariantData is not needed here as it's for initial variant setup (SKU generation, initial history).
-                const processedVariant = { ...variantData }; // Clone to avoid direct modification of 'value' from Joi
-
-                // Ensure SKU is generated if empty and then validate uniqueness
-                if (!processedVariant.sku) {
-                    processedVariant.sku = generateUniqueSku(product.productName, processedVariant.attributes || []);
-                }
-                processedVariant.sku = (processedVariant.sku || '').toUpperCase();
-                await _validateVariantUniqueness('sku', processedVariant.sku, product._id, currentVariantId, req.files);
-
-                // Validate barcode and qrCode uniqueness
-                if (processedVariant.barcode) {
-                    await _validateVariantUniqueness('barcode', processedVariant.barcode, product._id, currentVariantId, req.files);
-                }
-                if (processedVariant.qrCode) {
-                    await _validateVariantUniqueness('qrCode', processedVariant.qrCode, product._id, currentVariantId, req.files);
-                }
-
-                // Price History
-                const latestPrice = variantToUpdate.priceHistory && variantToUpdate.priceHistory.length > 0
-                    ? variantToUpdate.priceHistory[variantToUpdate.priceHistory.length - 1]
-                    : { buyingPrice: 0, sellingPrice: 0 };
-                const newBuyingPrice = Number(processedVariant.buyingPrice);
-                const newSellingPrice = Number(processedVariant.sellingPrice);
-                if (latestPrice.buyingPrice !== newBuyingPrice || latestPrice.sellingPrice !== newSellingPrice) {
-                    if (!Array.isArray(variantToUpdate.priceHistory)) variantToUpdate.priceHistory = [];
-                    variantToUpdate.priceHistory.push({
-                        buyingPrice: newBuyingPrice,
-                        sellingPrice: newSellingPrice,
-                        changedBy: req.user._id,
-                    });
-                }
-
-                // Stock History - Handle explicit adjustments from frontend
-                const { stockChangeAmount, stockChangeType, stockChangeReason } = variantData; // Use variantData, not processedVariant as _processVariantData is not called here
-
-                if (typeof stockChangeAmount === 'number' && stockChangeType) {
-                    const explicitChange = stockChangeAmount;
-                    const explicitType = stockChangeType;
-                    const explicitReason = stockChangeReason || 'Manual adjustment via form';
-
-                    const newCalculatedStock = variantToUpdate.stock + explicitChange;
-
-                    if (!Array.isArray(variantToUpdate.stockHistory)) variantToUpdate.stockHistory = [];
-                    variantToUpdate.stockHistory.push({
-                        change: explicitChange,
-                        type: explicitType,
-                        reason: explicitReason,
-                        performedBy: req.user._id,
-                    });
-                    variantToUpdate.stock = newCalculatedStock; // Update stock with the calculated new value
-                    if (explicitChange > 0) product.lastRestocked = new Date();
-                }
-
-                // Update other fields
-                Object.assign(variantToUpdate, {
-                    sku: processedVariant.sku,
-                    attributes: processedVariant.attributes || [],
-                    supplier: processedVariant.supplier,
-                    barcode: processedVariant.barcode,
-                    qrCode: processedVariant.qrCode,
-                    images: processedVariant.images || [],
-                    isDeleted: processedVariant.isDeleted,
-                    deletedAt: processedVariant.isDeleted ? variantToUpdate.deletedAt : null,
-                });
-
-            } else { // New variant
-                const processedVariant = await _processVariantData(variantData, product.productName, product._id, null, req.files, req.user._id);
-
-                if (processedVariant.stock > 0) {
-                    product.lastRestocked = new Date();
-                }
-                product.variants.push(processedVariant);
+            if (variantData._id) {
+                existingVariantsData.push(variantData);
+                incomingVariantIds.add(variantData._id.toString());
+            } else {
+                newVariantsData.push(variantData);
             }
         }
 
+        // 1. Update Existing Variants (and handle restoration)
+        for (const variantData of existingVariantsData) {
+            const currentVariantId = variantData._id.toString();
+            const variantToUpdate = product.variants.id(currentVariantId);
+
+            if (!variantToUpdate) continue;
+
+            // For existing variants, 'processedVariant' is the validated 'variantData'
+            const processedVariant = { ...variantData };
+
+            // SKU / Barcode / QR Uniqueness
+            if (!processedVariant.sku) {
+                processedVariant.sku = generateUniqueSku(product.productName, processedVariant.attributes || []);
+            }
+            processedVariant.sku = (processedVariant.sku || '').toUpperCase();
+            await _validateVariantUniqueness('sku', processedVariant.sku, product._id, currentVariantId, req.files);
+
+            if (processedVariant.barcode) {
+                await _validateVariantUniqueness('barcode', processedVariant.barcode, product._id, currentVariantId, req.files);
+            }
+            if (processedVariant.qrCode) {
+                await _validateVariantUniqueness('qrCode', processedVariant.qrCode, product._id, currentVariantId, req.files);
+            }
+
+            // Price History
+            const latestPrice = variantToUpdate.priceHistory && variantToUpdate.priceHistory.length > 0
+                ? variantToUpdate.priceHistory[variantToUpdate.priceHistory.length - 1]
+                : { buyingPrice: 0, sellingPrice: 0 };
+            
+            const newBuyingPrice = Number(processedVariant.buyingPrice);
+            const newSellingPrice = Number(processedVariant.sellingPrice);
+
+            if (latestPrice.buyingPrice !== newBuyingPrice || latestPrice.sellingPrice !== newSellingPrice) {
+                if (!Array.isArray(variantToUpdate.priceHistory)) variantToUpdate.priceHistory = [];
+                variantToUpdate.priceHistory.push({
+                    buyingPrice: newBuyingPrice,
+                    sellingPrice: newSellingPrice,
+                    changedBy: req.user._id,
+                });
+            }
+
+            // Stock History & Manual Adjustment
+            const { stockChangeAmount, stockChangeType, stockChangeReason } = variantData;
+            if (typeof stockChangeAmount === 'number' && stockChangeType) {
+                const explicitChange = stockChangeAmount;
+                const explicitType = stockChangeType;
+                const explicitReason = stockChangeReason || 'Manual adjustment via form';
+
+                const newCalculatedStock = variantToUpdate.stock + explicitChange;
+
+                if (!Array.isArray(variantToUpdate.stockHistory)) variantToUpdate.stockHistory = [];
+                variantToUpdate.stockHistory.push({
+                    change: explicitChange,
+                    type: explicitType,
+                    reason: explicitReason,
+                    performedBy: req.user._id,
+                });
+                variantToUpdate.stock = newCalculatedStock;
+                if (explicitChange > 0) product.lastRestocked = new Date();
+            }
+
+            // Apply field updates (including potential restoration)
+            Object.assign(variantToUpdate, {
+                sku: processedVariant.sku,
+                attributes: processedVariant.attributes || [],
+                supplier: processedVariant.supplier,
+                barcode: processedVariant.barcode,
+                qrCode: processedVariant.qrCode,
+                images: processedVariant.images || [],
+                isDeleted: processedVariant.isDeleted || false,
+                deletedAt: (processedVariant.isDeleted) ? (variantToUpdate.deletedAt || new Date()) : null,
+                minStockLevel: processedVariant.minStockLevel,
+                maxStockLevel: processedVariant.maxStockLevel,
+            });
+        }
+
+        // 2. Soft-Delete Missing Variants
         product.variants.forEach(variant => {
-            if (!variant.isDeleted && !incomingVariantIds.has(variant._id?.toString())) {
+            if (!variant.isDeleted && !incomingVariantIds.has(variant._id.toString())) {
                 variant.isDeleted = true;
                 variant.deletedAt = new Date();
             }
         });
+
+        // 3. Add New Variants (Safe from the deletion loop above)
+        for (const variantData of newVariantsData) {
+            const processedVariant = await _processVariantData(variantData, product.productName, product._id, null, req.files, req.user._id);
+
+            if (processedVariant.stock > 0) {
+                product.lastRestocked = new Date();
+            }
+            product.variants.push(processedVariant);
+        }
 
         await product.save();
         

@@ -9,21 +9,7 @@ import { useTerminalHook } from '@/hooks/useTerminalHook';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDebounce } from '@/hooks/useDebounce';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { 
-  Trash2, Plus, Minus, Search, ShoppingCart, CreditCard, 
-  Banknote, Landmark, Store, Loader2, Printer, 
-  ShieldAlert, QrCode, PackageSearch, Tag, Receipt,
-  MapPin, XCircle, Sparkles, User, Wallet, CheckCircle2,
-  Box, History, Info, Power, MonitorSmartphone, Monitor
-} from 'lucide-react';
+import { ShieldAlert, Search, XCircle } from 'lucide-react'; // Added Search and XCircle
 import { toast } from 'sonner';
 import { useReactToPrint } from 'react-to-print';
 import ReceiptPrint from './ReceiptPrint';
@@ -33,32 +19,38 @@ import CloseShiftModal from './CloseShiftModal';
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency } from "@/utils/formatters";
+import { Input } from '@/components/ui/input'; // Added Input component
 
 import { parseCouponQRPayload } from '@/utils/couponUtils';
+import TerminalSearchArea from './components/TerminalSearchArea';
+import BillingTable from './components/BillingTable';
+import CheckoutSidebar from './components/CheckoutSidebar';
+import SearchDropdown from './components/SearchDropdown'; // Make sure this is imported
 
 const POS = () => {
   const { user } = useAuth();
-  const { pos, isAdmin, branch: branchPerms } = usePermissions();
-  
-  const canCreateSale = pos.transaction.create;
-  const canSelectBranch = isAdmin || branchPerms.read; 
+  const { isAdmin, pos: posPerms } = usePermissions(); // Changed branch to posPerms to avoid naming conflict
+
+  const canCreateSale = posPerms.transaction.create;
+  const canSelectBranch = isAdmin; // Only admins can select branch
 
   const searchInputRef = useRef(null);
   const receiptRef = useRef(null);
-  const searchContainerRef = useRef(null);
-  
+  const searchContainerRef = useRef(null); // Ref for the top row containing branch select and search input
+  const leftColumnRef = useRef(null); // Ref for the left column (BillingTable)
+  const rightColumnRef = useRef(null); // Ref for the right column (CheckoutSidebar)
   const [activeBranchId, setActiveBranchId] = useState(user?.branch_id?._id || user?.branch_id || '');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const debouncedSearch = useDebounce(searchQuery, 300);
-
+  
   // Terminal Management
-  const { 
-    terminals, 
+  const {
+    terminals,
     isTerminalsLoading,
-    openSession, 
-    closeSession, 
-    refetch: refetchTerminals 
+    openSession,
+    closeSession,
+    refetch: refetchTerminals
   } = useTerminalHook({ branchId: activeBranchId });
 
   const activeTerminal = useMemo(() => {
@@ -73,7 +65,7 @@ const POS = () => {
   // Filter terminals based on User's allowedTerminals whitelist
   const availableTerminals = useMemo(() => {
     if (isAdmin || !user?.allowedTerminals?.length) return terminals;
-    return terminals.filter(t => 
+    return terminals.filter(t =>
       user.allowedTerminals.some(at => (at._id || at).toString() === t._id.toString())
     );
   }, [terminals, user?.allowedTerminals, isAdmin]);
@@ -81,14 +73,49 @@ const POS = () => {
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
 
+  const handleBranchChange = (branchId) => {
+    setActiveBranchId(branchId);
+    setCart([]);
+    setSelectedCustomer(null);
+    setDiscount(0);
+    setAppliedCoupon(null);
+    setSearchQuery('');
+    setIsSearchFocused(false);
+  };
+
+  const handleOpenShift = async (terminalId, openingFloat) => {
+    try {
+      await openSession(terminalId, openingFloat);
+      setIsShiftModalOpen(false);
+      refetchTerminals();
+    } catch (error) {
+      // Error handled in hook toast
+    }
+  };
+
+  const handleCloseShift = async (actualCash, notes) => {
+    if (!activeTerminal) return;
+    try {
+      await closeSession(activeTerminal._id, actualCash, notes);
+      setIsCloseModalOpen(false);
+      refetchTerminals();
+    } catch (error) {
+      // Error handled in hook toast
+    }
+  };
+
   const { data: stock, isLoading: stockLoading, isFetching: stockFetching } = useGetBranchStock(activeBranchId, debouncedSearch);
-  const { data: branches } = useGetAllBranches({ enabled: canSelectBranch });
+  const { data: branches } = useGetAllBranches({
+    enabled: canSelectBranch || !!user?.branch_id, // Always enabled if not admin, to get user's branch
+    filterBranchId: isAdmin ? undefined : (user?.branch_id?._id || user?.branch_id),
+  });
+
   const createSaleMutation = useCreateSale();
   const validateCouponMutation = useValidateCoupon();
 
   const [cart, setCart] = useState([]);
-  const [customerName, setCustomerName] = useState('');
-  const [discount, setDiscount] = useState(0);
+  const [selectedCustomer, setSelectedCustomer] = useState(null); // New: Store the full customer object
+  const [discount, setDiscount] = useState(0); // This is now globalDiscountPercent
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [lastSaleData, setLastSaleData] = useState(null);
@@ -102,13 +129,13 @@ const POS = () => {
 
   useEffect(() => {
     if (lastSaleData) {
-        handlePrint();
-        setLastSaleData(null); 
+      handlePrint();
+      setLastSaleData(null);
     }
   }, [lastSaleData, handlePrint]);
 
   useEffect(() => {
-    // Only open the shift modal if loading is finished, no terminal is active, 
+    // Only open the shift modal if loading is finished, no terminal is active,
     // and there are terminals available to select from.
     if (!isTerminalsLoading && !activeTerminal && terminals.length > 0 && !isShiftModalOpen) {
       setIsShiftModalOpen(true);
@@ -116,85 +143,40 @@ const POS = () => {
   }, [activeTerminal, terminals, isShiftModalOpen, isTerminalsLoading]);
 
   useEffect(() => {
-    if (searchInputRef.current && activeTerminal) searchInputRef.current.focus();
-  }, [activeTerminal]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
-        setIsSearchFocused(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (stock && stock.length === 1 && searchQuery.trim() !== '') {
-        const item = stock[0];
-        const variant = item.product.variants.find(v => v._id === item.variantId);
-        if (variant && (variant.sku.toLowerCase() === searchQuery.toLowerCase() || variant.barcode === searchQuery)) {
-            addToCart(item);
-        }
-    }
-  }, [stock]);
-
-  useEffect(() => {
     if (!activeBranchId && user?.branch_id) {
       setActiveBranchId(user.branch_id?._id || user.branch_id);
     }
   }, [user, activeBranchId]);
 
-  const handleBranchChange = (branchId) => {
-    if (cart.length > 0) {
-      if (window.confirm("Changing branch will clear your current cart. Continue?")) {
-        setActiveBranchId(branchId);
-        setCart([]);
-      }
-    } else {
-      setActiveBranchId(branchId);
-    }
-  };
-
-  const handleOpenShift = async (terminalId, openingFloat) => {
-    try {
-      await openSession(terminalId, openingFloat);
-      setIsShiftModalOpen(false);
-      refetchTerminals();
-    } catch (err) {}
-  };
-
-  const handleCloseShift = async (actualCash, notes) => {
-    try {
-      await closeSession(activeTerminal._id, actualCash, notes);
-      setIsCloseModalOpen(false);
-      refetchTerminals();
-    } catch (err) {}
-  };
-
+  // Function to add item to cart
   const addToCart = (stockItem) => {
     const variant = stockItem.product.variants.find(v => v._id === stockItem.variantId);
     const existingItem = cart.find(item => item.variantId === stockItem.variantId);
+
+    const originalPrice = variant.priceHistory[variant.priceHistory.length - 1].sellingPrice;
+    const autoDiscountPercent = stockItem.autoDiscountPercent || 0;
+    const taxRate = stockItem.product.taxRate || 0;
 
     if (existingItem) {
       if (existingItem.quantity + 1 > stockItem.quantity) {
         return toast.error("Cannot exceed available branch stock");
       }
-      setCart(cart.map(item => 
-        item.variantId === stockItem.variantId 
-          ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.price }
+      setCart(cart.map(item =>
+        item.variantId === stockItem.variantId
+          ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
     } else {
-      const price = variant.priceHistory[variant.priceHistory.length - 1].sellingPrice;
       setCart([...cart, {
         productId: stockItem.product._id,
         variantId: stockItem.variantId,
         productName: stockItem.product.productName,
         sku: variant.sku,
         quantity: 1,
-        price: price,
-        subtotal: price,
+        originalPrice: originalPrice,
+        autoDiscountPercent: autoDiscountPercent,
+        manualDiscountPercent: 0,
+        taxRate: taxRate,
         maxStock: stockItem.quantity
       }]);
     }
@@ -208,20 +190,59 @@ const POS = () => {
       if (item.variantId === variantId) {
         const newQty = Math.max(1, Math.min(item.quantity + delta, item.maxStock));
         if (delta > 0 && item.quantity >= item.maxStock) {
-            toast.error("Reached maximum available stock");
+          toast.error("Reached maximum available stock");
         }
-        return { ...item, quantity: newQty, subtotal: newQty * item.price };
+        return { ...item, quantity: newQty };
       }
       return item;
     }));
+  };
+
+  const updateManualDiscount = (variantId, percent) => {
+    const maxLimit = user?.transactionLimits?.maxDiscountPercent || 0;
+    if (percent > maxLimit) {
+      toast.error(`Your discount limit is ${maxLimit}%`);
+      return;
+    }
+    setCart(cart.map(item => 
+      item.variantId === variantId ? { ...item, manualDiscountPercent: percent } : item
+    ));
   };
 
   const removeFromCart = (variantId) => {
     setCart(cart.filter(item => item.variantId !== variantId));
   };
 
-  const total = cart.reduce((acc, item) => acc + item.subtotal, 0);
-  const finalTotal = Math.max(0, total - discount);
+  // Advanced Total Calculation
+  const cartTotals = useMemo(() => {
+    let subtotal = 0;
+    let totalTax = 0;
+    
+    const processedItems = cart.map(item => {
+      const totalItemDiscount = item.autoDiscountPercent + item.manualDiscountPercent;
+      const unitPrice = item.originalPrice * (1 - totalItemDiscount / 100);
+      const itemSubtotal = unitPrice * item.quantity;
+      const itemTax = (itemSubtotal * item.taxRate) / 100;
+      
+      subtotal += itemSubtotal;
+      totalTax += itemTax;
+      
+      return { ...item, unitPrice, itemSubtotal, itemTax };
+    });
+
+    const totalBeforeGlobal = subtotal + totalTax;
+    const globalDiscountAmount = (subtotal * discount) / 100;
+    const finalTotal = totalBeforeGlobal - globalDiscountAmount;
+
+    return {
+      items: processedItems,
+      subtotal,
+      totalTax,
+      totalBeforeGlobal,
+      globalDiscountAmount,
+      finalTotal
+    };
+  }, [cart, discount]);
 
   const handleCouponScanned = async (scannedText) => {
     if (!activeBranchId) return toast.error("Please select a branch first");
@@ -238,28 +259,35 @@ const POS = () => {
       const response = await validateCouponMutation.mutateAsync({
         code: codeToValidate,
         branchId: activeBranchId,
-        cartTotal: total,
+        customerGroup: selectedCustomer?.customerGroup || 'Regular', // Send group if available
+        cartTotal: cartTotals.subtotal,
         cartItems: cart.map(item => ({
-            product: item.productId,
-            variant: item.variantId,
-            quantity: item.quantity,
-            price: item.price
+          product: item.productId,
+          variant: item.variantId,
+          quantity: item.quantity,
+          price: item.originalPrice
         }))
       });
 
       const couponData = response.data;
-      
-      let calculatedDiscount = 0;
+
+      let calculatedPercent = 0;
       if (couponData.amountType === 'Percentage') {
-        calculatedDiscount = (total * couponData.amountValue) / 100;
+        calculatedPercent = couponData.amountValue;
       } else if (couponData.amountType === 'Fixed') {
-        calculatedDiscount = couponData.amountValue;
+        calculatedPercent = (couponData.amountValue / cartTotals.subtotal) * 100;
       }
 
-      setDiscount(calculatedDiscount);
+      const maxLimit = user?.transactionLimits?.maxDiscountPercent || 0;
+      if (calculatedPercent > maxLimit) {
+        toast.error(`This coupon exceeds your ${maxLimit}% discount limit`);
+        return;
+      }
+
+      setDiscount(calculatedPercent);
       setAppliedCoupon(couponData);
       toast.success(`Coupon "${couponData.name}" applied successfully!`);
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const handleCheckout = async (shouldPrint = false) => {
@@ -275,487 +303,165 @@ const POS = () => {
         items: cart.map(item => ({
           product: item.productId,
           variantId: item.variantId,
-          quantity: item.quantity
+          quantity: item.quantity,
+          manualDiscountPercent: item.manualDiscountPercent
         })),
-        discount,
+        globalDiscountPercent: discount,
         paymentMethod,
-        customerName
+        customer: selectedCustomer?._id, // Send customer ID
+        customerName: selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` : 'Walk-in Customer',
+        customerPhone: selectedCustomer?.phonePrimary
       });
-      
+
       toast.success("Sale completed successfully!");
       refetchTerminals(); // Update drawer balance
-      
+
       if (shouldPrint) {
         setLastSaleData({
-            ...result.data,
-            cashierName: `${user.firstName} ${user.lastName}`
+          ...result.data,
+          cashierName: `${user.firstName} ${user.lastName}`
         });
       }
 
       setCart([]);
-      setCustomerName('');
+      setSelectedCustomer(null); // Reset customer
       setDiscount(0);
       setAppliedCoupon(null);
-      setSearchQuery('');
-      if (searchInputRef.current) searchInputRef.current.focus();
+      setSearchQuery(''); 
+      setIsSearchFocused(false); 
+      if (searchInputRef.current) searchInputRef.current.focus(); 
     } catch (err) {
       toast.error(err.response?.data?.message || "Checkout failed");
     }
   };
 
-  if (!pos.transaction.read) {
+  if (!posPerms.transaction.read) {
     return (
-        <div className="p-8 text-center bg-background rounded-lg border border-dashed h-full flex flex-col items-center justify-center">
-            <ShieldAlert className="h-12 w-12 text-destructive mb-4 opacity-50" />
-            <h2 className="text-lg font-semibold text-destructive mb-2">Access Denied</h2>
-            <p className="text-muted-foreground max-w-sm text-xs">You do not have permission to access the terminal.</p>
-        </div>
+      <div className="p-8 text-center bg-background rounded-lg border border-dashed h-full flex flex-col items-center justify-center">
+        <ShieldAlert className="h-12 w-12 text-destructive mb-4 opacity-50" />
+        <h2 className="text-lg font-semibold text-destructive mb-2">Access Denied</h2>
+        <p className="text-muted-foreground max-w-sm text-xs">You do not have permission to access the terminal.</p>
+      </div>
     );
   }
 
   const activeBranch = branches?.data?.find(b => b._id === activeBranchId);
-
   return (
-    <div className="flex flex-col gap-4 h-[calc(100vh-140px)] relative text-slate-600">
-      <div style={{ display: 'none' }}>
-        <ReceiptPrint ref={receiptRef} sale={lastSaleData} branch={activeBranch} />
-      </div>
+    <>
+      <div className="flex flex-col gap-4 h-[calc(100vh-140px)] relative text-slate-600">
+        <div style={{ display: 'none' }}>
+          <ReceiptPrint ref={receiptRef} sale={lastSaleData} branch={activeBranch} />
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 overflow-hidden">
-        
-        {/* LEFT SECTION: Search & Billing */}
-        <div className="lg:col-span-8 flex flex-col gap-4 overflow-hidden">
-          
-          {/* Combined Terminal & Search Area */}
-          <div className="flex gap-3 items-center">
-            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl shadow-sm border border-slate-100 shrink-0">
-              <Store className="h-4 w-4 text-primary" />
-              {canSelectBranch ? (
-                <Select value={activeBranchId} onValueChange={handleBranchChange}>
-                  <SelectTrigger className="h-5 w-auto min-w-28 font-semibold text-[11px] border-none p-0 focus:ring-0 shadow-none hover:text-primary transition-colors">
-                    <SelectValue placeholder="Select Branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches?.data?.map(b => (
-                      <SelectItem key={b._id} value={b._id} className="text-[11px] font-medium">{b.branch_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <span className="font-semibold text-[11px] uppercase tracking-tight">{activeBranch?.branch_name || 'My Branch'}</span>
-              )}
-            </div>
-
-            {/* Live Terminal Status Badge */}
-            {activeTerminal && (
-              <div className="flex items-center gap-2 bg-slate-900 px-3 py-2 rounded-xl shadow-lg border border-slate-800 shrink-0 animate-in fade-in slide-in-from-left-2 duration-500">
-                <div className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 leading-none mb-0.5">{activeTerminal.name}</span>
-                  <span className="text-[11px] font-bold text-white leading-none tabular-nums">{formatCurrency(activeTerminal.activeSession.currentDrawerBalance)}</span>
-                </div>
-                <button 
-                  onClick={() => setIsCloseModalOpen(true)}
-                  className="ml-2 p-1.5 rounded-lg bg-white/5 hover:bg-rose-500 text-slate-400 hover:text-white transition-all group"
-                  title="Close Shift"
-                >
-                  <Power className="h-3 w-3" />
-                </button>
-              </div>
-            )}
-
-            {/* Search Input with Popover Table */}
-            <div className="relative flex-1" ref={searchContainerRef}>
-              <div className={cn(
-                "flex items-center gap-3 px-4 h-11 bg-white rounded-xl shadow-sm border transition-all duration-200",
-                isSearchFocused ? "ring-2 ring-primary/10 border-primary/30" : "border-slate-100"
-              )}>
-                <Search className={cn("h-4 w-4 transition-colors", isSearchFocused ? "text-primary" : "text-muted-foreground/60")} />
-                <input 
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Scan or type to search products..." 
-                  className="flex-1 bg-transparent border-none focus:outline-none text-sm font-medium placeholder:text-muted-foreground/40"
-                  value={searchQuery}
-                  onFocus={() => setIsSearchFocused(true)}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    if (!isSearchFocused) setIsSearchFocused(true);
-                  }}
-                  disabled={!activeTerminal}
-                />
-                <AnimatePresence>
-                  {searchQuery && (
-                    <motion.button 
-                      initial={{ scale: 0.5, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.5, opacity: 0 }}
-                      onClick={() => { setSearchQuery(''); setIsSearchFocused(false); }}
-                      className="p-1 hover:bg-slate-50 rounded-full transition-colors"
-                    >
-                      <XCircle className="h-4 w-4 text-muted-foreground/40 hover:text-destructive" />
-                    </motion.button>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* FLOATING SEARCH RESULTS (TABLE FORMAT) */}
+        {/* Top Row: Branch, Terminal, Search Input */}
+        <div className="flex gap-3 items-center" ref={searchContainerRef}>
+          <TerminalSearchArea
+            user={user}
+            isAdmin={isAdmin}
+            canSelectBranch={canSelectBranch}
+            activeBranchId={activeBranchId}
+            setActiveBranchId={setActiveBranchId}
+            handleBranchChange={handleBranchChange}
+            activeTerminal={activeTerminal}
+            setIsCloseModalOpen={setIsCloseModalOpen}
+            branches={branches}
+          />
+          {/* Search Input for Products */}
+          <div className="relative flex-1">
+            <div className={cn(
+              "flex items-center gap-3 px-4 h-11 bg-white rounded-xl shadow-sm border transition-all duration-200",
+              isSearchFocused ? "ring-2 ring-primary/10 border-primary/30" : "border-slate-100"
+            )}>
+              <Search className={cn("h-4 w-4 transition-colors", isSearchFocused ? "text-primary" : "text-muted-foreground/60")} />
+              <Input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Scan or type to search products..."
+                className="flex-1 bg-transparent border-none focus:outline-none text-sm font-medium placeholder:text-muted-foreground/40"
+                value={searchQuery}
+                onFocus={() => setIsSearchFocused(true)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  if (!isSearchFocused) setIsSearchFocused(true);
+                }}
+                disabled={!activeTerminal}
+              />
               <AnimatePresence>
-                {isSearchFocused && (searchQuery.trim().length > 0 || stockLoading) && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 8, scale: 0.99 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 8, scale: 0.99 }}
-                    className="absolute top-13 left-0 right-0 z-50 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden"
+                {searchQuery && (
+                  <motion.button
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.5, opacity: 0 }}
+                    onClick={() => { setSearchQuery(''); setIsSearchFocused(false); }}
+                    className="p-1 hover:bg-slate-50 rounded-full transition-colors"
                   >
-                    <div className="max-h-87.5 overflow-y-auto scrollbar-thin">
-                      {stockLoading ? (
-                        <div className="p-10 text-center flex flex-col items-center gap-3">
-                          <Loader2 className="h-6 w-6 animate-spin text-primary/30" />
-                          <p className="text-[11px] font-medium text-muted-foreground">Searching Live Inventory...</p>
-                        </div>
-                      ) : stock?.length > 0 ? (
-                        <Table>
-                          <TableHeader className="bg-slate-50 sticky top-0 z-10 h-9">
-                            <TableRow className="hover:bg-transparent border-none">
-                              <TableHead className="text-[9px] font-semibold uppercase pl-6 py-0">Item Description</TableHead>
-                              <TableHead className="text-[9px] font-semibold uppercase text-center py-0">Loc</TableHead>
-                              <TableHead className="text-[9px] font-semibold uppercase text-center py-0">Qty</TableHead>
-                              <TableHead className="text-[9px] font-semibold uppercase text-right pr-6 py-0">Price</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {stock.map((item) => {
-                              const variant = item.product.variants.find(v => v._id === item.variantId);
-                              const price = variant?.priceHistory[variant.priceHistory.length - 1]?.sellingPrice;
-                              const isOutOfStock = item.quantity <= 0;
-                              
-                              return (
-                                <TableRow 
-                                  key={item._id} 
-                                  className={cn(
-                                    "cursor-pointer transition-colors group h-12",
-                                    isOutOfStock ? "opacity-40 grayscale-[0.8] cursor-not-allowed bg-slate-50/50" : "hover:bg-primary/2"
-                                  )}
-                                  onClick={() => !isOutOfStock && addToCart(item)}
-                                >
-                                  <TableCell className="pl-6 py-2">
-                                    <div className="flex flex-col">
-                                      <span className="font-medium text-[13px] text-slate-700 group-hover:text-primary transition-colors">{item.product.productName}</span>
-                                      <span className="text-[9px] text-muted-foreground uppercase tracking-tight">{variant?.sku}</span>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-center">
-                                    <span className="text-[9px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded uppercase">
-                                      {item.locationDisplay !== 'NAN' ? item.locationDisplay.split(',')[0] : '--'}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell className="text-center">
-                                    <span className={cn("text-[11px] font-semibold", item.quantity < 5 ? "text-orange-500" : "text-slate-500")}>
-                                      {item.quantity}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell className="text-right pr-6">
-                                    <div className="flex items-center justify-end gap-2">
-                                      <span className="font-semibold text-sm text-slate-700">{formatCurrency(price)}</span>
-                                      {!isOutOfStock && <Plus className="h-3 w-3 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />}
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      ) : (
-                        <div className="p-10 text-center text-muted-foreground flex flex-col items-center gap-2">
-                          <PackageSearch className="h-6 w-6 opacity-20" />
-                          <p className="text-[11px] font-medium">No results found for "{searchQuery}"</p>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
+                    <XCircle className="h-4 w-4 text-muted-foreground/40 hover:text-destructive" />
+                  </motion.button>
                 )}
               </AnimatePresence>
             </div>
           </div>
-
-          {/* Billing Table Container */}
-          <Card className="flex-1 flex flex-col overflow-hidden border-none shadow-sm bg-white">
-            <CardHeader className="py-3 border-b px-6 flex flex-row items-center justify-between bg-slate-50/30">
-              <div className="flex items-center gap-2">
-                <div className="bg-slate-100 p-1.5 rounded-lg">
-                  <ShoppingCart className="h-4 w-4 text-slate-500" />
-                </div>
-                <CardTitle className="text-sm font-semibold text-slate-600">Cart Items</CardTitle>
-              </div>
-              <AnimatePresence>
-                {cart.length > 0 && (
-                  <motion.button 
-                    initial={{ opacity: 0, x: 10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 10 }}
-                    onClick={() => setCart([])}
-                    className="text-[10px] font-medium text-slate-400 hover:text-destructive flex items-center gap-1 transition-colors"
-                  >
-                    <Trash2 className="h-3 w-3" /> Clear Cart
-                  </motion.button>
-                )}
-              </AnimatePresence>
-            </CardHeader>
-            
-            <CardContent className="flex-1 overflow-y-auto p-0 scrollbar-thin">
-              <Table>
-                <TableHeader className="bg-slate-50 sticky top-0 z-10 h-10">
-                  <TableRow className="hover:bg-transparent border-none">
-                    <TableHead className="text-[10px] font-semibold uppercase tracking-widest pl-6">Product Details</TableHead>
-                    <TableHead className="text-[10px] font-semibold uppercase tracking-widest text-center">Unit</TableHead>
-                    <TableHead className="text-[10px] font-semibold uppercase tracking-widest text-center">Qty</TableHead>
-                    <TableHead className="text-[10px] font-semibold uppercase tracking-widest text-right pr-6">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <AnimatePresence mode="popLayout">
-                    {cart.map((item) => (
-                      <motion.tr 
-                        layout
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        key={item.variantId} 
-                        className="hover:bg-slate-50/50 border-b border-slate-100 transition-colors h-16"
-                      >
-                        <TableCell className="pl-6 py-3">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="font-semibold text-[13px] text-slate-700 leading-tight">{item.productName}</span>
-                            <span className="text-[9px] text-muted-foreground font-medium uppercase tracking-tighter">{item.sku}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center font-medium text-slate-500 text-[13px] tabular-nums">
-                          {formatCurrency(item.price)}
-                        </TableCell>
-                        <TableCell className="py-3">
-                          <div className="flex items-center justify-center gap-3">
-                            <button 
-                              className="h-6 w-6 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 hover:text-destructive transition-all active:scale-90 shadow-sm"
-                              onClick={() => updateQuantity(item.variantId, -1)}
-                            >
-                              <Minus className="h-3 w-3" />
-                            </button>
-                            <span className="text-sm font-semibold w-5 text-center tabular-nums text-slate-700">{item.quantity}</span>
-                            <button 
-                              className="h-6 w-6 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 hover:text-primary transition-all active:scale-90 shadow-sm"
-                              onClick={() => updateQuantity(item.variantId, 1)}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right pr-6 py-3">
-                          <div className="flex flex-col items-end gap-0.5">
-                            <span className="font-semibold text-sm text-slate-800 tabular-nums">{formatCurrency(item.subtotal)}</span>
-                            <button 
-                              className="text-[9px] font-medium text-slate-400 hover:text-destructive transition-colors uppercase tracking-widest"
-                              onClick={() => removeFromCart(item.variantId)}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </TableCell>
-                      </motion.tr>
-                    ))}
-                  </AnimatePresence>
-                  {cart.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-36">
-                        <div className="flex flex-col items-center gap-4 opacity-30">
-                          <div className="p-6 bg-slate-100 rounded-full">
-                            <ShoppingCart className="h-12 w-12 stroke-[1px]" />
-                          </div>
-                          <div className="text-center max-w-50">
-                            <p className="text-xs font-semibold uppercase tracking-[0.2em]">Cart is empty</p>
-                            <p className="text-[10px] font-medium mt-1">Start by scanning a product or using the search bar above.</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
         </div>
 
-        {/* RIGHT SECTION: Checkout Sidebar */}
-        <div className="lg:col-span-4 flex flex-col gap-4">
-          <Card className="flex-1 flex flex-col border-none shadow-sm bg-white overflow-hidden">
-            <CardHeader className="bg-slate-50/80 border-b py-4 px-6 flex flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-primary" />
-                <CardTitle className="text-sm font-semibold text-slate-700">Checkout</CardTitle>
-              </div>
-              <Badge variant="outline" className="text-[10px] font-medium text-slate-400 border-slate-200 uppercase tracking-widest">
-                {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-              </Badge>
-            </CardHeader>
-            
-            <CardContent className="flex-1 p-6 space-y-6 overflow-y-auto scrollbar-thin">
-              {/* Customer Input */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between px-1">
-                  <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Customer Info</Label>
-                  <History className="h-3 w-3 text-slate-300 hover:text-primary cursor-pointer transition-colors" />
-                </div>
-                <div className="relative group">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
-                  <Input 
-                    value={customerName} 
-                    onChange={(e) => setCustomerName(e.target.value)} 
-                    placeholder="Search or add customer..." 
-                    className="pl-10 h-11 text-sm font-medium bg-slate-50/50 border-slate-100 focus-visible:ring-primary/10 rounded-xl"
-                    disabled={!activeTerminal}
-                  />
-                </div>
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+          {/* LEFT SECTION: Billing */}
+          <div className="lg:col-span-8 flex flex-col gap-4" ref={leftColumnRef}>
+            <BillingTable
+              cart={cartTotals.items}
+              setCart={setCart}
+              updateQuantity={updateQuantity}
+              updateManualDiscount={updateManualDiscount}
+              removeFromCart={removeFromCart}
+            />
+          </div>
 
-              {/* Payment Method Selector */}
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">Payment Method</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: 'CASH', icon: Banknote, label: 'Cash' },
-                    { id: 'CARD', icon: CreditCard, label: 'Card' },
-                    { id: 'ONLINE_TRANSFER', icon: Landmark, label: 'Online' }
-                  ].map((method) => (
-                    <button 
-                      key={method.id}
-                      onClick={() => setPaymentMethod(method.id)}
-                      className={cn(
-                        "flex flex-col items-center justify-center gap-2 h-16 rounded-xl border transition-all duration-200",
-                        paymentMethod === method.id 
-                          ? "bg-primary/5 border-primary/40 text-primary shadow-sm ring-4 ring-primary/5" 
-                          : "bg-white border-slate-100 text-slate-400 hover:bg-slate-50"
-                      )}
-                      disabled={!activeTerminal}
-                    >
-                      <method.icon className="h-5 w-5" />
-                      <span className="text-[9px] font-bold uppercase tracking-widest">{method.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <Separator className="bg-slate-100/80" />
-
-              {/* Totals & Discounts */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center text-xs font-medium px-1">
-                  <span className="text-slate-400 uppercase tracking-widest text-[10px] font-bold">Net Subtotal</span>
-                  <span className="text-slate-600 font-bold tabular-nums">{formatCurrency(total)}</span>
-                </div>
-                
-                <div className="flex items-center justify-between gap-4 px-1">
-                  <div className="flex items-center gap-2">
-                    <Tag className="h-3.5 w-3.5 text-primary/60" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Discount</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="relative w-24">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/60">Rs.</span>
-                      <Input 
-                        type="number" 
-                        className="h-8 pl-8 pr-2 text-right text-[13px] font-bold bg-slate-50/50 border-slate-100 focus-visible:ring-primary/10 rounded-lg tabular-nums" 
-                        value={discount} 
-                        onChange={(e) => {
-                            setDiscount(parseFloat(e.target.value) || 0);
-                            setAppliedCoupon(null);
-                        }} 
-                        disabled={!activeTerminal}
-                      />
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      className="h-8 w-8 border-slate-100 text-slate-400 hover:text-primary hover:bg-primary/5 transition-all shadow-none rounded-lg"
-                      onClick={() => setIsScannerOpen(true)}
-                      disabled={!activeTerminal}
-                    >
-                      <QrCode className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {appliedCoupon && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="px-3 py-2 bg-emerald-50 rounded-xl flex justify-between items-center ring-1 ring-emerald-100 border border-emerald-200/50 shadow-sm"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-3 w-3 text-emerald-500" />
-                      <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-tight">{appliedCoupon.name}</span>
-                    </div>
-                    <XCircle 
-                      className="h-4 w-4 text-emerald-300 hover:text-destructive cursor-pointer transition-colors"
-                      onClick={() => { setDiscount(0); setAppliedCoupon(null); }}
-                    />
-                  </motion.div>
-                )}
-                
-                {/* Final Amount Display */}
-                <div className="pt-2">
-                  <div className="bg-slate-900 p-5 rounded-2xl shadow-xl shadow-slate-200 relative overflow-hidden group">
-                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500 text-white">
-                      <Receipt className="h-24 w-24" />
-                    </div>
-                    <div className="relative z-10">
-                      <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400">Grand Total</span>
-                      <div className="flex items-baseline gap-1 mt-1">
-                        <span className="text-3xl font-bold text-white tabular-nums tracking-tight leading-none">{formatCurrency(finalTotal)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-            
-            {/* Actions */}
-            <CardFooter className="p-6 bg-slate-50/50 border-t flex flex-col gap-3">
-              <Button 
-                variant="outline"
-                className="w-full h-12 font-bold text-[11px] uppercase tracking-widest border-slate-200 text-slate-500 hover:bg-white hover:text-slate-700 transition-all rounded-xl shadow-sm active:scale-[0.98]" 
-                onClick={() => handleCheckout(false)}
-                disabled={cart.length === 0 || createSaleMutation.isLoading || !canCreateSale || !activeTerminal}
-              >
-                {createSaleMutation.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle2 className="h-4 w-4 mr-2" /> Finish Sale Only</>}
-              </Button>
-              <Button 
-                className="w-full h-14 font-bold text-[11px] uppercase tracking-widest shadow-xl shadow-primary/20 transition-all rounded-xl active:scale-[0.98] gap-2" 
-                onClick={() => handleCheckout(true)}
-                disabled={cart.length === 0 || createSaleMutation.isLoading || !canCreateSale || !activeTerminal}
-              >
-                {createSaleMutation.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Printer className="h-4 w-4" /> Finalize & Print</>}
-              </Button>
-              {!activeTerminal && (
-                <div className="flex items-center justify-center gap-1.5 text-rose-500 animate-pulse">
-                  <ShieldAlert className="h-3 w-3" />
-                  <span className="text-[9px] font-bold uppercase tracking-wider">Session Inactive - Open Shift to Begin</span>
-                </div>
-              )}
-            </CardFooter>
-          </Card>
+          {/* RIGHT SECTION: Checkout Sidebar */}
+          <div className="lg:col-span-4 flex flex-col gap-4" ref={rightColumnRef}>
+            <CheckoutSidebar
+              user={user}
+              activeTerminal={activeTerminal}
+              selectedCustomer={selectedCustomer}
+              setSelectedCustomer={setSelectedCustomer}
+              paymentMethod={paymentMethod}
+              setPaymentMethod={setPaymentMethod}
+              totals={cartTotals}
+              discount={discount}
+              setDiscount={setDiscount}
+              appliedCoupon={appliedCoupon}
+              setAppliedCoupon={setAppliedCoupon}
+              setIsScannerOpen={setIsScannerOpen}
+              handleCheckout={handleCheckout}
+              canCreateSale={canCreateSale}
+              isCreatingSale={createSaleMutation.isPending}
+              cartLength={cart.length}
+            />
+          </div>
         </div>
       </div>
 
-      <QRScannerDialog 
+      {/* Search Dropdown - rendered globally */}
+      <SearchDropdown
+        searchInputRef={searchInputRef}
+        searchContainerRef={searchContainerRef}
+        searchQuery={searchQuery}
+        isSearchFocused={isSearchFocused}
+        stock={stock}
+        stockLoading={stockLoading}
+        addToCart={addToCart}
+        setSearchQuery={setSearchQuery}
+        setIsSearchFocused={setIsSearchFocused}
+        activeTerminal={activeTerminal}
+        leftColumnRef={leftColumnRef}
+        rightColumnRef={rightColumnRef}
+      />
+
+      <QRScannerDialog
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
         onScanSuccess={handleCouponScanned}
       />
 
-      <ShiftModal 
+      <ShiftModal
         isOpen={isShiftModalOpen}
         terminals={terminals}
         onOpenShift={handleOpenShift}
@@ -763,14 +469,14 @@ const POS = () => {
         userFirstName={user?.firstName}
       />
 
-      <CloseShiftModal 
+      <CloseShiftModal
         isOpen={isCloseModalOpen}
         onClose={() => setIsCloseModalOpen(false)}
         activeSession={activeTerminal?.activeSession}
         onCloseShift={handleCloseShift}
         isLoading={false}
       />
-    </div>
+    </>
   );
 };
 

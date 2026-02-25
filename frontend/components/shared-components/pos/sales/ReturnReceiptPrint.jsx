@@ -1,28 +1,53 @@
 import React, { forwardRef } from 'react';
 import { format } from 'date-fns';
+import { useGetSettings } from '@/features/settings.api';
+import { formatCurrency } from '@/utils/formatters';
 
 const ReturnReceiptPrint = forwardRef(({ returnData, originalSale, branch }, ref) => {
+  const { data: settings } = useGetSettings();
+
   if (!returnData || !originalSale) return null;
 
-  const totalReturned = returnData.returnedItems.reduce((acc, item) => acc + (item.unitPrice * item.quantity), 0);
-  const totalExchanged = returnData.exchangedItems?.reduce((acc, item) => acc + item.subtotal, 0) || 0;
+  // Total Return Credit (What we owe the customer for handing back items)
+  const totalReturnCredit = returnData.returnedItems.reduce((acc, item) => {
+    const itemSubtotal = item.unitPrice * item.quantity;
+    // We assume the stored unitPrice is the post-discount price from original sale
+    // We need to account for the tax that was paid on these items
+    const originalItem = originalSale.items.find(i => i.variantId.toString() === item.variantId.toString());
+    const taxAmount = (itemSubtotal * (originalItem?.taxRate || 0)) / 100;
+    return acc + itemSubtotal + taxAmount;
+  }, 0);
+
+  // Total Exchange Debt (What the customer owes for new items)
+  const totalExchangeDebt = returnData.exchangedItems?.reduce((acc, item) => {
+    return acc + (item.subtotal + (item.taxAmount || 0));
+  }, 0) || 0;
 
   return (
     <div ref={ref} className="p-4 bg-white text-black font-mono text-[10px] w-[80mm] mx-auto">
       {/* Header */}
       <div className="text-center space-y-1 mb-4">
-        <h2 className="text-sm font-bold uppercase">{branch?.branch_name || 'Supermarket'}</h2>
-        <p>{branch?.address || 'Main Branch'}</p>
-        <p>Tel: {branch?.phone || '000-000-0000'}</p>
+        {settings?.logo && (
+          <div className="flex justify-center mb-2">
+            <img
+              src={`${process.env.NEXT_PUBLIC_BACKEND_URL}/${settings.logo}`}
+              alt="Logo"
+              className="h-10 w-auto object-contain grayscale"
+            />
+          </div>
+        )}
+        <h2 className="text-sm font-bold uppercase">{branch?.branch_name || settings?.companyName || 'Supermarket'}</h2>
+        <p>{branch?.address?.street || branch?.address || settings?.companyAddress || 'Main Branch'}</p>
+        <p>Tel: {branch?.phone || settings?.companyPhone || '000-000-0000'}</p>
         <div className="border-y border-black border-dashed py-1 my-2">
-            <p className="text-xs font-black uppercase tracking-widest">
-                {returnData.type === 'RETURN' ? 'RETURN RECEIPT' : 'EXCHANGE RECEIPT'}
-            </p>
+          <p className="text-xs font-black uppercase tracking-widest">
+            {returnData.type === 'RETURN' ? 'RETURN RECEIPT' : 'EXCHANGE RECEIPT'}
+          </p>
         </div>
       </div>
 
       {/* Info Section */}
-      <div className="space-y-0.5 mb-4">
+      <div className="space-y-0.5 mb-4 border-b border-black pb-2">
         <div className="flex justify-between">
           <span>Return No:</span>
           <span className="font-bold">{returnData.returnNumber}</span>
@@ -43,69 +68,98 @@ const ReturnReceiptPrint = forwardRef(({ returnData, originalSale, branch }, ref
 
       {/* Returned Items */}
       <div className="mb-4">
-        <p className="font-bold border-b border-black mb-1 italic">RETURNED ITEMS</p>
-        {returnData.returnedItems.map((item, index) => (
-          <div key={index} className="space-y-0.5 mb-1">
-            <div className="flex justify-between font-bold">
-              <span>{item.productName} ({item.condition})</span>
+        <p className="font-bold border-b border-black mb-1 italic uppercase">1. Items Returned (Credit)</p>
+        {returnData.returnedItems.map((item, index) => {
+          const originalItem = originalSale.items.find(i => i.variantId.toString() === item.variantId.toString());
+          const itemSubtotal = item.unitPrice * item.quantity;
+          const itemTax = (itemSubtotal * (originalItem?.taxRate || 0)) / 100;
+          return (
+            <div key={index} className="space-y-0.5 mb-2 border-b border-gray-100 pb-1">
+              <div className="flex justify-between font-bold">
+                <span>{item.productName} ({item.condition})</span>
+              </div>
+              <div className="flex justify-between text-[9px]">
+                <span>{item.quantity} x {formatCurrency(item.unitPrice)}</span>
+                <span>-{formatCurrency(itemSubtotal)}</span>
+              </div>
+              {itemTax > 0 && (
+                <div className="flex justify-between text-[8px] italic opacity-70">
+                  <span>Tax Credit ({originalItem?.taxRate}%)</span>
+                  <span>-{formatCurrency(itemTax)}</span>
+                </div>
+              )}
             </div>
-            <div className="flex justify-between">
-              <span>{item.quantity} x ${item.unitPrice.toFixed(2)}</span>
-              <span>-${(item.quantity * item.unitPrice).toFixed(2)}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         <div className="flex justify-between border-t border-black pt-1 font-bold">
-            <span>TOTAL RETURN VALUE:</span>
-            <span>-${totalReturned.toFixed(2)}</span>
+          <span>TOTAL RETURN CREDIT:</span>
+          <span>-{formatCurrency(totalReturnCredit)}</span>
         </div>
       </div>
 
       {/* Exchanged Items (If Exchange) */}
       {returnData.type === 'EXCHANGE' && returnData.exchangedItems?.length > 0 && (
         <div className="mb-4">
-          <p className="font-bold border-b border-black mb-1 italic">NEW ITEMS TAKEN</p>
+          <p className="font-bold border-b border-black mb-1 italic uppercase">2. Replacement Items (Debt)</p>
           {returnData.exchangedItems.map((item, index) => (
-            <div key={index} className="space-y-0.5 mb-1">
+            <div key={index} className="space-y-0.5 mb-2 border-b border-gray-100 pb-1">
               <div className="flex justify-between font-bold">
                 <span>{item.productName}</span>
               </div>
-              <div className="flex justify-between">
-                <span>{item.quantity} x ${item.unitPrice.toFixed(2)}</span>
-                <span>+${item.subtotal.toFixed(2)}</span>
+              <div className="flex justify-between text-[9px]">
+                <span>{item.quantity} x {formatCurrency(item.unitPrice)}</span>
+                <span>+{formatCurrency(item.subtotal)}</span>
               </div>
+              {item.taxAmount > 0 && (
+                <div className="flex justify-between text-[8px] italic opacity-70">
+                  <span>Tax Amount ({item.taxRate}%)</span>
+                  <span>+{formatCurrency(item.taxAmount)}</span>
+                </div>
+              )}
+              {item.discountPercent > 0 && (
+                <div className="flex justify-between text-[8px] text-emerald-700 font-bold">
+                  <span>Auto-Discount (-{item.discountPercent}%)</span>
+                  <span>-{formatCurrency(item.discountAmount || (item.originalUnitPrice * item.discountPercent / 100))}</span>
+                </div>
+              )}
             </div>
           ))}
           <div className="flex justify-between border-t border-black pt-1 font-bold">
-              <span>TOTAL EXCHANGE VALUE:</span>
-              <span>+${totalExchanged.toFixed(2)}</span>
+            <span>TOTAL EXCHANGE DEBT:</span>
+            <span>+{formatCurrency(totalExchangeDebt)}</span>
           </div>
         </div>
       )}
 
       {/* Summary Footer */}
-      <div className="border-t border-black pt-2 space-y-1">
-        <div className="flex justify-between text-xs font-black">
+      <div className="border-t-2 border-black pt-2 space-y-1.5">
+        <div className="flex justify-between text-[11px] font-black uppercase">
           <span>
-            {returnData.type === 'RETURN' ? 'NET REFUND:' : 'BALANCE ADJ:'}
+            {returnData.type === 'RETURN' ? 'NET REFUND AMOUNT:' : 'FINAL SETTLEMENT:'}
           </span>
           <span>
-            {returnData.type === 'RETURN' 
-                ? `$${returnData.totalRefundAmount.toFixed(2)}` 
-                : returnData.totalExchangeDifference > 0 
-                    ? `PAY +$${returnData.totalExchangeDifference.toFixed(2)}`
-                    : `REFUND -$${Math.abs(returnData.totalExchangeDifference).toFixed(2)}`
+            {returnData.type === 'RETURN'
+              ? formatCurrency(returnData.totalRefundAmount)
+              : returnData.totalExchangeDifference > 0
+                ? `PAY +${formatCurrency(returnData.totalExchangeDifference)}`
+                : `REFUND -${formatCurrency(Math.abs(returnData.totalExchangeDifference))}`
             }
           </span>
         </div>
+
+        {returnData.type === 'EXCHANGE' && (
+          <p className="text-[8px] text-center italic border-t border-gray-200 pt-1">
+            Balance calculation: Debt ({formatCurrency(totalExchangeDebt)}) - Credit ({formatCurrency(totalReturnCredit)})
+          </p>
+        )}
       </div>
 
       {/* Footer message */}
       <div className="text-center mt-6 space-y-1">
-        <p className="italic">Inventory updated successfully.</p>
-        <p className="font-bold uppercase tracking-tighter">Verified Audit Trail</p>
+        <p className="italic text-[9px]">{settings?.receiptFooterMessage || 'Thank you for choosing us!'}</p>
+        <p className="font-bold uppercase tracking-tighter text-[8px]">Inventory Audit Trail Verified</p>
         <div className="mt-4 border-t border-black pt-4">
-            <p>--- Thank You ---</p>
+          <p>--- Customer Copy ---</p>
         </div>
       </div>
     </div>

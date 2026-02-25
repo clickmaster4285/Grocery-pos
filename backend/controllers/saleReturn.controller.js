@@ -1,11 +1,13 @@
 const SaleReturn = require('../models/saleReturn.model');
 const Sale = require('../models/sale.model');
 const BranchStock = require('../models/branchStock.model');
-const BranchStockLocation = require('../models/branchStockLocation.model'); // Added
-const BranchLocation = require('../models/branchLocation.model'); // Added
+const BranchStockLocation = require('../models/branchStockLocation.model');
+const BranchLocation = require('../models/branchLocation.model');
 const Product = require('../models/product.model');
 const Counter = require('../models/counter.model');
-const { addStockToLocation, deductStockFromLocations, getDefaultBackroomLocation } = require('../utils/inventory.utils'); // Added
+const DiscountPromotion = require('../models/discount.model');
+const mongoose = require('mongoose');
+const { addStockToLocation, deductStockFromLocations, getDefaultBackroomLocation } = require('../utils/inventory.utils');
 
 // Helper to generate Return Number: RTN-YYYYMMDD-[BASE36]
 const generateReturnNumber = async () => {
@@ -24,107 +26,143 @@ const generateReturnNumber = async () => {
 };
 
 exports.processReturn = async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
     try {
         const { saleId, type, returnedItems, exchangedItems } = req.body;
         const userId = req.user._id;
 
+        if (!returnedItems || returnedItems.length === 0) {
+            throw new Error('No items selected for return');
+        }
+
         // 1. Fetch Original Sale
-        const originalSale = await Sale.findById(saleId).session(session);
+        const originalSale = await Sale.findById(saleId);
         if (!originalSale) throw new Error('Original sale not found');
 
         const returnNumber = await generateReturnNumber();
-        let totalRefundValue = 0;
-        let totalExchangeValue = 0;
+        let totalRefundValue = 0; // Credit from items handed back (Price paid + Tax)
 
-        const branchDefaultBackroom = await getDefaultBackroomLocation(originalSale.branch, session);
+        const branchDefaultBackroom = await getDefaultBackroomLocation(originalSale.branch);
 
-        // 2. Process Returned Items
+        // 2. Process Returned Items (Credit Calculation)
+        const cleanedReturnedItems = [];
         for (const item of returnedItems) {
-            // Ensure we are comparing ID strings (handles cases where product might be an object)
-            const productId = typeof item.product === 'object' ? item.product._id : item.product;
-            const variantId = typeof item.variantId === 'object' ? item.variantId._id : item.variantId;
+            const productId = item.product?._id || item.product;
+            const variantId = item.variantId?._id || item.variantId;
 
-            // Find item in original sale to validate
+            if (!productId || !variantId) throw new Error('Invalid product or variant ID in return list');
+
             const originalItem = originalSale.items.find(
                 i => i.product.toString() === productId.toString() && i.variantId.toString() === variantId.toString()
             );
 
-            if (!originalItem) throw new Error(`Item ${item.productName} was not part of the original sale`);
-            if (item.quantity > originalItem.quantity) throw new Error(`Cannot return more than purchased for ${item.productName}`);
+            if (!originalItem) throw new Error(`Item ${item.productName || productId} was not part of the original sale`);
+            
+            // Calculate credit: What the customer actually paid (unitPrice) + the tax on that paid amount
+            const itemCredit = (originalItem.unitPrice * item.quantity);
+            const itemTaxCredit = (itemCredit * (originalItem.taxRate || 0)) / 100;
+            
+            totalRefundValue += (itemCredit + itemTaxCredit);
 
-            totalRefundValue += (originalItem.unitPrice * item.quantity);
-
-            // Update Stock if condition is GOOD - add back to default backroom
             if (item.condition === 'GOOD') {
-                const productDoc = await Product.findById(productId).session(session);
-                if (!productDoc) throw new Error(`Product ${productId} not found.`);
-                
-                await addStockToLocation(
-                    originalSale.branch,
-                    productId,
-                    variantId,
-                    branchDefaultBackroom._id,
-                    item.quantity,
-                    session
-                );
+                await addStockToLocation(originalSale.branch, productId, variantId, branchDefaultBackroom._id, item.quantity);
             }
+
+            cleanedReturnedItems.push({
+                product: productId,
+                variantId: variantId,
+                productName: item.productName || originalItem.productName,
+                sku: item.sku || originalItem.sku,
+                quantity: item.quantity,
+                unitPrice: originalItem.unitPrice,
+                condition: item.condition || 'GOOD',
+                reason: item.reason || ''
+            });
         }
 
-        // 3. Process Exchanged Items (if any)
+        // 3. Process Exchanged Items (New Debt Calculation)
         const processedExchanges = [];
-        if (type === 'EXCHANGE' && exchangedItems) {
+        let totalNewItemsValue = 0;
+
+        if (type === 'EXCHANGE' && exchangedItems && exchangedItems.length > 0) {
+            const now = new Date();
+            const activeAutoDiscounts = await DiscountPromotion.find({
+                status: 'active',
+                autoApply: true,
+                startDate: { $lte: now },
+                $or: [{ endDate: { $exists: false } }, { endDate: { $gt: now } }],
+                $or: [{ isGlobal: true }, { applicableBranches: originalSale.branch }]
+            });
+
             for (const item of exchangedItems) {
-                const product = await Product.findById(item.product).session(session);
+                const product = await Product.findById(item.product);
                 if (!product) throw new Error(`Product ${item.product} not found.`);
 
                 const variant = product.variants.id(item.variantId);
                 if (!variant) throw new Error(`Variant ${item.variantId} not found.`);
 
-                const price = variant.priceHistory[variant.priceHistory.length - 1].sellingPrice;
-                const subtotal = price * item.quantity;
+                const originalUnitPrice = variant.priceHistory[variant.priceHistory.length - 1].sellingPrice;
+                
+                // Calculate Auto Discount for new item
+                let autoDiscountPercent = 0;
+                const promo = activeAutoDiscounts.find(p => 
+                    p.qualifyingProducts.includes(product._id) || 
+                    p.qualifyingVariants.includes(item.variantId.toString()) ||
+                    p.qualifyingCategories.includes(product.category) ||
+                    p.qualifyingBrands.includes(product.brand)
+                );
+                if (promo && promo.amountType === 'Percentage') autoDiscountPercent = promo.amountValue;
 
-                // Deduct stock for new items from branch stock locations
-                await deductStockFromLocations(originalSale.branch, item.product, item.variantId, item.quantity, session);
+                const discountAmount = (originalUnitPrice * autoDiscountPercent) / 100;
+                const unitPrice = originalUnitPrice - discountAmount;
+                const subtotal = unitPrice * item.quantity;
+                const taxAmount = (subtotal * (product.taxRate || 0)) / 100;
+                const lineTotal = subtotal + taxAmount;
 
-                totalExchangeValue += subtotal;
+                await deductStockFromLocations(originalSale.branch, item.product, item.variantId, item.quantity);
+
+                totalNewItemsValue += lineTotal;
                 processedExchanges.push({
                     product: item.product,
                     variantId: item.variantId,
                     productName: product.productName,
                     sku: variant.sku,
                     quantity: item.quantity,
-                    unitPrice: price,
+                    originalUnitPrice,
+                    discountPercent: autoDiscountPercent,
+                    discountAmount: discountAmount * item.quantity,
+                    unitPrice,
+                    taxRate: product.taxRate || 0,
+                    taxAmount,
                     subtotal
                 });
             }
+
+            // 4. Exchange Validation: New Value >= Return Credit
+            if (totalNewItemsValue < totalRefundValue) {
+                throw new Error(`The value of replacement items (${totalNewItemsValue.toFixed(2)}) must be greater than or equal to the return credit (${totalRefundValue.toFixed(2)}).`);
+            }
         }
 
-        // 4. Create Return Record
+        // 5. Create Return Record
         const saleReturn = new SaleReturn({
             returnNumber,
             originalSale: saleId,
             branch: originalSale.branch,
             type,
-            returnedItems,
+            returnedItems: cleanedReturnedItems,
             exchangedItems: processedExchanges,
             totalRefundAmount: type === 'RETURN' ? totalRefundValue : 0,
-            totalExchangeDifference: type === 'EXCHANGE' ? (totalExchangeValue - totalRefundValue) : 0,
+            totalExchangeDifference: type === 'EXCHANGE' ? (totalNewItemsValue - totalRefundValue) : 0,
             performedBy: userId
         });
 
-        await saleReturn.save({ session });
-        await session.commitTransaction();
+        await saleReturn.save();
 
         res.status(201).json({ success: true, data: saleReturn });
 
     } catch (error) {
-        await session.abortTransaction();
+        console.error('Process Return Error:', error);
         res.status(400).json({ success: false, message: error.message });
-    } finally {
-        session.endSession();
     }
 };
 
@@ -137,6 +175,7 @@ exports.getSaleHistory = async (req, res) => {
         const sale = await Sale.findById(saleId)
             .populate('branch', 'branch_name')
             .populate('cashier', 'firstName lastName')
+            .populate('customer', 'firstName lastName phonePrimary customerGroup email') // Added customer populate
             .populate('items.product', 'productName');
 
         if (!sale) return res.status(404).json({ success: false, message: 'Sale not found' });
@@ -147,7 +186,6 @@ exports.getSaleHistory = async (req, res) => {
             .sort({ createdAt: 1 });
 
         // 3. CALCULATE REMAINING RETURNABLE QUANTITIES
-        // We create a map of SKU -> Total Returned
         const returnedCounts = {};
         activityLog.forEach(activity => {
             activity.returnedItems.forEach(item => {
@@ -181,18 +219,16 @@ exports.getSaleHistory = async (req, res) => {
     }
 };
 
-// GET ALL RETURNS (For the new sidebar menu)
+// GET ALL RETURNS
 exports.getAllReturns = async (req, res) => {
     try {
         const { startDate, endDate, search } = req.query;
         let query = {};
 
-        // 1. Role-based Branch Isolation
         if (req.user.role !== 'admin') {
             query.branch = req.user.branch_id;
         }
 
-        // 2. Date Filtering
         if (startDate || endDate) {
             query.createdAt = {};
             if (startDate) {
@@ -207,12 +243,10 @@ exports.getAllReturns = async (req, res) => {
             }
         }
 
-        // 3. Search (Return Number)
         if (search) {
             query.returnNumber = { $regex: search, $options: 'i' };
         }
 
-        // 4. Fetch Data and Stats
         const [returns, stats] = await Promise.all([
             SaleReturn.find(query)
                 .populate('originalSale', 'billNumber')
@@ -227,7 +261,6 @@ exports.getAllReturns = async (req, res) => {
                         _id: null,
                         totalRefunded: { $sum: "$totalRefundAmount" },
                         exchangeBalance: { $sum: "$totalExchangeDifference" },
-                        // Count items by condition
                         inventoryRestored: {
                             $sum: {
                                 $reduce: {

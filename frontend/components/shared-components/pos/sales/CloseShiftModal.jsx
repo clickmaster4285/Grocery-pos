@@ -116,6 +116,7 @@ const CloseShiftModal = ({
             <Label className="text-[11px] font-bold uppercase tracking-widest text-slate-500 px-1">Closing Notes / Remarks</Label>
             <textarea
               value={notes}
+              required
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Variance due to small change missing..."
               className="w-full min-h-24 p-4 rounded-xl border border-slate-100 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"

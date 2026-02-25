@@ -1,18 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { 
-    ChevronLeft, 
-    Truck, 
-    Hash, 
-    User, 
-    Mail, 
-    Phone, 
-    MapPin, 
-    ShieldCheck, 
-    CreditCard, 
-    Save, 
+import {
+    ChevronLeft,
+    Truck,
+    Hash,
+    User,
+    Mail,
+    Phone,
+    MapPin,
+    ShieldCheck,
+    CreditCard,
+    Save,
     LayoutDashboard,
     Loader2,
     Info,
@@ -36,6 +36,14 @@ import { Country, State, City } from "country-state-city";
 import { ComboBox } from "@/components/ui/combobox";
 import { toast } from 'sonner';
 import { useCreateSupplier, useUpdateSupplier, useGetSupplierById } from '@/features/supplier.api';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from '@/components/ui/dialog';
 
 const initialFormData = {
     supplier_code: "",
@@ -63,17 +71,19 @@ const initialFormData = {
     status: "ACTIVE",
 };
 
-const SupplierFormView = () => {
+const SupplierForm = ({ isOpen = false, onClose, onSuccess, initialSupplierData = null }) => {
     const router = useRouter();
     const params = useParams();
     const { id, role } = params;
-    const isEditMode = !!id;
+    const isEditMode = !!(initialSupplierData?._id || id);
 
     const [formData, setFormData] = useState(initialFormData);
     const [states, setStates] = useState([]);
     const [cities, setCities] = useState([]);
 
-    const { data: supplierData, isLoading: isSupplierLoading } = useGetSupplierById(id);
+    const { data: supplierData, isLoading: isSupplierLoading } = useGetSupplierById(initialSupplierData?._id || id, {
+        enabled: isEditMode && (isOpen ? !!initialSupplierData?._id : !!id) // Only fetch if in edit mode and ID is present
+    });
     const createSupplierMutation = useCreateSupplier();
     const updateSupplierMutation = useUpdateSupplier();
 
@@ -110,8 +120,12 @@ const SupplierFormView = () => {
                 payment_terms: supplier.payment_terms || "CASH",
                 status: supplier.status || "ACTIVE",
             });
+        } else if (!isEditMode && !isOpen) { // Reset form for new full-page creation
+            setFormData(initialFormData);
+        } else if (!isEditMode && isOpen) { // Reset form for new modal creation
+            setFormData(initialFormData);
         }
-    }, [isEditMode, supplierData]);
+    }, [isEditMode, supplierData, isOpen, id, initialSupplierData]);
 
     useEffect(() => {
         const countryObj = Country.getAllCountries().find(c => c.name === formData.address.country);
@@ -153,6 +167,10 @@ const SupplierFormView = () => {
     };
 
     const handleStateChange = (stateIsoCode) => {
+        if (!formData.address.country) {
+            toast.error("Please select a country first.");
+            return;
+        }
         const countryObj = Country.getAllCountries().find(c => c.name === formData.address.country);
         const name = State.getStateByCodeAndCountry(stateIsoCode, countryObj?.isoCode)?.name || "";
         setFormData(prev => ({
@@ -162,6 +180,10 @@ const SupplierFormView = () => {
     };
 
     const handleCityChange = (cityName) => {
+        if (!formData.address.state) {
+            toast.error("Please select a state/province first.");
+            return;
+        }
         setFormData(prev => ({
             ...prev,
             address: { ...prev.address, city: cityName }
@@ -171,16 +193,25 @@ const SupplierFormView = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         const toastId = toast.loading(isEditMode ? 'Synchronizing supplier records...' : 'Registering new supplier node...');
-        
+
         try {
+            let response;
             if (isEditMode) {
-                await updateSupplierMutation.mutateAsync({ id, supplierData: formData });
+                const updateId = initialSupplierData?._id || id;
+                response = await updateSupplierMutation.mutateAsync({ id: updateId, supplierData: formData });
                 toast.success("Supplier records successfully updated.", { id: toastId });
             } else {
-                await createSupplierMutation.mutateAsync(formData);
+                response = await createSupplierMutation.mutateAsync(formData);
                 toast.success("New supplier node deployed successfully.", { id: toastId });
             }
-            router.push(`/${role}/inventory/suppliers`);
+
+            if (onSuccess) {
+                onSuccess(response.data);
+                onClose(); // Close modal on success
+                setFormData(initialFormData); // Reset form for next use
+            } else {
+                router.push(`/${role}/inventory/suppliers`); // Navigate for full-page
+            }
         } catch (error) {
             toast.error("Operation failed", {
                 id: toastId,
@@ -189,70 +220,66 @@ const SupplierFormView = () => {
         }
     };
 
-    if (isEditMode && isSupplierLoading) {
-        return (
-            <div className="flex h-[70vh] items-center justify-center">
-                <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
-                    <p className="text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground animate-pulse">Retrieving Node Configuration</p>
-                </div>
-            </div>
-        );
-    }
+    const isPending = createSupplierMutation.isPending || updateSupplierMutation.isPending;
 
-    return (
-        <div className="bg-white p-2 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    const formContent = (
+        <div className={`${isOpen ? 'p-6' : 'p-2'} space-y-8`}>
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-border/50 pb-6">
-                <div className="space-y-3">
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => router.back()} 
-                        className="group -ml-2 text-muted-foreground hover:text-foreground h-8 px-2"
-                    >
-                        <ChevronLeft className="mr-1 h-4 w-4 transition-transform group-hover:-translate-x-1" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">Back to Network</span>
-                    </Button>
-                   <div className="space-y-1">
-                        <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
-                                <Truck className="h-4.5 w-4.5 text-primary" />
+            {!isOpen && ( // Only show full header in full-page mode
+                <div className="border-b border-border/50 pb-6">
+                    <div className="space-y-3">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.back()}
+                            className="group -ml-2 text-muted-foreground hover:text-foreground h-8 px-2"
+                        >
+                            <ChevronLeft className="mr-1 h-4 w-4 transition-transform group-hover:-translate-x-1" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Back to Network</span>
+                        </Button>
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                                    <Truck className="h-4.5 w-4.5 text-primary" />
+                                </div>
+                                <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                                    {isEditMode ? 'Configure Supplier' : 'Register New Supplier'}
+                                </h1>
                             </div>
-                            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                                {isEditMode ? 'Configure Supplier' : 'Register New Supplier'}
-                            </h1>
+                            <p className="text-xs font-medium text-muted-foreground max-w-md ml-12">
+                                {isEditMode
+                                    ? `Update node parameters for ${formData.name}.`
+                                    : 'Initialize a new supply chain node with global identification.'}
+                            </p>
                         </div>
-                        <p className="text-xs font-medium text-muted-foreground max-w-md ml-12">
-                            {isEditMode 
-                                ? `Update node parameters for ${formData.name}.` 
-                                : 'Initialize a new supply chain node with global identification.'}
-                        </p>
                     </div>
                 </div>
+            )}
+            {isOpen && (
+                <DialogHeader className="p-6 bg-primary text-primary-foreground rounded-t-lg">
+                    <DialogTitle className="text-2xl font-bold tracking-tight flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-primary-foreground/20 flex items-center justify-center backdrop-blur-sm">
+                            <Truck className="h-6 w-6" />
+                        </div>
+                        {isEditMode ? 'Edit Supplier' : 'Register New Supplier'}
+                    </DialogTitle>
+                    <DialogDescription className="text-primary-foreground/80">
+                        {isEditMode ? 'Update supplier details.' : 'Quickly add a new supplier to your network.'}
+                    </DialogDescription>
+                </DialogHeader>
+            )}
 
-                <div className="flex items-center gap-3">
-                    <Button variant="outline" onClick={() => router.back()} className="font-bold text-[10px] uppercase tracking-widest px-5 h-10 rounded-xl transition-all">
-                        Cancel
-                    </Button>
-                   <Button onClick={handleSubmit} className="bg-primary hover:bg-primary/90 font-bold text-[10px] uppercase tracking-widest px-6 h-10 rounded-xl shadow-lg shadow-primary/20 gap-2 transition-all">
-                        <Save className="h-4 w-4" />
-                        {isEditMode ? 'Sync Records' : 'Create Records'}
-                    </Button>
-                </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-2">
+            <form id="supplier-form" onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-2">
                 {/* Left Form Column */}
-                <div className="lg:col-span-8">
-                    
+                <div className={isOpen ? "lg:col-span-12" : "lg:col-span-8"}>
+
                     {/* 1. Core Identity */}
                     <section>
                         <div className="flex items-center gap-2">
                             <Badge variant="outline" className="h-5 w-5 rounded-full p-0 flex items-center justify-center border-primary/30 text-primary text-[9px] font-bold">1</Badge>
                             <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground">Core Identity</h2>
                         </div>
-                        
+
                         <Card className="border-none shadow-none bg-muted/30 rounded-2xl overflow-hidden">
                             <CardContent>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -275,6 +302,7 @@ const SupplierFormView = () => {
                                                 value={formData.supplier_code}
                                                 onChange={(e) => setFormData({ ...formData, supplier_code: e.target.value.toUpperCase() })}
                                                 placeholder="AUTO-GENERATE"
+                                                disabled={isEditMode} // Cannot change code in edit mode
                                             />
                                         </div>
                                         <p className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-tight ml-1">Leave empty for automatic generation</p>
@@ -282,7 +310,7 @@ const SupplierFormView = () => {
 
                                     <div className="space-y-2">
                                         <Label htmlFor="contactPerson" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Contact Person</Label>
-                                        <div className="relative group">                                          
+                                        <div className="relative group">
                                             <Input
                                                 id="contactPerson"
                                                 value={formData.contactPerson}
@@ -292,21 +320,23 @@ const SupplierFormView = () => {
                                         </div>
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="status" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Registry Status</Label>
-                                        <Select
-                                            value={formData.status}
-                                            onValueChange={(value) => setFormData({ ...formData, status: value })}
-                                        >
-                                            <SelectTrigger id="status">
-                                                <SelectValue />
-                                           </SelectTrigger>
-                                            <SelectContent className="rounded-xl border-border/50 shadow-xl">
-                                                <SelectItem value="ACTIVE">Active Supplier</SelectItem>
-                                                <SelectItem value="INACTIVE" >Inactive Node</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+                                    {!isOpen && ( // Only show status in full-page mode
+                                        <div className="space-y-2">
+                                            <Label htmlFor="status" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Registry Status</Label>
+                                            <Select
+                                                value={formData.status}
+                                                onValueChange={(value) => setFormData({ ...formData, status: value })}
+                                            >
+                                                <SelectTrigger id="status">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="rounded-xl border-border/50 shadow-xl">
+                                                    <SelectItem value="ACTIVE">Active Supplier</SelectItem>
+                                                    <SelectItem value="INACTIVE" >Inactive Node</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
@@ -318,21 +348,19 @@ const SupplierFormView = () => {
                             <Badge variant="outline" className="h-5 w-5 rounded-full p-0 flex items-center justify-center border-primary/30 text-primary text-[9px] font-bold">2</Badge>
                             <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground">Communication Channels</h2>
                         </div>
-                        
+
                         <Card className="border-none shadow-none bg-muted/30 rounded-2xl overflow-hidden">
                             <CardContent>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <Label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Email Registry</Label>
-                                        <div className="relative group">
-                                            <Input
-                                                id="email"
-                                                type="email"
-                                                value={formData.email}
-                                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                                placeholder="supplier@domain.com"
-                                            />
-                                        </div>
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            placeholder="supplier@domain.com"
+                                        />
                                     </div>
 
                                     <div className="space-y-2">
@@ -357,22 +385,10 @@ const SupplierFormView = () => {
                             <Badge variant="outline" className="h-5 w-5 rounded-full p-0 flex items-center justify-center border-primary/30 text-primary text-[9px] font-bold">3</Badge>
                             <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground">Geographical Deployment</h2>
                         </div>
-                        
+
                         <Card className="border-none shadow-none bg-muted/30 rounded-2xl overflow-hidden">
                             <CardContent className="space-y-6">
-                                <div className="space-y-2">
-                                    <Label htmlFor="street" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Street Address</Label>
-                                    <div className="relative group">
-                                        <Input
-                                            id="street"
-                                            value={formData.address.street}
-                                            onChange={(e) => setFormData({ ...formData, address: { ...formData.address, street: e.target.value } })}
-                                            placeholder="Warehouse / Office Location"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Country</Label>
                                         <ComboBox
@@ -407,6 +423,15 @@ const SupplierFormView = () => {
                                         />
                                     </div>
                                     <div className="space-y-2">
+                                        <Label htmlFor="street" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Street Address</Label>
+                                        <Input
+                                            id="street"
+                                            value={formData.address.street}
+                                            onChange={(e) => setFormData({ ...formData, address: { ...formData.address, street: e.target.value } })}
+                                            placeholder="Warehouse / Office Location"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
                                         <Label htmlFor="zipCode" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Postal Registry</Label>
                                         <Input
                                             id="zipCode"
@@ -426,7 +451,7 @@ const SupplierFormView = () => {
                             <Badge variant="outline" className="h-5 w-5 rounded-full p-0 flex items-center justify-center border-primary/30 text-primary text-[9px] font-bold">4</Badge>
                             <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground">Fiscal & Financial Logic</h2>
                         </div>
-                        
+
                         <Card className="border-none shadow-none bg-muted/30 rounded-2xl overflow-hidden">
                             <CardContent className="space-y-8">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -447,7 +472,7 @@ const SupplierFormView = () => {
                                         >
                                             <SelectTrigger id="payment_terms">
                                                 <SelectValue />
-                                           </SelectTrigger>
+                                            </SelectTrigger>
                                             <SelectContent className="rounded-xl border-border/50 shadow-xl">
                                                 <SelectItem value="CASH">Direct Cash</SelectItem>
                                                 <SelectItem value="CREDIT">Open Credit</SelectItem>
@@ -499,67 +524,115 @@ const SupplierFormView = () => {
                 </div>
 
                 {/* Right Sidebar Column */}
-                <div className="lg:col-span-4 space-y-6">
-                    <Card className="border shadow-lg rounded-2xl overflow-hidden border-primary/10 sticky top-6">
-                        <CardContent >
-                            <div className="bg-primary/5 p-5 space-y-6">
-                                <div className="flex items-center gap-2">
-                                    <LayoutDashboard className="h-3.5 w-3.5 text-primary" />
-                                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-primary italic">Live Node Preview</h3>
-                                </div>
-                                
-                                <div className="space-y-5">
-                                    {/* Preview Card */}
-                                    <div className="bg-background rounded-2xl p-5 border border-border/50 shadow-sm space-y-4">
-                                        <div className="flex justify-between items-start">
-                                            <div className="space-y-1">
-                                                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">{formData.supplier_code || 'PROTOCOL-000'}</p>
-                                                <h4 className="text-base font-bold text-foreground leading-tight uppercase">{formData.name || 'Unnamed Supplier'}</h4>
-                                            </div>
-                                            <Badge className={`text-[8px] font-bold uppercase px-2 py-0 h-4 ${formData.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200' : 'bg-muted text-muted-foreground'}`} variant="outline">
-                                                {formData.status}
-                                            </Badge>
-                                        </div>
-                                        
-                                        <div className="space-y-3">
-                                            <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
-                                                <User className="h-3 w-3 opacity-50" />
-                                                {formData.contactPerson || 'No Contact Assigned'}
-                                            </div>
-                                            <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
-                                                <MapPin className="h-3 w-3 opacity-50" />
-                                                {formData.address.city || 'City'}, {formData.address.country || 'Country'}
-                                            </div>
-                                            <div className="flex items-center gap-2 text-[11px] font-bold text-primary uppercase tracking-wider">
-                                                <CreditCard className="h-3 w-3 opacity-50" />
-                                                {formData.payment_terms} Protocol
-                                            </div>
-                                        </div>
+                {!isOpen && ( // Hide right sidebar in modal mode
+                    <div className="lg:col-span-4 space-y-6">
+                        <Card className="border shadow-lg rounded-2xl overflow-hidden border-primary/10 sticky top-6">
+                            <CardContent >
+                                <div className="bg-primary/5 p-5 space-y-6">
+                                    <div className="flex items-center gap-2">
+                                        <LayoutDashboard className="h-3.5 w-3.5 text-primary" />
+                                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-primary italic">Live Node Preview</h3>
                                     </div>
 
-                                    {/* Info Panel */}
-                                    <div className="space-y-4 px-1">
-                                        <div className="flex items-start gap-3">
-                                            <Info className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
-                                            <p className="text-[10px] font-medium text-muted-foreground leading-relaxed">
-                                                Supplier nodes are foundational for procurement and accounts payable automation.
-                                            </p>
+                                    <div className="space-y-5">
+                                        {/* Preview Card */}
+                                        <div className="bg-background rounded-2xl p-5 border border-border/50 shadow-sm space-y-4">
+                                            <div className="flex justify-between items-start">
+                                                <div className="space-y-1">
+                                                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">{formData.supplier_code || 'PROTOCOL-000'}</p>
+                                                    <h4 className="text-base font-bold text-foreground leading-tight uppercase">{formData.name || 'Unnamed Supplier'}</h4>
+                                                </div>
+                                                <Badge className={`text-[8px] font-bold uppercase px-2 py-0 h-4 ${formData.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200' : 'bg-muted text-muted-foreground'}`} variant="outline">
+                                                    {formData.status}
+                                                </Badge>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
+                                                    <User className="h-3 w-3 opacity-50" />
+                                                    {formData.contactPerson || 'No Contact Assigned'}
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
+                                                    <MapPin className="h-3 w-3 opacity-50" />
+                                                    {formData.address.city || 'City'}, {formData.address.country || 'Country'}
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[11px] font-bold text-primary uppercase tracking-wider">
+                                                    <CreditCard className="h-3 w-3 opacity-50" />
+                                                    {formData.payment_terms} Protocol
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="flex items-start gap-3">
-                                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
-                                            <p className="text-[10px] font-medium text-muted-foreground leading-relaxed">
-                                                Tax ID and Banking parameters are validated before electronic settlement dispatch.
-                                            </p>
+
+                                        {/* Info Panel */}
+                                        <div className="space-y-4 px-1">
+                                            <div className="flex items-start gap-3">
+                                                <Info className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                                                <p className="text-[10px] font-medium text-muted-foreground leading-relaxed">
+                                                    Supplier nodes are foundational for procurement and accounts payable automation.
+                                                </p>
+                                            </div>
+                                            <div className="flex items-start gap-3">
+                                                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                                                <p className="text-[10px] font-medium text-muted-foreground leading-relaxed">
+                                                    Tax ID and Banking parameters are validated before electronic settlement dispatch.
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
             </form>
+
+            {/* Action Footer */}
+            <div className={`flex items-center justify-end gap-3 pt-6 border-t border-border/50 ${isOpen ? 'mt-4' : ''}`}>
+                <Button
+                    variant="outline"
+                    onClick={isOpen ? onClose : () => router.back()}
+                    className="font-bold text-[10px] uppercase tracking-widest px-8 h-12 rounded-2xl transition-all"
+                    disabled={isPending}
+                >
+                    Cancel
+                </Button>
+                <Button
+                    type="submit"
+                    form="supplier-form"
+                    className="bg-primary hover:bg-primary/90 font-bold text-[10px] uppercase tracking-widest px-10 h-12 rounded-2xl shadow-xl shadow-primary/20 gap-3 transition-all"
+                    disabled={isPending}
+                >
+                    {isPending ? (
+                        <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Processing...</span>
+                        </>
+                    ) : (
+                        <>
+                            <Save className="h-4 w-4" />
+                            <span>{isEditMode ? 'Sync Records' : 'Create Records'}</span>
+                        </>
+                    )}
+                </Button>
+            </div>
+        </div>
+    );
+
+    if (isOpen) {
+        return (
+            <Dialog open={isOpen} onOpenChange={onClose}>
+                <DialogContent className="sm:max-w-175 max-h-[90vh] overflow-y-auto bg-white p-0">
+                    {formContent}
+                </DialogContent>
+            </Dialog>
+        );
+    }
+
+    return (
+        <div className="bg-white p-2 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {formContent}
         </div>
     );
 };
 
-export default SupplierFormView;
+export default SupplierForm;
