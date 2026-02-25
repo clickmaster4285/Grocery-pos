@@ -84,16 +84,35 @@ const ReceiptPrint = forwardRef(({ sale, branch }, ref) => {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200 divide-dashed">
-          {sale.items?.map((item, idx) => (
-            <tr key={idx} className="align-top">
-              <td className="py-1 pr-2">
-                <div className="font-bold uppercase">{item.productName}</div>
-                <div className="text-[9px]">{item.sku} @ {settings?.currencySymbol || '$'}{item.unitPrice.toFixed(2)}</div>
-              </td>
-              <td className="py-1 text-center font-bold">{item.quantity}</td>
-              <td className="py-1 text-right font-bold">{settings?.currencySymbol || '$'}{item.subtotal.toFixed(2)}</td>
-            </tr>
-          ))}
+          {sale.items?.map((item, idx) => {
+            const hasItemDiscount = item.discountPercent > 0;
+            return (
+              <tr key={idx} className="align-top">
+                <td className="py-1 pr-2">
+                  <div className="font-bold uppercase">{item.productName}</div>
+                  <div className="text-[9px] flex flex-col">
+                    <span>{item.sku}</span>
+                    <span>
+                      {hasItemDiscount && (
+                        <span className="line-through mr-1 opacity-50">
+                          {settings?.currencySymbol || '$'}{item.originalUnitPrice?.toFixed(2)}
+                        </span>
+                      )}
+                      {settings?.currencySymbol || '$'}{item.unitPrice?.toFixed(2)} 
+                      {item.taxRate > 0 && ` (+${item.taxRate}% Tax)`}
+                    </span>
+                    {hasItemDiscount && (
+                      <span className="text-emerald-700 italic font-bold">Disc: {item.discountPercent}%</span>
+                    )}
+                  </div>
+                </td>
+                <td className="py-1 text-center font-bold">{item.quantity}</td>
+                <td className="py-1 text-right font-bold">
+                  {settings?.currencySymbol || '$'}{(item.subtotal + (item.taxAmount || 0)).toFixed(2)}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
@@ -102,15 +121,24 @@ const ReceiptPrint = forwardRef(({ sale, branch }, ref) => {
       {/* Totals */}
       <div className="space-y-1.5 font-bold text-[11px]">
         <div className="flex justify-between">
-          <span>Subtotal:</span>
-          <span>{settings?.currencySymbol || '$'}{sale.totalAmount?.toFixed(2)}</span>
+          <span>Subtotal (Net):</span>
+          <span>{settings?.currencySymbol || '$'}{sale.subtotal?.toFixed(2)}</span>
         </div>
-        {sale.discount > 0 && (
-          <div className="flex justify-between italic">
-            <span>Discount:</span>
-            <span>-{settings?.currencySymbol || '$'}{sale.discount.toFixed(2)}</span>
+        
+        {sale.totalTax > 0 && (
+          <div className="flex justify-between">
+            <span>Total Tax:</span>
+            <span>{settings?.currencySymbol || '$'}{sale.totalTax?.toFixed(2)}</span>
           </div>
         )}
+
+        {(sale.globalDiscountAmount > 0 || sale.globalDiscountPercent > 0) && (
+          <div className="flex justify-between italic text-emerald-700">
+            <span>Global Discount ({sale.globalDiscountPercent}%):</span>
+            <span>-{settings?.currencySymbol || '$'}{sale.globalDiscountAmount?.toFixed(2)}</span>
+          </div>
+        )}
+
         <div className="flex justify-between text-base border-t border-black pt-1">
           <span className="font-black">NET TOTAL:</span>
           <span className="text-base font-black">{settings?.currencySymbol || '$'}{sale.finalAmount?.toFixed(2)}</span>

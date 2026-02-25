@@ -244,6 +244,7 @@ exports.getBranchStock = async (req, res) => {
     try {
         const { branchId } = req.params;
         const { search } = req.query;
+        const DiscountPromotion = require('../models/discount.model');
 
         if (!branchId || branchId === 'undefined' || !mongoose.Types.ObjectId.isValid(branchId)) {
             return res.status(200).json({ success: true, data: [] });
@@ -252,31 +253,26 @@ exports.getBranchStock = async (req, res) => {
         const searchTerms = (search || '').trim().split(/\s+/).filter(t => t !== '');
         let query = { branch: branchId };
 
-        // Define location type priority for sorting
-        const LOCATION_TYPE_PRIORITY = [
-            'SALES_FLOOR',
-            'AISLE',
-            'SHELF',
-            'REFRIGERATOR',
-            'FREEZER',
-            'BACKROOM',
-            'STORAGE'
-        ];
+        // Fetch active auto-apply discounts
+        const now = new Date();
+        const activeAutoDiscounts = await DiscountPromotion.find({
+            status: 'active',
+            autoApply: true,
+            startDate: { $lte: now },
+            $or: [{ endDate: { $exists: false } }, { endDate: { $gt: now } }],
+            $or: [{ isGlobal: true }, { applicableBranches: branchId }]
+        });
 
-        // Helper to get priority index
-        const getLocationTypePriority = (type) => {
-            const index = LOCATION_TYPE_PRIORITY.indexOf(type);
-            return index === -1 ? LOCATION_TYPE_PRIORITY.length : index; // Unknown types get lowest priority
-        };
-
-        // 1. Fetch Aggregated Stock first to use Smart Regex / Fuzzy Search
+        // 1. Fetch Aggregated Stock
         let stock;
+        const productSelect = 'productName category brand variants taxRate';
+        
         if (searchTerms.length > 0) {
             const smartRegex = new RegExp(searchTerms.map(term => `(?=.*${term})`).join(''), 'i');
             stock = await BranchStock.find(query)
                 .populate({
                     path: 'product',
-                    select: 'productName category brand variants',
+                    select: productSelect,
                     match: {
                         $or: [
                             { productName: { $regex: smartRegex } },
@@ -287,16 +283,16 @@ exports.getBranchStock = async (req, res) => {
                 .populate('branch', 'branch_name');
         } else {
             stock = await BranchStock.find(query)
-                .populate('product', 'productName category brand variants')
+                .populate('product', select = productSelect)
                 .populate('branch', 'branch_name');
         }
 
         let filteredStock = stock.filter(item => item.product !== null);
 
-        // 2. Fallback to Fuzzy Search if needed
+        // 2. Fallback to Fuzzy Search (skipped for brevity, but kept in logic)
         if (searchTerms.length > 0 && filteredStock.length === 0) {
-            const allStock = await BranchStock.find(query)
-                .populate('product', 'productName variants')
+             const allStock = await BranchStock.find(query)
+                .populate('product', 'productName variants taxRate')
                 .populate('branch', 'branch_name');
 
             const searchData = allStock.map(item => {
@@ -318,11 +314,28 @@ exports.getBranchStock = async (req, res) => {
             filteredStock = fuseResults.map(result => result.item);
         }
 
-        // 3. Re-hydrate with Location Details for the final results
+        // 3. Re-hydrate and Attach Discounts
         const finalResults = await Promise.all(filteredStock.map(async (item) => {
             const itemObj = item.toObject ? item.toObject() : item;
+            const product = item.product;
+            const variantId = item.variantId.toString();
 
-            // Find all physical locations for this variant
+            // Find applicable discount
+            const applicablePromo = activeAutoDiscounts.find(promo => 
+                promo.qualifyingProducts.includes(product._id) || 
+                promo.qualifyingVariants.includes(variantId) ||
+                promo.qualifyingCategories.includes(product.category) ||
+                promo.qualifyingBrands.includes(product.brand)
+            );
+
+            if (applicablePromo && applicablePromo.amountType === 'Percentage') {
+                itemObj.autoDiscountPercent = applicablePromo.amountValue;
+                itemObj.promotionName = applicablePromo.name;
+            } else {
+                itemObj.autoDiscountPercent = 0;
+            }
+
+            // Locations logic (kept from original)
             const locations = await BranchStockLocation.find({
                 branch: branchId,
                 product: item.product._id,
@@ -330,22 +343,21 @@ exports.getBranchStock = async (req, res) => {
                 quantity: { $gt: 0 }
             }).populate('location', 'name type');
 
-            // Sort locations by priority type
+            // Define location type priority for sorting
+            const LOCATION_TYPE_PRIORITY = ['SALES_FLOOR', 'AISLE', 'SHELF', 'REFRIGERATOR', 'FREEZER', 'BACKROOM', 'STORAGE'];
+            const getLocationTypePriority = (type) => {
+                const index = LOCATION_TYPE_PRIORITY.indexOf(type);
+                return index === -1 ? LOCATION_TYPE_PRIORITY.length : index;
+            };
+
             locations.sort((a, b) => {
                 const priorityA = getLocationTypePriority(a.location.type);
                 const priorityB = getLocationTypePriority(b.location.type);
-                if (priorityA === priorityB) {
-                    return new Date(a.updatedAt) - new Date(b.updatedAt); // FIFO for same priority
-                }
+                if (priorityA === priorityB) return new Date(a.updatedAt) - new Date(b.updatedAt);
                 return priorityA - priorityB;
             });
 
-            // Format location string (e.g., "Aisle 1, Backroom")
-            itemObj.locationDisplay = locations.length > 0
-                ? locations.map(l => l.location.name).join(', ')
-                : 'NAN';
-
-            // Send full location objects for richer UI icons/badges
+            itemObj.locationDisplay = locations.length > 0 ? locations.map(l => l.location.name).join(', ') : 'NAN';
             itemObj.locations = locations.map(l => ({
                 locationId: l.location._id,
                 name: l.location.name,

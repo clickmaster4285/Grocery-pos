@@ -11,10 +11,11 @@ import { Separator } from '@/components/ui/separator';
 import { 
   CreditCard, Banknote, Landmark, QrCode, Tag, Receipt,
   Sparkles, User, Wallet, CheckCircle2, History, Loader2,
-  Printer, ShieldAlert, XCircle
+  Printer, ShieldAlert, XCircle, Percent
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/utils/formatters";
+import { toast } from 'sonner';
 
 const CheckoutSidebar = ({
   user,
@@ -23,18 +24,34 @@ const CheckoutSidebar = ({
   setCustomerName,
   paymentMethod,
   setPaymentMethod,
-  total,
-  discount,
+  totals, // New: contains all calculated amounts
+  discount, // Now treated as globalDiscountPercent
   setDiscount,
   appliedCoupon,
   setAppliedCoupon,
   setIsScannerOpen,
   handleCheckout,
   canCreateSale,
-  isCreatingSale, // Renamed from createSaleMutation.isLoading
-  cartLength, // Renamed from cart.length
+  isCreatingSale,
+  cartLength,
 }) => {
-  const finalTotal = Math.max(0, total - discount);
+  const handleDiscountChange = (val) => {
+    const numVal = parseFloat(val) || 0;
+    const maxLimit = user?.transactionLimits?.maxDiscountPercent || 0;
+    
+    if (numVal > maxLimit) {
+      toast.error(`Your discount limit is ${maxLimit}%`);
+      return;
+    }
+
+    if (numVal < 0) {
+      toast.error("Discount cannot be negative");
+      return;
+    }
+    
+    setDiscount(Math.max(0, numVal));
+    setAppliedCoupon(null);
+  };
 
   return (
     <Card className="flex-1 flex flex-col border-none shadow-sm bg-white overflow-hidden">
@@ -97,28 +114,31 @@ const CheckoutSidebar = ({
         <Separator className="bg-slate-100/80" />
 
         {/* Totals & Discounts */}
-        <div className="space-y-4">
-          <div className="flex justify-between items-center text-xs font-medium px-1">
-            <span className="text-slate-500 uppercase tracking-widest text-[11px] font-bold">Net Subtotal</span>
-            <span className="text-slate-600 font-bold tabular-nums">{formatCurrency(total)}</span>
+        <div className="space-y-3">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-slate-500 uppercase tracking-widest text-[10px] font-bold">Subtotal (Net)</span>
+            <span className="text-slate-600 font-bold tabular-nums text-sm">{formatCurrency(totals.subtotal)}</span>
+          </div>
+
+          <div className="flex justify-between items-center px-1">
+            <span className="text-slate-500 uppercase tracking-widest text-[10px] font-bold">Total Tax</span>
+            <span className="text-slate-600 font-bold tabular-nums text-sm">{formatCurrency(totals.totalTax)}</span>
           </div>
           
           <div className="flex items-center justify-between gap-4 px-1">
             <div className="flex items-center gap-2">
               <Tag className="h-3.5 w-3.5 text-primary/60" />
-              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Discount</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Global Disc%</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="relative w-24">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/60">Rs.</span>
+                <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-primary/60" />
                 <Input 
                   type="number" 
-                  className="h-8 pl-8 pr-2 text-right text-[13px] font-bold bg-slate-50/50 border-slate-100 focus-visible:ring-primary/10 rounded-lg tabular-nums" 
-                  value={discount} 
-                  onChange={(e) => {
-                      setDiscount(parseFloat(e.target.value) || 0);
-                      setAppliedCoupon(null);
-                  }} 
+                  className="h-8 pl-3 pr-8 text-right text-[13px] font-bold bg-slate-50/50 border-slate-100 focus-visible:ring-primary/10 rounded-lg tabular-nums" 
+                  value={discount || ''} 
+                  placeholder="0"
+                  onChange={(e) => handleDiscountChange(e.target.value)} 
                   disabled={!activeTerminal}
                 />
               </div>
@@ -150,6 +170,13 @@ const CheckoutSidebar = ({
               />
             </motion.div>
           )}
+
+          {totals.globalDiscountAmount > 0 && (
+             <div className="flex justify-between items-center px-1 text-[10px] text-emerald-600 font-bold uppercase tracking-wider italic">
+                <span>Discount Amount</span>
+                <span>-{formatCurrency(totals.globalDiscountAmount)}</span>
+             </div>
+          )}
           
           {/* Final Amount Display */}
           <div className="pt-2">
@@ -158,9 +185,9 @@ const CheckoutSidebar = ({
                 <Receipt className="h-24 w-24" />
               </div>
               <div className="relative z-10">
-                <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500">Grand Total</span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500">Payable Amount</span>
                 <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-3xl font-bold text-white tabular-nums tracking-tight leading-none">{formatCurrency(finalTotal)}</span>
+                  <span className="text-3xl font-bold text-white tabular-nums tracking-tight leading-none">{formatCurrency(totals.finalTotal)}</span>
                 </div>
               </div>
             </div>

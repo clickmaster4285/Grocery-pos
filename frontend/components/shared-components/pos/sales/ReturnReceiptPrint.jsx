@@ -1,7 +1,11 @@
 import React, { forwardRef } from 'react';
 import { format } from 'date-fns';
+import { useGetSettings } from '@/features/settings.api';
 
 const ReturnReceiptPrint = forwardRef(({ returnData, originalSale, branch }, ref) => {
+  const { data: settings } = useGetSettings();
+  const currency = settings?.currencySymbol || '$';
+
   if (!returnData || !originalSale) return null;
 
   const totalReturned = returnData.returnedItems.reduce((acc, item) => acc + (item.unitPrice * item.quantity), 0);
@@ -11,9 +15,9 @@ const ReturnReceiptPrint = forwardRef(({ returnData, originalSale, branch }, ref
     <div ref={ref} className="p-4 bg-white text-black font-mono text-[10px] w-[80mm] mx-auto">
       {/* Header */}
       <div className="text-center space-y-1 mb-4">
-        <h2 className="text-sm font-bold uppercase">{branch?.branch_name || 'Supermarket'}</h2>
-        <p>{branch?.address || 'Main Branch'}</p>
-        <p>Tel: {branch?.phone || '000-000-0000'}</p>
+        <h2 className="text-sm font-bold uppercase">{branch?.branch_name || settings?.companyName || 'Supermarket'}</h2>
+        <p>{branch?.address?.street || branch?.address || settings?.companyAddress || 'Main Branch'}</p>
+        <p>Tel: {branch?.phone || settings?.companyPhone || '000-000-0000'}</p>
         <div className="border-y border-black border-dashed py-1 my-2">
             <p className="text-xs font-black uppercase tracking-widest">
                 {returnData.type === 'RETURN' ? 'RETURN RECEIPT' : 'EXCHANGE RECEIPT'}
@@ -50,14 +54,14 @@ const ReturnReceiptPrint = forwardRef(({ returnData, originalSale, branch }, ref
               <span>{item.productName} ({item.condition})</span>
             </div>
             <div className="flex justify-between">
-              <span>{item.quantity} x ${item.unitPrice.toFixed(2)}</span>
-              <span>-${(item.quantity * item.unitPrice).toFixed(2)}</span>
+              <span>{item.quantity} x {currency}{item.unitPrice.toFixed(2)}</span>
+              <span>-{currency}{(item.quantity * item.unitPrice).toFixed(2)}</span>
             </div>
           </div>
         ))}
         <div className="flex justify-between border-t border-black pt-1 font-bold">
             <span>TOTAL RETURN VALUE:</span>
-            <span>-${totalReturned.toFixed(2)}</span>
+            <span>-{currency}{totalReturned.toFixed(2)}</span>
         </div>
       </div>
 
@@ -71,14 +75,14 @@ const ReturnReceiptPrint = forwardRef(({ returnData, originalSale, branch }, ref
                 <span>{item.productName}</span>
               </div>
               <div className="flex justify-between">
-                <span>{item.quantity} x ${item.unitPrice.toFixed(2)}</span>
-                <span>+${item.subtotal.toFixed(2)}</span>
+                <span>{item.quantity} x {currency}{item.unitPrice.toFixed(2)}</span>
+                <span>+{currency}{item.subtotal.toFixed(2)}</span>
               </div>
             </div>
           ))}
           <div className="flex justify-between border-t border-black pt-1 font-bold">
               <span>TOTAL EXCHANGE VALUE:</span>
-              <span>+${totalExchanged.toFixed(2)}</span>
+              <span>+{currency}{totalExchanged.toFixed(2)}</span>
           </div>
         </div>
       )}
@@ -91,10 +95,10 @@ const ReturnReceiptPrint = forwardRef(({ returnData, originalSale, branch }, ref
           </span>
           <span>
             {returnData.type === 'RETURN' 
-                ? `$${returnData.totalRefundAmount.toFixed(2)}` 
+                ? `${currency}${returnData.totalRefundAmount.toFixed(2)}` 
                 : returnData.totalExchangeDifference > 0 
-                    ? `PAY +$${returnData.totalExchangeDifference.toFixed(2)}`
-                    : `REFUND -$${Math.abs(returnData.totalExchangeDifference).toFixed(2)}`
+                    ? `PAY +${currency}${returnData.totalExchangeDifference.toFixed(2)}`
+                    : `REFUND -${currency}${Math.abs(returnData.totalExchangeDifference).toFixed(2)}`
             }
           </span>
         </div>

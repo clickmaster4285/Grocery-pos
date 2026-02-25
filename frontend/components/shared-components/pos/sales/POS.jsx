@@ -84,7 +84,7 @@ const POS = () => {
 
   const [cart, setCart] = useState([]);
   const [customerName, setCustomerName] = useState('');
-  const [discount, setDiscount] = useState(0);
+  const [discount, setDiscount] = useState(0); // This is now globalDiscountPercent
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [lastSaleData, setLastSaleData] = useState(null);
@@ -122,25 +122,30 @@ const POS = () => {
     const variant = stockItem.product.variants.find(v => v._id === stockItem.variantId);
     const existingItem = cart.find(item => item.variantId === stockItem.variantId);
 
+    const originalPrice = variant.priceHistory[variant.priceHistory.length - 1].sellingPrice;
+    const autoDiscountPercent = stockItem.autoDiscountPercent || 0;
+    const taxRate = stockItem.product.taxRate || 0;
+
     if (existingItem) {
       if (existingItem.quantity + 1 > stockItem.quantity) {
         return toast.error("Cannot exceed available branch stock");
       }
       setCart(cart.map(item =>
         item.variantId === stockItem.variantId
-          ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.price }
+          ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
     } else {
-      const price = variant.priceHistory[variant.priceHistory.length - 1].sellingPrice;
       setCart([...cart, {
         productId: stockItem.product._id,
         variantId: stockItem.variantId,
         productName: stockItem.product.productName,
         sku: variant.sku,
         quantity: 1,
-        price: price,
-        subtotal: price,
+        originalPrice: originalPrice,
+        autoDiscountPercent: autoDiscountPercent,
+        manualDiscountPercent: 0,
+        taxRate: taxRate,
         maxStock: stockItem.quantity
       }]);
     }
@@ -209,18 +214,57 @@ const POS = () => {
         if (delta > 0 && item.quantity >= item.maxStock) {
           toast.error("Reached maximum available stock");
         }
-        return { ...item, quantity: newQty, subtotal: newQty * item.price };
+        return { ...item, quantity: newQty };
       }
       return item;
     }));
+  };
+
+  const updateManualDiscount = (variantId, percent) => {
+    const maxLimit = user?.transactionLimits?.maxDiscountPercent || 0;
+    if (percent > maxLimit) {
+      toast.error(`Your discount limit is ${maxLimit}%`);
+      return;
+    }
+    setCart(cart.map(item => 
+      item.variantId === variantId ? { ...item, manualDiscountPercent: percent } : item
+    ));
   };
 
   const removeFromCart = (variantId) => {
     setCart(cart.filter(item => item.variantId !== variantId));
   };
 
-  const total = cart.reduce((acc, item) => acc + item.subtotal, 0);
-  const finalTotal = Math.max(0, total - discount);
+  // Advanced Total Calculation
+  const cartTotals = useMemo(() => {
+    let subtotal = 0;
+    let totalTax = 0;
+    
+    const processedItems = cart.map(item => {
+      const totalItemDiscount = item.autoDiscountPercent + item.manualDiscountPercent;
+      const unitPrice = item.originalPrice * (1 - totalItemDiscount / 100);
+      const itemSubtotal = unitPrice * item.quantity;
+      const itemTax = (itemSubtotal * item.taxRate) / 100;
+      
+      subtotal += itemSubtotal;
+      totalTax += itemTax;
+      
+      return { ...item, unitPrice, itemSubtotal, itemTax };
+    });
+
+    const totalBeforeGlobal = subtotal + totalTax;
+    const globalDiscountAmount = (subtotal * discount) / 100;
+    const finalTotal = Math.max(0, totalBeforeGlobal - globalDiscountAmount);
+
+    return {
+      items: processedItems,
+      subtotal,
+      totalTax,
+      totalBeforeGlobal,
+      globalDiscountAmount,
+      finalTotal
+    };
+  }, [cart, discount]);
 
   const handleCouponScanned = async (scannedText) => {
     if (!activeBranchId) return toast.error("Please select a branch first");
@@ -237,25 +281,31 @@ const POS = () => {
       const response = await validateCouponMutation.mutateAsync({
         code: codeToValidate,
         branchId: activeBranchId,
-        cartTotal: total,
+        cartTotal: cartTotals.subtotal,
         cartItems: cart.map(item => ({
           product: item.productId,
           variant: item.variantId,
           quantity: item.quantity,
-          price: item.price
+          price: item.originalPrice
         }))
       });
 
       const couponData = response.data;
 
-      let calculatedDiscount = 0;
+      let calculatedPercent = 0;
       if (couponData.amountType === 'Percentage') {
-        calculatedDiscount = (total * couponData.amountValue) / 100;
+        calculatedPercent = couponData.amountValue;
       } else if (couponData.amountType === 'Fixed') {
-        calculatedDiscount = couponData.amountValue;
+        calculatedPercent = (couponData.amountValue / cartTotals.subtotal) * 100;
       }
 
-      setDiscount(calculatedDiscount);
+      const maxLimit = user?.transactionLimits?.maxDiscountPercent || 0;
+      if (calculatedPercent > maxLimit) {
+        toast.error(`This coupon exceeds your ${maxLimit}% discount limit`);
+        return;
+      }
+
+      setDiscount(calculatedPercent);
       setAppliedCoupon(couponData);
       toast.success(`Coupon "${couponData.name}" applied successfully!`);
     } catch (err) { }
@@ -274,9 +324,10 @@ const POS = () => {
         items: cart.map(item => ({
           product: item.productId,
           variantId: item.variantId,
-          quantity: item.quantity
+          quantity: item.quantity,
+          manualDiscountPercent: item.manualDiscountPercent
         })),
-        discount,
+        globalDiscountPercent: discount,
         paymentMethod,
         customerName
       });
@@ -295,9 +346,9 @@ const POS = () => {
       setCustomerName('');
       setDiscount(0);
       setAppliedCoupon(null);
-      setSearchQuery(''); // Re-added after being commented out.
-      setIsSearchFocused(false); // Re-added after being commented out.
-      if (searchInputRef.current) searchInputRef.current.focus(); // Re-added after being commented out.
+      setSearchQuery(''); 
+      setIsSearchFocused(false); 
+      if (searchInputRef.current) searchInputRef.current.focus(); 
     } catch (err) {
       toast.error(err.response?.data?.message || "Checkout failed");
     }
@@ -314,7 +365,6 @@ const POS = () => {
   }
 
   const activeBranch = branches?.data?.find(b => b._id === activeBranchId);
-  // console.log("the activeBranch is ", activeBranch)
   return (
     <>
       <div className="flex flex-col gap-4 h-[calc(100vh-140px)] relative text-slate-600">
@@ -376,9 +426,10 @@ const POS = () => {
           {/* LEFT SECTION: Billing */}
           <div className="lg:col-span-8 flex flex-col gap-4" ref={leftColumnRef}>
             <BillingTable
-              cart={cart}
+              cart={cartTotals.items}
               setCart={setCart}
               updateQuantity={updateQuantity}
+              updateManualDiscount={updateManualDiscount}
               removeFromCart={removeFromCart}
             />
           </div>
@@ -392,7 +443,7 @@ const POS = () => {
               setCustomerName={setCustomerName}
               paymentMethod={paymentMethod}
               setPaymentMethod={setPaymentMethod}
-              total={total}
+              totals={cartTotals}
               discount={discount}
               setDiscount={setDiscount}
               appliedCoupon={appliedCoupon}

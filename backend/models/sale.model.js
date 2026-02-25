@@ -17,13 +17,40 @@ const saleItemSchema = new mongoose.Schema({
         required: true,
         min: 1,
     },
+    originalUnitPrice: {
+        type: Number,
+        required: true,
+        min: 0,
+    },
+    discountPercent: {
+        type: Number,
+        default: 0,
+        min: 0,
+    },
+    discountAmount: {
+        type: Number,
+        default: 0,
+        min: 0,
+    },
     unitPrice: {
         type: Number,
         required: true,
+        min: 0,
+    },
+    taxRate: {
+        type: Number,
+        default: 0,
+        min: 0,
+    },
+    taxAmount: {
+        type: Number,
+        default: 0,
+        min: 0,
     },
     subtotal: {
         type: Number,
         required: true,
+        min: 0,
     }
 }, { _id: false });
 
@@ -39,17 +66,36 @@ const saleSchema = new mongoose.Schema({
         required: true,
     },
     items: [saleItemSchema],
-    totalAmount: {
+    subtotal: {
         type: Number,
         required: true,
+        default: 0,
+        min: 0,
     },
-    discount: {
+    totalTax: {
         type: Number,
         default: 0,
+        min: 0,
     },
-    finalAmount: {
+    totalAmount: { // This is subtotal + totalTax
         type: Number,
         required: true,
+        min: 0,
+    },
+    globalDiscountPercent: {
+        type: Number,
+        default: 0,
+        min: 0,
+    },
+    globalDiscountAmount: {
+        type: Number,
+        default: 0,
+        min: 0,
+    },
+    finalAmount: { // totalAmount - globalDiscountAmount
+        type: Number,
+        required: true,
+        min: 0,
     },
     paymentMethod: {
         type: String,

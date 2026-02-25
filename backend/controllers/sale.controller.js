@@ -3,6 +3,8 @@ const BranchStock = require('../models/branchStock.model');
 const Product = require('../models/product.model');
 const Counter = require('../models/counter.model');
 const Terminal = require('../models/terminal.model');
+const DiscountPromotion = require('../models/discount.model');
+const User = require('../models/User');
 const mongoose = require('mongoose');
 const BranchStockLocation = require('../models/branchStockLocation.model'); 
 const BranchLocation = require('../models/branchLocation.model'); 
@@ -39,8 +41,17 @@ const generateBillNumber = async () => {
 // Create a new sale
 exports.createSale = async (req, res) => {
     try {
-        const { branchId, terminalId, items, discount, paymentMethod, customerName, customerPhone } = req.body;
+        const { 
+            branchId, 
+            terminalId, 
+            items, 
+            globalDiscountPercent = 0, 
+            paymentMethod, 
+            customerName, 
+            customerPhone 
+        } = req.body;
         const cashierId = req.user._id;
+        const maxAllowedDiscount = req.user.transactionLimits?.maxDiscountPercent || 0;
 
         if (!items || items.length === 0) {
             throw new Error('No items in the sale.');
@@ -62,8 +73,24 @@ exports.createSale = async (req, res) => {
             throw new Error('You do not have an active session on this terminal.');
         }
 
-        let totalAmount = 0;
+        // Validate Global Discount
+        if (globalDiscountPercent > maxAllowedDiscount) {
+            throw new Error(`You are not authorized to give more than ${maxAllowedDiscount}% global discount.`);
+        }
+
+        let totalSubtotal = 0;
+        let totalTax = 0;
         const processedItems = [];
+
+        // Fetch all active auto-apply discounts once to optimize
+        const now = new Date();
+        const activeAutoDiscounts = await DiscountPromotion.find({
+            status: 'active',
+            autoApply: true,
+            startDate: { $lte: now },
+            $or: [{ endDate: { $exists: false } }, { endDate: { $gt: now } }],
+            $or: [{ isGlobal: true }, { applicableBranches: branchId }]
+        });
 
         for (const item of items) {
             const product = await Product.findById(item.product);
@@ -72,13 +99,40 @@ exports.createSale = async (req, res) => {
             const variant = product.variants.id(item.variantId);
             if (!variant) throw new Error(`Variant ${item.variantId} not found for product ${product.productName}.`);
 
-            // Deduct stock from BranchStockLocations using the utility function
+            // Deduct stock
             await deductStockFromLocations(branchId, item.product, item.variantId, item.quantity);
 
-            // Get latest price
-            const latestPrice = variant.priceHistory[variant.priceHistory.length - 1].sellingPrice;
-            const itemSubtotal = latestPrice * item.quantity;
-            totalAmount += itemSubtotal;
+            // Get original price
+            const originalUnitPrice = variant.priceHistory[variant.priceHistory.length - 1].sellingPrice;
+            
+            // Calculate Automatic Discount
+            let autoDiscountPercent = 0;
+            const applicablePromo = activeAutoDiscounts.find(promo => 
+                promo.qualifyingProducts.includes(product._id) || 
+                promo.qualifyingVariants.includes(item.variantId.toString()) ||
+                promo.qualifyingCategories.includes(product.category) ||
+                promo.qualifyingBrands.includes(product.brand)
+            );
+
+            if (applicablePromo && applicablePromo.amountType === 'Percentage') {
+                autoDiscountPercent = applicablePromo.amountValue;
+            }
+
+            // Manual Item Discount
+            const manualDiscountPercent = item.manualDiscountPercent || 0;
+            if (manualDiscountPercent > maxAllowedDiscount) {
+                throw new Error(`You are not authorized to give more than ${maxAllowedDiscount}% discount on ${product.productName}.`);
+            }
+
+            const totalItemDiscountPercent = autoDiscountPercent + manualDiscountPercent;
+            const discountAmountPerUnit = (originalUnitPrice * totalItemDiscountPercent) / 100;
+            const unitPriceAfterDiscount = originalUnitPrice - discountAmountPerUnit;
+            
+            const itemSubtotal = unitPriceAfterDiscount * item.quantity;
+            const itemTaxAmount = (itemSubtotal * (product.taxRate || 0)) / 100;
+
+            totalSubtotal += itemSubtotal;
+            totalTax += itemTaxAmount;
 
             processedItems.push({
                 product: item.product,
@@ -86,21 +140,32 @@ exports.createSale = async (req, res) => {
                 sku: variant.sku,
                 productName: product.productName,
                 quantity: item.quantity,
-                unitPrice: latestPrice,
+                originalUnitPrice,
+                discountPercent: totalItemDiscountPercent,
+                discountAmount: discountAmountPerUnit * item.quantity,
+                unitPrice: unitPriceAfterDiscount,
+                taxRate: product.taxRate || 0,
+                taxAmount: itemTaxAmount,
                 subtotal: itemSubtotal
             });
         }
 
-        const finalAmount = totalAmount - (discount || 0);
+        const totalAmount = totalSubtotal + totalTax;
+        const globalDiscountAmount = (totalSubtotal * globalDiscountPercent) / 100;
+        const finalAmount = totalAmount - globalDiscountAmount;
+        
         const billNumber = await generateBillNumber();
 
         const sale = new Sale({
             billNumber,
             branch: branchId,
-            terminal: terminalId, // Linked to terminal
+            terminal: terminalId,
             items: processedItems,
+            subtotal: totalSubtotal,
+            totalTax,
             totalAmount,
-            discount: discount || 0,
+            globalDiscountPercent,
+            globalDiscountAmount,
             finalAmount,
             paymentMethod,
             cashier: cashierId,
@@ -136,7 +201,8 @@ exports.getBranchSales = async (req, res) => {
         const { branchId } = req.params;
         const sales = await Sale.find({ branch: branchId })
             .populate('cashier', 'firstName lastName')
-            .populate('branch', 'branch_name') // Added populate for branch
+            .populate('branch', 'branch_name')
+            .populate('items.product', 'productName')
             .sort({ createdAt: -1 });
         
         res.status(200).json({ success: true, data: sales });
@@ -161,7 +227,7 @@ exports.getAllSales = async (req, res) => {
             query.branch = req.user.branch_id;
         }
 
-        // 2. Search Filter (Bill Number or Customer Name/Phone)
+        // 2. Search Filter
         if (search) {
             query.$or = [
                 { billNumber: { $regex: search, $options: 'i' } },
@@ -184,7 +250,6 @@ exports.getAllSales = async (req, res) => {
                 query.createdAt.$lte = end;
             }
         } else {
-            // Default: Only today's records
             const todayStart = new Date();
             todayStart.setHours(0, 0, 0, 0);
             const todayEnd = new Date();
@@ -209,7 +274,9 @@ exports.getAllSales = async (req, res) => {
                         _id: null,
                         totalCollection: { $sum: "$finalAmount" },
                         totalSales: { $sum: 1 },
-                        totalItems: { $sum: { $sum: "$items.quantity" } }
+                        totalItems: { $sum: { $sum: "$items.quantity" } },
+                        totalTax: { $sum: "$totalTax" },
+                        totalDiscount: { $sum: { $add: ["$globalDiscountAmount", { $sum: "$items.discountAmount" }] } }
                     }
                 }
             ])
@@ -218,7 +285,7 @@ exports.getAllSales = async (req, res) => {
         res.status(200).json({ 
             success: true, 
             data: sales,
-            stats: stats[0] || { totalCollection: 0, totalSales: 0, totalItems: 0 },
+            stats: stats[0] || { totalCollection: 0, totalSales: 0, totalItems: 0, totalTax: 0, totalDiscount: 0 },
             pagination: {
                 total,
                 page: parseInt(page),
@@ -237,7 +304,7 @@ exports.getSaleDetail = async (req, res) => {
         const sale = await Sale.findById(req.params.id)
             .populate('branch', 'branch_name')
             .populate('cashier', 'firstName lastName')
-            .populate('items.product', 'productName');
+            .populate('items.product', 'productName category brand');
             
         if (!sale) return res.status(404).json({ success: false, message: 'Sale not found' });
         

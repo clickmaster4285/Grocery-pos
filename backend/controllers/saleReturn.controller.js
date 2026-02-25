@@ -1,11 +1,12 @@
 const SaleReturn = require('../models/saleReturn.model');
 const Sale = require('../models/sale.model');
 const BranchStock = require('../models/branchStock.model');
-const BranchStockLocation = require('../models/branchStockLocation.model'); // Added
-const BranchLocation = require('../models/branchLocation.model'); // Added
+const BranchStockLocation = require('../models/branchStockLocation.model');
+const BranchLocation = require('../models/branchLocation.model');
 const Product = require('../models/product.model');
 const Counter = require('../models/counter.model');
-const { addStockToLocation, deductStockFromLocations, getDefaultBackroomLocation } = require('../utils/inventory.utils'); // Added
+const mongoose = require('mongoose');
+const { addStockToLocation, deductStockFromLocations, getDefaultBackroomLocation } = require('../utils/inventory.utils');
 
 // Helper to generate Return Number: RTN-YYYYMMDD-[BASE36]
 const generateReturnNumber = async () => {
@@ -31,6 +32,10 @@ exports.processReturn = async (req, res) => {
         const { saleId, type, returnedItems, exchangedItems } = req.body;
         const userId = req.user._id;
 
+        if (!returnedItems || returnedItems.length === 0) {
+            throw new Error('No items selected for return');
+        }
+
         // 1. Fetch Original Sale
         const originalSale = await Sale.findById(saleId).session(session);
         if (!originalSale) throw new Error('Original sale not found');
@@ -42,26 +47,27 @@ exports.processReturn = async (req, res) => {
         const branchDefaultBackroom = await getDefaultBackroomLocation(originalSale.branch, session);
 
         // 2. Process Returned Items
+        const cleanedReturnedItems = [];
         for (const item of returnedItems) {
-            // Ensure we are comparing ID strings (handles cases where product might be an object)
-            const productId = typeof item.product === 'object' ? item.product._id : item.product;
-            const variantId = typeof item.variantId === 'object' ? item.variantId._id : item.variantId;
+            // Extract IDs properly
+            const productId = item.product?._id || item.product;
+            const variantId = item.variantId?._id || item.variantId;
+
+            if (!productId || !variantId) throw new Error('Invalid product or variant ID in return list');
 
             // Find item in original sale to validate
             const originalItem = originalSale.items.find(
                 i => i.product.toString() === productId.toString() && i.variantId.toString() === variantId.toString()
             );
 
-            if (!originalItem) throw new Error(`Item ${item.productName} was not part of the original sale`);
+            if (!originalItem) throw new Error(`Item ${item.productName || productId} was not part of the original sale`);
             if (item.quantity > originalItem.quantity) throw new Error(`Cannot return more than purchased for ${item.productName}`);
 
+            // Calculate refund value based on original price
             totalRefundValue += (originalItem.unitPrice * item.quantity);
 
             // Update Stock if condition is GOOD - add back to default backroom
             if (item.condition === 'GOOD') {
-                const productDoc = await Product.findById(productId).session(session);
-                if (!productDoc) throw new Error(`Product ${productId} not found.`);
-                
                 await addStockToLocation(
                     originalSale.branch,
                     productId,
@@ -71,11 +77,22 @@ exports.processReturn = async (req, res) => {
                     session
                 );
             }
+
+            cleanedReturnedItems.push({
+                product: productId,
+                variantId: variantId,
+                productName: item.productName || originalItem.productName,
+                sku: item.sku || originalItem.sku,
+                quantity: item.quantity,
+                unitPrice: originalItem.unitPrice,
+                condition: item.condition || 'GOOD',
+                reason: item.reason || ''
+            });
         }
 
         // 3. Process Exchanged Items (if any)
         const processedExchanges = [];
-        if (type === 'EXCHANGE' && exchangedItems) {
+        if (type === 'EXCHANGE' && exchangedItems && exchangedItems.length > 0) {
             for (const item of exchangedItems) {
                 const product = await Product.findById(item.product).session(session);
                 if (!product) throw new Error(`Product ${item.product} not found.`);
@@ -108,7 +125,7 @@ exports.processReturn = async (req, res) => {
             originalSale: saleId,
             branch: originalSale.branch,
             type,
-            returnedItems,
+            returnedItems: cleanedReturnedItems,
             exchangedItems: processedExchanges,
             totalRefundAmount: type === 'RETURN' ? totalRefundValue : 0,
             totalExchangeDifference: type === 'EXCHANGE' ? (totalExchangeValue - totalRefundValue) : 0,
@@ -121,6 +138,7 @@ exports.processReturn = async (req, res) => {
         res.status(201).json({ success: true, data: saleReturn });
 
     } catch (error) {
+        console.error('Process Return Error:', error);
         await session.abortTransaction();
         res.status(400).json({ success: false, message: error.message });
     } finally {
