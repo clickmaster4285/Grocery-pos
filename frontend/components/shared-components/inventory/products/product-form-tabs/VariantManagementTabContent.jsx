@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import {
   FormControl,
@@ -12,10 +12,11 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, XCircle, UploadCloud, Badge, Image as ImageIcon, ArrowLeft } from 'lucide-react'; // Added ArrowLeft
+import { PlusCircle, XCircle, UploadCloud, Badge, Image as ImageIcon, ArrowLeft, Plus } from 'lucide-react'; // Added Plus icon
 import { ComboBox } from '@/components/ui/combobox';
 import { toast } from 'sonner';
 import Image from 'next/image';
+import SupplierForm from '@/components/shared-components/inventory/suppliers/SupplierForm'; // Import the flexible SupplierForm
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -109,6 +110,8 @@ const VariantAttributes = ({ variantIndex }) => {
 // Variants Tab Content
 const VariantManagementTabContent = ({ fields, handleAddVariant, handleRemoveImage, handleImageUpload, isEditing, supplierOptions, isLoadingSuppliers, setActiveTab, form, onSubmitHandler, isLoading, initialData, removeVariant }) => {
   const { control, watch, setValue } = useFormContext(); // Use useFormContext here
+  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+  const [currentVariantIndexForSupplier, setCurrentVariantIndexForSupplier] = useState(null); // To track which variant is being edited
 
   const handlePrevious = () => {
     setActiveTab('product-details');
@@ -122,6 +125,19 @@ const VariantManagementTabContent = ({ fields, handleAddVariant, handleRemoveIma
     } else {
       toast.error("Please correct the errors in the form.");
     }
+  };
+
+  const handleSupplierCreated = (newSupplier) => {
+    // Manually add the new supplier to the options
+    const newSupplierOption = { label: newSupplier.name, value: newSupplier._id };
+    // Assuming supplierOptions is a memoized array or a state that can be updated.
+    // For simplicity, we'll just set the value for the current variant.
+    if (currentVariantIndexForSupplier !== null) {
+      setValue(`variants.${currentVariantIndexForSupplier}.supplier`, newSupplier._id, { shouldValidate: true });
+    }
+    setIsSupplierModalOpen(false);
+    setCurrentVariantIndexForSupplier(null);
+    toast.success(`Supplier "${newSupplier.name}" created and selected.`);
   };
 
   return (
@@ -193,7 +209,21 @@ const VariantManagementTabContent = ({ fields, handleAddVariant, handleRemoveIma
               name={`variants.${variantIndex}.supplier`}
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Supplier</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Supplier</FormLabel>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => {
+                        setIsSupplierModalOpen(true);
+                        setCurrentVariantIndexForSupplier(variantIndex);
+                      }}
+                      className="gap-1 h-auto px-2 py-0 text-xs text-primary hover:bg-transparent hover:text-primary/80"
+                    >
+                      <Plus className="h-3 w-3" /> Add New
+                    </Button>
+                  </div>
                   <ComboBox
                     items={supplierOptions}
                     value={field.value}
@@ -425,6 +455,14 @@ const VariantManagementTabContent = ({ fields, handleAddVariant, handleRemoveIma
           {isLoading ? 'Saving...' : (isEditing ? 'Update Product' : 'Create Product')}
         </Button>
       </div>
+
+      {isSupplierModalOpen && (
+        <SupplierForm
+          isOpen={isSupplierModalOpen}
+          onClose={() => setIsSupplierModalOpen(false)}
+          onSuccess={(newSupplier) => handleSupplierCreated(newSupplier)}
+        />
+      )}
     </div>
   );
 };
