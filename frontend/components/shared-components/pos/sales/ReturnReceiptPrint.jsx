@@ -1,10 +1,10 @@
 import React, { forwardRef } from 'react';
 import { format } from 'date-fns';
 import { useGetSettings } from '@/features/settings.api';
+import { formatCurrency } from '@/utils/formatters';
 
 const ReturnReceiptPrint = forwardRef(({ returnData, originalSale, branch }, ref) => {
   const { data: settings } = useGetSettings();
-  const currency = settings?.currencySymbol || '$';
 
   if (!returnData || !originalSale) return null;
 
@@ -28,21 +28,21 @@ const ReturnReceiptPrint = forwardRef(({ returnData, originalSale, branch }, ref
       {/* Header */}
       <div className="text-center space-y-1 mb-4">
         {settings?.logo && (
-            <div className="flex justify-center mb-2">
-                <img 
-                    src={`${process.env.NEXT_PUBLIC_BACKEND_URL}/${settings.logo}`} 
-                    alt="Logo" 
-                    className="h-10 w-auto object-contain grayscale"
-                />
-            </div>
+          <div className="flex justify-center mb-2">
+            <img
+              src={`${process.env.NEXT_PUBLIC_BACKEND_URL}/${settings.logo}`}
+              alt="Logo"
+              className="h-10 w-auto object-contain grayscale"
+            />
+          </div>
         )}
         <h2 className="text-sm font-bold uppercase">{branch?.branch_name || settings?.companyName || 'Supermarket'}</h2>
         <p>{branch?.address?.street || branch?.address || settings?.companyAddress || 'Main Branch'}</p>
         <p>Tel: {branch?.phone || settings?.companyPhone || '000-000-0000'}</p>
         <div className="border-y border-black border-dashed py-1 my-2">
-            <p className="text-xs font-black uppercase tracking-widest">
-                {returnData.type === 'RETURN' ? 'RETURN RECEIPT' : 'EXCHANGE RECEIPT'}
-            </p>
+          <p className="text-xs font-black uppercase tracking-widest">
+            {returnData.type === 'RETURN' ? 'RETURN RECEIPT' : 'EXCHANGE RECEIPT'}
+          </p>
         </div>
       </div>
 
@@ -79,21 +79,21 @@ const ReturnReceiptPrint = forwardRef(({ returnData, originalSale, branch }, ref
                 <span>{item.productName} ({item.condition})</span>
               </div>
               <div className="flex justify-between text-[9px]">
-                <span>{item.quantity} x {currency}{item.unitPrice.toFixed(2)}</span>
-                <span>-{currency}{itemSubtotal.toFixed(2)}</span>
+                <span>{item.quantity} x {formatCurrency(item.unitPrice)}</span>
+                <span>-{formatCurrency(itemSubtotal)}</span>
               </div>
               {itemTax > 0 && (
                 <div className="flex justify-between text-[8px] italic opacity-70">
                   <span>Tax Credit ({originalItem?.taxRate}%)</span>
-                  <span>-{currency}{itemTax.toFixed(2)}</span>
+                  <span>-{formatCurrency(itemTax)}</span>
                 </div>
               )}
             </div>
           );
         })}
         <div className="flex justify-between border-t border-black pt-1 font-bold">
-            <span>TOTAL RETURN CREDIT:</span>
-            <span>-{currency}{totalReturnCredit.toFixed(2)}</span>
+          <span>TOTAL RETURN CREDIT:</span>
+          <span>-{formatCurrency(totalReturnCredit)}</span>
         </div>
       </div>
 
@@ -107,26 +107,26 @@ const ReturnReceiptPrint = forwardRef(({ returnData, originalSale, branch }, ref
                 <span>{item.productName}</span>
               </div>
               <div className="flex justify-between text-[9px]">
-                <span>{item.quantity} x {currency}{item.unitPrice.toFixed(2)}</span>
-                <span>+{currency}{item.subtotal.toFixed(2)}</span>
+                <span>{item.quantity} x {formatCurrency(item.unitPrice)}</span>
+                <span>+{formatCurrency(item.subtotal)}</span>
               </div>
               {item.taxAmount > 0 && (
                 <div className="flex justify-between text-[8px] italic opacity-70">
                   <span>Tax Amount ({item.taxRate}%)</span>
-                  <span>+{currency}{item.taxAmount.toFixed(2)}</span>
+                  <span>+{formatCurrency(item.taxAmount)}</span>
                 </div>
               )}
               {item.discountPercent > 0 && (
                 <div className="flex justify-between text-[8px] text-emerald-700 font-bold">
                   <span>Auto-Discount (-{item.discountPercent}%)</span>
-                  <span>-{currency}{item.discountAmount?.toFixed(2) || (item.originalUnitPrice * item.discountPercent / 100).toFixed(2)}</span>
+                  <span>-{formatCurrency(item.discountAmount || (item.originalUnitPrice * item.discountPercent / 100))}</span>
                 </div>
               )}
             </div>
           ))}
           <div className="flex justify-between border-t border-black pt-1 font-bold">
-              <span>TOTAL EXCHANGE DEBT:</span>
-              <span>+{currency}{totalExchangeDebt.toFixed(2)}</span>
+            <span>TOTAL EXCHANGE DEBT:</span>
+            <span>+{formatCurrency(totalExchangeDebt)}</span>
           </div>
         </div>
       )}
@@ -138,19 +138,19 @@ const ReturnReceiptPrint = forwardRef(({ returnData, originalSale, branch }, ref
             {returnData.type === 'RETURN' ? 'NET REFUND AMOUNT:' : 'FINAL SETTLEMENT:'}
           </span>
           <span>
-            {returnData.type === 'RETURN' 
-                ? `${currency}${returnData.totalRefundAmount.toFixed(2)}` 
-                : returnData.totalExchangeDifference > 0 
-                    ? `PAY +${currency}${returnData.totalExchangeDifference.toFixed(2)}`
-                    : `REFUND -${currency}${Math.abs(returnData.totalExchangeDifference).toFixed(2)}`
+            {returnData.type === 'RETURN'
+              ? formatCurrency(returnData.totalRefundAmount)
+              : returnData.totalExchangeDifference > 0
+                ? `PAY +${formatCurrency(returnData.totalExchangeDifference)}`
+                : `REFUND -${formatCurrency(Math.abs(returnData.totalExchangeDifference))}`
             }
           </span>
         </div>
-        
+
         {returnData.type === 'EXCHANGE' && (
-            <p className="text-[8px] text-center italic border-t border-gray-200 pt-1">
-                Balance calculation: Debt ({currency}{totalExchangeDebt.toFixed(2)}) - Credit ({currency}{totalReturnCredit.toFixed(2)})
-            </p>
+          <p className="text-[8px] text-center italic border-t border-gray-200 pt-1">
+            Balance calculation: Debt ({formatCurrency(totalExchangeDebt)}) - Credit ({formatCurrency(totalReturnCredit)})
+          </p>
         )}
       </div>
 
@@ -159,7 +159,7 @@ const ReturnReceiptPrint = forwardRef(({ returnData, originalSale, branch }, ref
         <p className="italic text-[9px]">{settings?.receiptFooterMessage || 'Thank you for choosing us!'}</p>
         <p className="font-bold uppercase tracking-tighter text-[8px]">Inventory Audit Trail Verified</p>
         <div className="mt-4 border-t border-black pt-4">
-            <p>--- Customer Copy ---</p>
+          <p>--- Customer Copy ---</p>
         </div>
       </div>
     </div>

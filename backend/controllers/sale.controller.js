@@ -177,6 +177,10 @@ exports.createSale = async (req, res) => {
 
         await sale.save();
 
+        // Populate customer before returning
+        const populatedSale = await Sale.findById(sale._id)
+            .populate('customer', 'firstName lastName phonePrimary customerGroup email');
+
         // 2. Update Terminal Session State
         const drawerUpdate = paymentMethod === 'CASH' ? finalAmount : 0;
         
@@ -190,7 +194,7 @@ exports.createSale = async (req, res) => {
             }
         });
 
-        res.status(201).json({ success: true, data: sale });
+        res.status(201).json({ success: true, data: populatedSale });
 
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });

@@ -175,6 +175,7 @@ exports.getSaleHistory = async (req, res) => {
         const sale = await Sale.findById(saleId)
             .populate('branch', 'branch_name')
             .populate('cashier', 'firstName lastName')
+            .populate('customer', 'firstName lastName phonePrimary customerGroup email') // Added customer populate
             .populate('items.product', 'productName');
 
         if (!sale) return res.status(404).json({ success: false, message: 'Sale not found' });

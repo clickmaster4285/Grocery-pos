@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useReactToPrint } from 'react-to-print';
 import ReturnReceiptPrint from '@/components/shared-components/pos/sales/ReturnReceiptPrint';
+import { formatCurrency } from '@/utils/formatters';
 
 const ReturnsManagementPage = () => {
     const { role } = useParams();
@@ -121,14 +122,14 @@ const ReturnsManagementPage = () => {
                 />
                 <StatsCard
                     title="Total Refunded"
-                    value={`$${(stats?.totalRefunded || 0).toFixed(2)}`}
+                    value={formatCurrency(stats?.totalRefunded || 0)}
                     icon={<DollarSign />}
                     color="sky"
                     description="Cash returned to customers"
                 />
                 <StatsCard
                     title="Exch. Balance"
-                    value={`$${(stats?.exchangeBalance || 0).toFixed(2)}`}
+                    value={formatCurrency(stats?.exchangeBalance || 0)}
                     icon={<Scale />}
                     color="primary"
                     description="Net difference from swaps"
@@ -229,9 +230,9 @@ const ReturnsManagementPage = () => {
                                         </TableCell>
                                         <TableCell className="text-right font-black">
                                             {rtn.type === 'RETURN'
-                                                ? <span className="text-red-600">-${rtn.totalRefundAmount.toFixed(2)}</span>
+                                                ? <span className="text-red-600">-{formatCurrency(rtn.totalRefundAmount)}</span>
                                                 : <span className={rtn.totalExchangeDifference > 0 ? 'text-amber-600' : 'text-green-600'}>
-                                                    {rtn.totalExchangeDifference > 0 ? `+${rtn.totalExchangeDifference.toFixed(2)}` : `${rtn.totalExchangeDifference.toFixed(2)}`}
+                                                    {rtn.totalExchangeDifference > 0 ? `+${formatCurrency(rtn.totalExchangeDifference)}` : formatCurrency(rtn.totalExchangeDifference)}
                                                 </span>
                                             }
                                         </TableCell>
