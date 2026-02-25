@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { 
-  Banknote, 
-  Wallet, 
-  Search, 
-  Download, 
-  Landmark, 
-  CreditCard, 
+import {
+  Banknote,
+  Wallet,
+  Search,
+  Download,
+  Landmark,
+  CreditCard,
   DollarSign,
   TrendingUp,
   ArrowUpRight,
@@ -19,25 +19,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { useStaffList } from '@/features/users.api';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { usePermissions } from '@/hooks/usePermissions';
+import { formatCurrency } from '@/utils/formatters';
 
 const PayrollIntegration = () => {
   const router = useRouter();
@@ -46,7 +47,7 @@ const PayrollIntegration = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredStaff = useMemo(() => {
-    return staff.filter(user => 
+    return staff.filter(user =>
       `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.employment?.department?.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -91,7 +92,7 @@ const PayrollIntegration = () => {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold">${stats.total.toLocaleString()}</span>
+              <span className="text-2xl font-bold">{formatCurrency(stats.total)}</span>
               <div className="p-2 bg-primary/10 rounded-lg">
                 <DollarSign className="h-4 w-4 text-primary" />
               </div>
@@ -105,7 +106,7 @@ const PayrollIntegration = () => {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold text-emerald-700">${(stats.byMethod['BANK_TRANSFER'] || 0).toLocaleString()}</span>
+              <span className="text-2xl font-bold text-emerald-700">{formatCurrency(stats.byMethod['BANK_TRANSFER'] || 0)}</span>
               <div className="p-2 bg-emerald-100 rounded-lg">
                 <Landmark className="h-4 w-4 text-emerald-600" />
               </div>
@@ -119,7 +120,7 @@ const PayrollIntegration = () => {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold text-amber-700">${(stats.byMethod['CASH'] || 0).toLocaleString()}</span>
+              <span className="text-2xl font-bold text-amber-700">{formatCurrency(stats.byMethod['CASH'] || 0)}</span>
               <div className="p-2 bg-amber-100 rounded-lg">
                 <Banknote className="h-4 w-4 text-amber-600" />
               </div>
@@ -133,7 +134,7 @@ const PayrollIntegration = () => {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold text-slate-700">${Math.round(stats.avg).toLocaleString()}</span>
+              <span className="text-2xl font-bold text-slate-700">{formatCurrency(Math.round(stats.avg))}</span>
               <div className="p-2 bg-slate-200 rounded-lg">
                 <TrendingUp className="h-4 w-4 text-slate-600" />
               </div>
@@ -150,8 +151,8 @@ const PayrollIntegration = () => {
             </CardTitle>
             <div className="relative w-full md:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search employee or bank..." 
+              <Input
+                placeholder="Search employee or bank..."
                 className="pl-9 bg-muted/20 border-none h-9 text-xs"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -213,7 +214,7 @@ const PayrollIntegration = () => {
                       )}
                     </TableCell>
                     <TableCell className="text-right font-mono font-bold text-sm">
-                      ${(user.salary?.baseAmount || 0).toLocaleString()}
+                      {formatCurrency(user.salary?.baseAmount || 0)}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>

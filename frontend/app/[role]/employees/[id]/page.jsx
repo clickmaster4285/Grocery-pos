@@ -1,15 +1,15 @@
 'use client';
 
-import { 
-  ArrowLeft, 
-  CalendarDays, 
-  Mail, 
-  Phone, 
-  Briefcase, 
-  Clock, 
-  Banknote, 
-  History, 
-  Building2, 
+import {
+  ArrowLeft,
+  CalendarDays,
+  Mail,
+  Phone,
+  Briefcase,
+  Clock,
+  Banknote,
+  History,
+  Building2,
   ShieldX,
   CheckCircle,
   X,
@@ -17,7 +17,7 @@ import {
   MapPin,
   Landmark,
   Calendar
-} from 'lucide-react'; 
+} from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -25,7 +25,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"; 
+} from "@/components/ui/table";
 import { useGetPermissions, useGetUserById } from '@/features/users.api';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -33,7 +33,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { Separator } from '@/components/ui/separator';
-import { formatPhoneNumberForDisplay } from '@/utils/formatters';
+import { formatPhoneNumberForDisplay, formatCurrency } from '@/utils/formatters';
 import { useAuth } from "@/hooks/useAuth"
 import { usePermissions } from "@/hooks/usePermissions";
 import StaffDetailSkeleton from '@/components/shared-components/employees/StaffDetailSkeleton';
@@ -67,7 +67,7 @@ const EmployeeDetailPage = () => {
   }, [allPermissionsData]);
 
   const uniquePermissionTypes = ['Create', 'Read', 'Update', 'Delete'];
-  
+
   useEffect(() => {
     if (error) {
       router.push(`/${currentUserRole}/employees`);
@@ -103,9 +103,9 @@ const EmployeeDetailPage = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-6">
         <div className="space-y-1">
-          <Button 
-            variant="ghost" 
-            onClick={() => router.push(`/${currentUserRole}/employees`)} 
+          <Button
+            variant="ghost"
+            onClick={() => router.push(`/${currentUserRole}/employees`)}
             className="group -ml-2 text-muted-foreground bg-accent-foreground/10 hover:text-foreground h-8 px-2"
           >
             <ArrowLeft className="mr-1 h-4 w-4 transition-transform group-hover:-translate-x-1" />
@@ -117,10 +117,10 @@ const EmployeeDetailPage = () => {
           <div className="flex items-center gap-2 mt-2">
             <span className="capitalize font-semibold tracking-wide text-slate-700">{user.role.replace(/_/g, ' ')}</span>
             <span className={cn(
-                "text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border", 
-                user.isActive 
-                    ? "bg-emerald-500/10 border-emerald-200 text-emerald-600" 
-                    : "bg-red-500/10 border-red-200 text-red-600"
+              "text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border",
+              user.isActive
+                ? "bg-emerald-500/10 border-emerald-200 text-emerald-600"
+                : "bg-red-500/10 border-red-200 text-red-600"
             )}>
               {user.isActive ? "Active" : "Inactive"}
             </span>
@@ -128,7 +128,7 @@ const EmployeeDetailPage = () => {
         </div>
         <div className="flex gap-3">
           {canUpdateEmployee && (
-            <Button 
+            <Button
               onClick={() => router.push(`/${currentUserRole}/employees/${user._id}/edit`)}
               className="rounded-xl font-semibold uppercase tracking-wide shadow-xl shadow-primary/20 bg-primary hover:bg-primary/90"
             >
@@ -210,7 +210,7 @@ const EmployeeDetailPage = () => {
                   <CardContent className="pt-4 grid grid-cols-1 gap-4 bg-white">
                     <div className="flex justify-between items-center">
                       <span className="text-[13px] font-medium text-slate-600">Base Salary</span>
-                      <span className="text-sm font-semibold tabular-nums">${user.salary?.baseAmount?.toLocaleString() || '0.00'}</span>
+                      <span className="text-sm font-semibold tabular-nums">{formatCurrency(user.salary?.baseAmount || 0)}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-[13px] font-medium text-slate-600">Pay Cycle</span>
@@ -248,12 +248,12 @@ const EmployeeDetailPage = () => {
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Work Days</p>
                       <div className="flex flex-wrap gap-1.5">
                         {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
-                          <span 
-                            key={day} 
+                          <span
+                            key={day}
                             className={cn(
                               "text-[10px] font-semibold px-2 py-0.5 rounded-full border",
-                              user.shift?.workDays?.includes(day) 
-                                ? "bg-primary/10 border-primary text-primary" 
+                              user.shift?.workDays?.includes(day)
+                                ? "bg-primary/10 border-primary text-primary"
                                 : "bg-muted/30 border-slate-100 text-muted-foreground opacity-70"
                             )}
                           >
@@ -348,7 +348,7 @@ const EmployeeDetailPage = () => {
                           [...user.salaryHistory].reverse().map((entry, idx) => (
                             <TableRow key={idx} className="h-16 transition-colors border-b border-slate-100 hover:bg-slate-50/50">
                               <TableCell className="text-[13px] font-medium text-slate-600">{new Date(entry.effectiveDate).toLocaleDateString()}</TableCell>
-                              <TableCell className="text-sm font-semibold tabular-nums text-foreground">${entry.baseAmount?.toLocaleString()}</TableCell>
+                              <TableCell className="text-sm font-semibold tabular-nums text-foreground">{formatCurrency(entry.baseAmount || 0)}</TableCell>
                               <TableCell className="text-[13px] font-medium text-slate-600 capitalize">{entry.payType}</TableCell>
                             </TableRow>
                           ))
