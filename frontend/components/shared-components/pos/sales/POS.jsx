@@ -73,6 +73,37 @@ const POS = () => {
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
 
+  const handleBranchChange = (branchId) => {
+    setActiveBranchId(branchId);
+    setCart([]);
+    setSelectedCustomer(null);
+    setDiscount(0);
+    setAppliedCoupon(null);
+    setSearchQuery('');
+    setIsSearchFocused(false);
+  };
+
+  const handleOpenShift = async (terminalId, openingFloat) => {
+    try {
+      await openSession(terminalId, openingFloat);
+      setIsShiftModalOpen(false);
+      refetchTerminals();
+    } catch (error) {
+      // Error handled in hook toast
+    }
+  };
+
+  const handleCloseShift = async (actualCash, notes) => {
+    if (!activeTerminal) return;
+    try {
+      await closeSession(activeTerminal._id, actualCash, notes);
+      setIsCloseModalOpen(false);
+      refetchTerminals();
+    } catch (error) {
+      // Error handled in hook toast
+    }
+  };
+
   const { data: stock, isLoading: stockLoading, isFetching: stockFetching } = useGetBranchStock(activeBranchId, debouncedSearch);
   const { data: branches } = useGetAllBranches({
     enabled: canSelectBranch || !!user?.branch_id, // Always enabled if not admin, to get user's branch
@@ -83,7 +114,7 @@ const POS = () => {
   const validateCouponMutation = useValidateCoupon();
 
   const [cart, setCart] = useState([]);
-  const [customerName, setCustomerName] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState(null); // New: Store the full customer object
   const [discount, setDiscount] = useState(0); // This is now globalDiscountPercent
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
@@ -154,59 +185,6 @@ const POS = () => {
     if (searchInputRef.current) searchInputRef.current.focus();
   };
 
-  // Effects related to search and auto-add to cart
-  useEffect(() => {
-    if (searchInputRef.current && activeTerminal) searchInputRef.current.focus();
-  }, [activeTerminal, searchInputRef]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
-        setIsSearchFocused(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [searchContainerRef]);
-
-  useEffect(() => {
-    if (stock && stock.length === 1 && searchQuery.trim() !== '') {
-      const item = stock[0];
-      const variant = item.product.variants.find(v => v._id === item.variantId);
-      if (variant && (variant.sku.toLowerCase() === searchQuery.toLowerCase() || variant.barcode === searchQuery)) {
-        addToCart(item);
-      }
-    }
-  }, [stock, searchQuery, addToCart]); // Add addToCart to dependencies
-
-
-  const handleBranchChange = (branchId) => {
-    if (cart.length > 0) {
-      if (window.confirm("Changing branch will clear your current cart. Continue?")) {
-        setActiveBranchId(branchId);
-        setCart([]);
-      }
-    } else {
-      setActiveBranchId(branchId);
-    }
-  };
-
-  const handleOpenShift = async (terminalId, openingFloat) => {
-    try {
-      await openSession(terminalId, openingFloat);
-      await refetchTerminals();
-      setIsShiftModalOpen(false);
-    } catch (err) { }
-  };
-
-  const handleCloseShift = async (actualCash, notes) => {
-    try {
-      await closeSession(activeTerminal._id, actualCash, notes);
-      await refetchTerminals();
-      setIsCloseModalOpen(false);
-    } catch (err) { }
-  };
-
   const updateQuantity = (variantId, delta) => {
     setCart(cart.map(item => {
       if (item.variantId === variantId) {
@@ -254,7 +232,7 @@ const POS = () => {
 
     const totalBeforeGlobal = subtotal + totalTax;
     const globalDiscountAmount = (subtotal * discount) / 100;
-    const finalTotal = Math.max(0, totalBeforeGlobal - globalDiscountAmount);
+    const finalTotal = totalBeforeGlobal - globalDiscountAmount;
 
     return {
       items: processedItems,
@@ -281,6 +259,7 @@ const POS = () => {
       const response = await validateCouponMutation.mutateAsync({
         code: codeToValidate,
         branchId: activeBranchId,
+        customerGroup: selectedCustomer?.customerGroup || 'Regular', // Send group if available
         cartTotal: cartTotals.subtotal,
         cartItems: cart.map(item => ({
           product: item.productId,
@@ -329,7 +308,9 @@ const POS = () => {
         })),
         globalDiscountPercent: discount,
         paymentMethod,
-        customerName
+        customer: selectedCustomer?._id, // Send customer ID
+        customerName: selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` : 'Walk-in Customer',
+        customerPhone: selectedCustomer?.phonePrimary
       });
 
       toast.success("Sale completed successfully!");
@@ -343,7 +324,7 @@ const POS = () => {
       }
 
       setCart([]);
-      setCustomerName('');
+      setSelectedCustomer(null); // Reset customer
       setDiscount(0);
       setAppliedCoupon(null);
       setSearchQuery(''); 
@@ -439,8 +420,8 @@ const POS = () => {
             <CheckoutSidebar
               user={user}
               activeTerminal={activeTerminal}
-              customerName={customerName}
-              setCustomerName={setCustomerName}
+              selectedCustomer={selectedCustomer}
+              setSelectedCustomer={setSelectedCustomer}
               paymentMethod={paymentMethod}
               setPaymentMethod={setPaymentMethod}
               totals={cartTotals}
@@ -451,7 +432,7 @@ const POS = () => {
               setIsScannerOpen={setIsScannerOpen}
               handleCheckout={handleCheckout}
               canCreateSale={canCreateSale}
-              isCreatingSale={createSaleMutation.isLoading}
+              isCreatingSale={createSaleMutation.isPending}
               cartLength={cart.length}
             />
           </div>

@@ -51,6 +51,22 @@ exports.createCustomer = async (req, res, next) => {
       });
     }
 
+    // Manual Duplicate Check
+    const existing = await Customer.findOne({
+      $or: [
+        { phonePrimary: value.phonePrimary },
+        { email: value.email || '____' } // Avoid matching nulls
+      ]
+    });
+
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: 'A customer with this phone number or email already exists.',
+        data: existing
+      });
+    }
+
     // Auto-generate IDs
     value.customerId = await generateCustomerCode();
     value.loyaltyCardNumber = await generateLoyaltyCardNumber();

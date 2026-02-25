@@ -47,6 +47,7 @@ exports.createSale = async (req, res) => {
             items, 
             globalDiscountPercent = 0, 
             paymentMethod, 
+            customer, // New: customer ID
             customerName, 
             customerPhone 
         } = req.body;
@@ -169,6 +170,7 @@ exports.createSale = async (req, res) => {
             finalAmount,
             paymentMethod,
             cashier: cashierId,
+            customer, // Save customer ID
             customerName,
             customerPhone
         });
@@ -202,6 +204,7 @@ exports.getBranchSales = async (req, res) => {
         const sales = await Sale.find({ branch: branchId })
             .populate('cashier', 'firstName lastName')
             .populate('branch', 'branch_name')
+            .populate('customer', 'firstName lastName phonePrimary customerGroup') // Added customer populate
             .populate('items.product', 'productName')
             .sort({ createdAt: -1 });
         
@@ -262,6 +265,7 @@ exports.getAllSales = async (req, res) => {
             Sale.find(query)
                 .populate('branch', 'branch_name')
                 .populate('cashier', 'firstName lastName')
+                .populate('customer', 'firstName lastName phonePrimary customerGroup') // Added customer populate
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(parseInt(limit)),
@@ -304,6 +308,7 @@ exports.getSaleDetail = async (req, res) => {
         const sale = await Sale.findById(req.params.id)
             .populate('branch', 'branch_name')
             .populate('cashier', 'firstName lastName')
+            .populate('customer', 'firstName lastName phonePrimary customerGroup email') // Added customer populate
             .populate('items.product', 'productName category brand');
             
         if (!sale) return res.status(404).json({ success: false, message: 'Sale not found' });

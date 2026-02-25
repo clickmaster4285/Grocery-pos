@@ -68,8 +68,18 @@ const ReceiptPrint = forwardRef(({ sale, branch }, ref) => {
         </div>
         <div className="flex justify-between">
           <span>Customer:</span>
-          <span>{sale.customerName || 'Walk-in'}</span>
+          <span className="font-bold">
+            {sale.customer 
+                ? `${sale.customer.firstName} ${sale.customer.lastName || ''}`.trim() 
+                : (sale.customerName || 'Walk-in')}
+          </span>
         </div>
+        {(sale.customer?.phonePrimary || sale.customerPhone) && (
+            <div className="flex justify-between">
+                <span>Phone:</span>
+                <span>{sale.customer?.phonePrimary || sale.customerPhone}</span>
+            </div>
+        )}
       </div>
 
       <Separator className="bg-black my-2 border-dashed h-px" />

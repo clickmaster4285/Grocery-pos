@@ -80,7 +80,7 @@ const BillLifecycle = ({ saleId }) => {
                         <Badge variant="outline" className="font-mono text-[10px]">{originalSale?.billNumber}</Badge>
                     </div>
                     
-                    <div className="flex items-center gap-4 text-xs font-bold text-muted-foreground bg-muted/50 p-2 rounded-md">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold text-muted-foreground bg-muted/50 p-2 rounded-md">
                         <div className="flex items-center gap-1.5">
                             <Calendar className="h-3.5 w-3.5" />
                             {safeFormat(originalSale?.createdAt)}
@@ -88,6 +88,12 @@ const BillLifecycle = ({ saleId }) => {
                         <div className="flex items-center gap-1.5">
                             <User className="h-3.5 w-3.5" />
                             By: {originalSale?.cashier?.firstName} {originalSale?.cashier?.lastName}
+                        </div>
+                        <div className="flex items-center gap-1.5 border-l border-muted-foreground/20 pl-4">
+                            <UserCircle2 className="h-3.5 w-3.5 text-primary/60" />
+                            Cust: {originalSale?.customer 
+                                ? `${originalSale.customer.firstName} ${originalSale.customer.lastName || ''}`.trim() 
+                                : (originalSale?.customerName || 'Walk-in')}
                         </div>
                     </div>
 

@@ -208,8 +208,24 @@ const SaleDetailPage = () => {
                                     <User className="h-6 w-6" />
                                 </div>
                                 <div className="flex flex-col">
-                                    <p className="font-semibold text-slate-800 text-base leading-tight">{sale.customerName || 'Walk-in Customer'}</p>
-                                    <p className="text-[11px] text-slate-500 font-medium mt-1 uppercase tracking-wider">{sale.customerPhone || 'Verified Internal Sale'}</p>
+                                    <p className="font-semibold text-slate-800 text-base leading-tight">
+                                        {sale.customer 
+                                            ? `${sale.customer.firstName} ${sale.customer.lastName || ''}`.trim() 
+                                            : (sale.customerName || 'Walk-in Customer')}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider">
+                                            {sale.customer?.phonePrimary || sale.customerPhone || 'Verified Internal Sale'}
+                                        </p>
+                                        {sale.customer?.customerGroup && (
+                                            <Badge variant="outline" className="h-4 px-1.5 text-[8px] font-black uppercase bg-primary/5 text-primary border-primary/20">
+                                                {sale.customer.customerGroup}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    {sale.customer?.email && (
+                                        <p className="text-[10px] text-slate-400 mt-0.5 italic">{sale.customer.email}</p>
+                                    )}
                                 </div>
                             </div>
                         </CardContent>

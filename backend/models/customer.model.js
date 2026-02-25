@@ -32,6 +32,7 @@ const customerSchema = new mongoose.Schema(
     phonePrimary: { 
       type: String, 
       required: true, 
+      unique: true, // Prevent duplicates
       trim: true,
       index: true 
     },
@@ -42,6 +43,8 @@ const customerSchema = new mongoose.Schema(
     email: { 
       type: String, 
       trim: true,
+      unique: true, // Prevent duplicates
+      sparse: true, // Allow multiple nulls
       lowercase: true,
       index: true 
     },
@@ -93,3 +96,4 @@ customerSchema.virtual('fullName').get(function() {
 customerSchema.index({ firstName: 'text', lastName: 'text', phonePrimary: 1 });
 
 module.exports = mongoose.model("Customer", customerSchema);
+
