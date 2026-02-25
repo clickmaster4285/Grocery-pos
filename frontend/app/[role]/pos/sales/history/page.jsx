@@ -43,6 +43,7 @@ import {
 import { formatCurrency } from "@/utils/formatters";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from 'framer-motion';
+import { format } from 'date-fns';
 
 const SalesHistory = ({ 
   title = "Transaction Archive", 

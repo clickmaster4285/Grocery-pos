@@ -26,6 +26,53 @@ const returnItemSchema = new mongoose.Schema({
     }
 }, { _id: false });
 
+const exchangedItemSchema = new mongoose.Schema({
+    product: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product',
+        required: true,
+    },
+    variantId: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+    },
+    productName: String,
+    sku: String,
+    quantity: {
+        type: Number,
+        required: true,
+        min: 1,
+    },
+    originalUnitPrice: {
+        type: Number,
+        required: true,
+    },
+    discountPercent: {
+        type: Number,
+        default: 0,
+    },
+    discountAmount: {
+        type: Number,
+        default: 0,
+    },
+    unitPrice: {
+        type: Number,
+        required: true,
+    },
+    taxRate: {
+        type: Number,
+        default: 0,
+    },
+    taxAmount: {
+        type: Number,
+        default: 0,
+    },
+    subtotal: {
+        type: Number,
+        required: true,
+    }
+}, { _id: false });
+
 const saleReturnSchema = new mongoose.Schema({
     returnNumber: {
         type: String,
@@ -48,17 +95,9 @@ const saleReturnSchema = new mongoose.Schema({
         required: true,
     },
     returnedItems: [returnItemSchema],
-    // Only used if type is 'EXCHANGE'
-    exchangedItems: [{
-        product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
-        variantId: mongoose.Schema.Types.ObjectId,
-        productName: String,
-        sku: String,
-        quantity: Number,
-        unitPrice: Number,
-        subtotal: Number
-    }],
-    totalRefundAmount: {
+    // Enhanced fields for EXCHANGE
+    exchangedItems: [exchangedItemSchema],
+    totalRefundAmount: { // Used primarily for type: RETURN
         type: Number,
         default: 0,
     },

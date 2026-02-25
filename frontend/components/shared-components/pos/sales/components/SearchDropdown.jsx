@@ -18,50 +18,62 @@ const SearchDropdown = ({
   searchQuery,
   isSearchFocused,
   addToCart,
-  searchInputRef, // Now passed from POS.jsx
-  activeTerminal, // Now passed from POS.jsx
-  leftColumnRef, // New prop
-  rightColumnRef, // New prop
+  searchInputRef,
+  activeTerminal,
+  leftColumnRef,
+  rightColumnRef,
+  anchorRef, // New optional prop for simpler layouts
 }) => {
   const [dropdownStyle, setDropdownStyle] = useState({});
 
   // Calculate and update dropdown position and width
   useLayoutEffect(() => {
     if (!isSearchFocused) {
-      // If not focused, ensure dropdown is not visible and prevent calculations
       setDropdownStyle({});
       return;
     }
 
     const calculateDropdownStyle = () => {
-      if (searchInputRef.current && leftColumnRef.current && rightColumnRef.current) {
-        const inputRect = searchInputRef.current.getBoundingClientRect();
+      if (!searchInputRef.current) return;
+
+      const inputRect = searchInputRef.current.getBoundingClientRect();
+      let desiredLeft, desiredWidth;
+
+      if (leftColumnRef?.current && rightColumnRef?.current) {
+        // POS Multi-column layout
         const leftColRect = leftColumnRef.current.getBoundingClientRect();
         const rightColRect = rightColumnRef.current.getBoundingClientRect();
-
-        const desiredLeft = leftColRect.left;
-        const desiredWidth = rightColRect.right - leftColRect.left;
-
-        setDropdownStyle({
-          position: 'fixed', // Use fixed to escape stacking context
-          top: inputRect.bottom + 8, // 8px margin below input
-          left: desiredLeft,
-          width: desiredWidth,
-          zIndex: 100 // Ensure it's above other content
-        });
+        desiredLeft = leftColRect.left;
+        desiredWidth = rightColRect.right - leftColRect.left;
+      } else if (anchorRef?.current) {
+        // Specific anchor element (like a Card or Container)
+        const anchorRect = anchorRef.current.getBoundingClientRect();
+        desiredLeft = anchorRect.left;
+        desiredWidth = anchorRect.width;
+      } else {
+        // Fallback to input width
+        desiredLeft = inputRect.left;
+        desiredWidth = inputRect.width;
       }
+
+      setDropdownStyle({
+        position: 'fixed',
+        top: inputRect.bottom + 8,
+        left: desiredLeft,
+        width: desiredWidth,
+        zIndex: 100
+      });
     };
 
-    calculateDropdownStyle(); // Initial calculation
-
+    calculateDropdownStyle();
     window.addEventListener('resize', calculateDropdownStyle);
-    window.addEventListener('scroll', calculateDropdownStyle, true); // Use capture phase for more reliable scroll detection
+    window.addEventListener('scroll', calculateDropdownStyle, true);
 
     return () => {
       window.removeEventListener('resize', calculateDropdownStyle);
       window.removeEventListener('scroll', calculateDropdownStyle, true);
     };
-  }, [searchQuery, isSearchFocused, activeTerminal, searchInputRef, leftColumnRef, rightColumnRef]); // Add new refs to dependencies
+  }, [searchQuery, isSearchFocused, activeTerminal, searchInputRef, leftColumnRef, rightColumnRef, anchorRef]);
 
 
   return (

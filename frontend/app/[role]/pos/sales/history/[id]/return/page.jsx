@@ -4,7 +4,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useGetSaleDetail } from '@/features/sale.api';
 import { useSaleReturnHook } from '@/hooks/useSaleReturnHook';
-import { useGetAllProducts } from '@/features/product.api';
+import { useGetBranchStock } from '@/features/stockTransfer.api'; // Reuse branch stock search
 import { useDebounce } from '@/hooks/useDebounce';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import ReturnReceiptPrint from '@/components/shared-components/pos/sales/ReturnReceiptPrint';
+import SearchDropdown from '@/components/shared-components/pos/sales/components/SearchDropdown';
 import { formatCurrency } from "@/utils/formatters";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from 'framer-motion';
@@ -48,16 +49,23 @@ const ProcessReturnPage = () => {
 
     const [type, setType] = useState('RETURN');
     const [returnedItems, setReturnedItems] = useState([]);
+    
+    // Exchange Search States
     const [exchangeSearch, setExchangeSearch] = useState('');
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
     const debouncedExchangeSearch = useDebounce(exchangeSearch, 300);
     const [exchangedItems, setExchangedItems] = useState([]);
+
+    const exchangeInputRef = useRef(null);
+    const anchorRef = useRef(null); // Anchor for the dropdown width
+
+    // Fetch Branch Stock for Exchange
+    const { data: stock, isLoading: stockLoading } = useGetBranchStock(sale?.branch?._id || sale?.branch, debouncedExchangeSearch);
 
     // Printing States
     const receiptRef = useRef(null);
     const [printAfterSync, setPrintAfterSync] = useState(false);
     const [newReturnData, setNewReturnData] = useState(null);
-
-    const { data: productsData } = useGetAllProducts({ search: debouncedExchangeSearch, limit: 5 });
 
     const handlePrint = useReactToPrint({
         contentRef: receiptRef,
@@ -99,24 +107,54 @@ const ProcessReturnPage = () => {
         ));
     };
 
-    // Exchange Logic
-    const addExchangeItem = (product, variant) => {
+    // Exchange Logic - Reusing POS Dropdown logic
+    const addExchangeItemFromSearch = (stockItem) => {
+        const variant = stockItem.product.variants.find(v => v._id === stockItem.variantId);
         const latestPrice = variant.priceHistory[variant.priceHistory.length - 1].sellingPrice;
+        const autoDiscountPercent = stockItem.autoDiscountPercent || 0;
+        const taxRate = stockItem.product.taxRate || 0;
+
+        const discountAmount = (latestPrice * autoDiscountPercent) / 100;
+        const unitPrice = latestPrice - discountAmount;
+        const subtotal = unitPrice * 1; // initial qty is 1
+        const taxAmount = (subtotal * taxRate) / 100;
+        
         setExchangedItems([...exchangedItems, {
-            product: product._id,
-            variantId: variant._id,
-            productName: product.productName,
+            product: stockItem.product._id,
+            variantId: stockItem.variantId,
+            productName: stockItem.product.productName,
             sku: variant.sku,
             quantity: 1,
-            unitPrice: latestPrice,
-            subtotal: latestPrice
+            originalUnitPrice: latestPrice,
+            discountPercent: autoDiscountPercent,
+            unitPrice: unitPrice,
+            taxRate: taxRate,
+            taxAmount: taxAmount,
+            subtotal: subtotal
         }]);
         setExchangeSearch('');
+        setIsSearchFocused(false);
     };
 
     // Financials
-    const refundTotal = returnedItems.reduce((acc, curr) => acc + (curr.unitPrice * curr.quantity), 0);
-    const exchangeTotal = exchangedItems.reduce((acc, curr) => acc + curr.subtotal, 0);
+    // 1. Calculate Credit from Returns (Original Price Paid + Original Tax)
+    const refundTotal = useMemo(() => {
+        return returnedItems.reduce((acc, curr) => {
+            const originalItem = sale?.items.find(i => i.variantId === curr.variantId);
+            const taxRate = originalItem?.taxRate || 0;
+            const itemTotal = curr.unitPrice * curr.quantity;
+            const taxTotal = (itemTotal * taxRate) / 100;
+            return acc + (itemTotal + taxTotal);
+        }, 0);
+    }, [returnedItems, sale]);
+
+    // 2. Calculate Debt from Exchanges (New Unit Price + New Tax)
+    const exchangeTotal = useMemo(() => {
+        return exchangedItems.reduce((acc, curr) => {
+            return acc + (curr.subtotal + (curr.taxAmount || 0));
+        }, 0);
+    }, [exchangedItems]);
+
     const difference = exchangeTotal - refundTotal;
 
     const handleSubmit = (shouldPrint = false) => {
@@ -251,13 +289,84 @@ const ProcessReturnPage = () => {
                     </Card>
                 </div>
 
-                {/* 2. CONFIGURATION (Middle) */}
-                <div className="lg:col-span-5 space-y-6">
+                {/* 2. MIDDLE COLUMN */}
+                <div className="lg:col-span-5 space-y-6" ref={anchorRef}>
+                    {/* EXCHANGE ENGINE */}
+                    {type === 'EXCHANGE' && (
+                        <Card className="border-none shadow-xl bg-white rounded-2xl overflow-visible ring-4 ring-amber-50">
+                            <CardHeader className="bg-amber-50/50 border-b border-amber-100 py-4 px-6">
+                                <div className="flex items-center gap-2">
+                                    <PackageSearch className="h-4 w-4 text-amber-600" />
+                                    <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-amber-700">Exchange Inventory Search</CardTitle>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-5 space-y-5 overflow-visible">
+                                <div className="relative">
+                                    <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+                                    <Input
+                                        ref={exchangeInputRef}
+                                        placeholder="Find replacement products..."
+                                        className="pl-11 h-12 font-semibold rounded-xl border-slate-200 bg-slate-50/50 focus-visible:ring-amber-500/20"
+                                        value={exchangeSearch}
+                                        onFocus={() => setIsSearchFocused(true)}
+                                        onChange={(e) => setExchangeSearch(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    {exchangedItems.map((item, idx) => {
+                                        const hasDiscount = item.discountPercent > 0;
+                                        return (
+                                            <div key={idx} className="flex justify-between items-center bg-amber-50/30 p-4 rounded-2xl border border-amber-100 transition-all hover:border-amber-300">
+                                                <div className="flex gap-4 items-center">
+                                                    <div className="h-10 w-10 bg-amber-500 rounded-xl flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-amber-200">
+                                                        {item.quantity}x
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-xs text-slate-700 uppercase tracking-tight">{item.productName}</p>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <span className="text-[9px] font-mono text-amber-600 font-bold opacity-70 uppercase">{item.sku}</span>
+                                                            {item.taxRate > 0 && (
+                                                                <span className="text-[8px] bg-amber-100 text-amber-700 px-1 rounded font-black uppercase">Tax: {item.taxRate}%</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-5">
+                                                    <div className="text-right flex flex-col">
+                                                        {hasDiscount && (
+                                                            <span className="text-[9px] text-slate-400 line-through font-bold tabular-nums">
+                                                                {formatCurrency(item.originalUnitPrice)}
+                                                            </span>
+                                                        )}
+                                                        <span className="font-bold text-sm text-slate-800 tabular-nums">{formatCurrency(item.subtotal)}</span>
+                                                        <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                                                            {hasDiscount && (
+                                                                <span className="text-[8px] font-black text-emerald-600 uppercase">-{item.discountPercent}%</span>
+                                                            )}
+                                                            {item.taxAmount > 0 && (
+                                                                <span className="text-[8px] text-slate-400 font-bold tabular-nums">+{formatCurrency(item.taxAmount)} tax</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <button onClick={() => setExchangedItems(ex => ex.filter((_, i) => i !== idx))} className="h-8 w-8 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all flex items-center justify-center">
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* RETURN CONFIGURATION */}
                     <Card className="border-none shadow-sm bg-white rounded-2xl overflow-hidden min-h-100">
                         <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-4 px-6 flex flex-row items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <RotateCcw className="h-4 w-4 text-primary" />
-                                <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-slate-500">2. Return Parameters</CardTitle>
+                                <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Return Parameters</CardTitle>
                             </div>
                             <Badge className="font-bold bg-slate-400 rounded-lg h-5 text-[9px] uppercase tracking-widest">{returnedItems.length} Selection</Badge>
                         </CardHeader>
@@ -288,9 +397,9 @@ const ProcessReturnPage = () => {
                                                     <div className="flex items-center gap-3">
                                                         <Label className="text-[10px] font-bold uppercase text-slate-400">Quantity</Label>
                                                         <div className="flex items-center gap-2">
-                                                            <Input
+                                                            <input
                                                                 type="number"
-                                                                className="w-16 h-9 text-center font-bold rounded-xl border-slate-200 bg-white"
+                                                                className="w-16 h-9 text-center font-bold rounded-xl border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
                                                                 value={item.quantity}
                                                                 onChange={(e) => updateReturnQty(item.variantId, parseInt(e.target.value))}
                                                             />
@@ -329,88 +438,6 @@ const ProcessReturnPage = () => {
                             )}
                         </CardContent>
                     </Card>
-
-                    {/* EXCHANGE ENGINE */}
-                    {type === 'EXCHANGE' && (
-                        <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden ring-4 ring-amber-50">
-                            <CardHeader className="bg-amber-50/50 border-b border-amber-100 py-4 px-6">
-                                <div className="flex items-center gap-2">
-                                    <PackageSearch className="h-4 w-4 text-amber-600" />
-                                    <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-amber-700">3. Exchange Inventory Search</CardTitle>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-5 space-y-5">
-                                <div className="relative">
-                                    <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
-                                    <Input
-                                        placeholder="Find replacement products..."
-                                        className="pl-11 h-12 font-semibold rounded-xl border-slate-200 bg-slate-50/50 focus-visible:ring-amber-500/20"
-                                        value={exchangeSearch}
-                                        onChange={(e) => setExchangeSearch(e.target.value)}
-                                    />
-                                    <AnimatePresence>
-                                        {exchangeSearch && (
-                                            <motion.div 
-                                                initial={{ opacity: 0, y: 5 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl z-50 overflow-hidden"
-                                            >
-                                                <div className="max-h-75 overflow-y-auto scrollbar-thin">
-                                                    {productsData?.products?.map(p => (
-                                                        <div key={p._id} className="border-b last:border-0">
-                                                            <div className="bg-slate-50 px-4 py-1.5">
-                                                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">{p.productName}</span>
-                                                            </div>
-                                                            {p?.variants?.map(v => (
-                                                                <div
-                                                                    key={v._id}
-                                                                    className="flex justify-between items-center p-4 hover:bg-amber-50/50 cursor-pointer transition-colors"
-                                                                    onClick={() => addExchangeItem(p, v)}
-                                                                >
-                                                                    <div className="flex flex-col gap-0.5">
-                                                                        <span className="font-bold text-xs text-slate-700">{v.sku}</span>
-                                                                        <span className="text-[10px] text-slate-400 font-medium tracking-wide">STOCK: {v.stock} UNITS</span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-4">
-                                                                        <span className="font-bold text-sm text-primary tabular-nums">{formatCurrency(v.priceHistory[v.priceHistory.length - 1].sellingPrice)}</span>
-                                                                        <div className="h-7 w-7 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
-                                                                            <Plus className="h-4 w-4" />
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-
-                                <div className="space-y-2">
-                                    {exchangedItems.map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center bg-amber-50/30 p-4 rounded-2xl border border-amber-100 transition-all hover:border-amber-300">
-                                            <div className="flex gap-4 items-center">
-                                                <div className="h-10 w-10 bg-amber-500 rounded-xl flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-amber-200">
-                                                    {item.quantity}x
-                                                </div>
-                                                <div>
-                                                    <p className="font-bold text-xs text-slate-700 uppercase tracking-tight">{item.productName}</p>
-                                                    <p className="text-[10px] font-mono text-amber-600 font-bold opacity-70 mt-0.5">{item.sku}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-5">
-                                                <span className="font-bold text-sm text-slate-800 tabular-nums">{formatCurrency(item.subtotal)}</span>
-                                                <button onClick={() => setExchangedItems(ex => ex.filter((_, i) => i !== idx))} className="h-8 w-8 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all flex items-center justify-center">
-                                                    <Trash2 className="h-4 w-4" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
                 </div>
 
                 {/* 3. SETTLEMENT SUMMARY (Right) */}
@@ -489,6 +516,18 @@ const ProcessReturnPage = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Reused Search Dropdown - anchored to the middle column */}
+            <SearchDropdown 
+                stock={stock}
+                stockLoading={stockLoading}
+                searchQuery={exchangeSearch}
+                isSearchFocused={isSearchFocused && type === 'EXCHANGE'}
+                addToCart={addExchangeItemFromSearch}
+                searchInputRef={exchangeInputRef}
+                anchorRef={anchorRef}
+                setIsSearchFocused={setIsSearchFocused}
+            />
         </div>
     );
 };
