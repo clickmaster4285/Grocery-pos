@@ -153,7 +153,7 @@ const getUserById = async (req, res, next) => {
       .populate('branch_id', 'branch_name')
       .populate('allowedTerminals', 'name terminalId')
       .populate('deletedBy', 'firstName lastName')
-      .select('-password');
+      .select('-password +pin');
       
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
