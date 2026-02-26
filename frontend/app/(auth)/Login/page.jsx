@@ -7,18 +7,15 @@ import { useSettings } from '@/hooks/useSettings';
 import {
   Mail,
   Lock,
-  Sparkles,
   Store,
   ShieldCheck,
   Zap,
   BarChart3,
-  Globe,
   ArrowRight,
-  TrendingUp,
-  Package,
-  Users,
   CheckCircle2,
-  Loader2
+  Loader2,
+  Phone,
+  MapPin,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -34,13 +31,13 @@ const FeatureItem = ({ icon: Icon, title, description, delay }) => (
     initial={{ opacity: 0, x: -20 }}
     animate={{ opacity: 1, x: 0 }}
     transition={{ duration: 0.5, delay }}
-    className="flex items-start gap-4 p-4 rounded-2xl hover:bg-white/5 transition-colors group"
+    className="flex items-start gap-4 p-4 rounded-2xl backdrop-blur-xs bg-white/2 border hover:bg-white/5 transition-colors group"
   >
     <div className="p-3 rounded-xl bg-amber-400/10 text-amber-400 group-hover:scale-110 transition-transform shadow-lg shadow-amber-400/5">
       <Icon size={24} />
     </div>
     <div>
-      <h3 className="text-white font-bold text-lg mb-1 group-hover:text-amber-300 transition-colors">{title}</h3>
+      <h3 className="text-gray-800 font-bold text-lg mb-1 group-hover:text-amber-300 transition-colors">{title}</h3>
       <p className="text-gray-400 text-sm leading-relaxed">{description}</p>
     </div>
   </motion.div>
@@ -91,7 +88,7 @@ const Login = () => {
   if (authLoading || isAuthenticated) return <Loading />;
 
   return (
-    <div className="min-h-screen bg-neutral-950 overflow-hidden flex flex-col lg:flex-row relative">
+    <div className="bg-neutral-950 overflow-hidden flex flex-col lg:flex-row relative">
       {/* Global Animated Background */}
       <div className="absolute inset-0 z-0">
         <BackgroundBeams />
@@ -109,14 +106,14 @@ const Login = () => {
           >
             {logoUrl ? (
               <div className="h-20 w-20 overflow-hidden pt-3 rounded-md">
-                <img src={logoUrl} alt="Logo"  />
+                <img src={logoUrl} alt="Logo" />
               </div>
             ) : (
               <div className="h-12 w-12 rounded-xl bg-amber-400 flex items-center justify-center shadow-lg shadow-amber-400/20">
                 <Store className="text-black h-7 w-7" />
               </div>
             )}
-            <h1 className="text-2xl font-black text-white tracking-tighter uppercase">{companyName}</h1>
+            <h1 className="text-2xl font-bold text-gray-800 tracking-tighter uppercase">{companyName}</h1>
           </motion.div>
 
           <div className="max-w-md space-y-12">
@@ -125,7 +122,7 @@ const Login = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <h2 className="text-5xl font-black text-white leading-tight mb-6">
+              <h2 className="text-5xl font-bold text-gray-800 leading-tight mb-6">
                 Next-Gen <span className="text-amber-400">Retail</span> Intelligence.
               </h2>
               <p className="text-gray-400 text-lg leading-relaxed font-light">
@@ -161,7 +158,7 @@ const Login = () => {
       </div>
 
       {/* --- RIGHT SIDE: LOGIN FORM --- */}
-      <div className="flex-1 relative flex items-center justify-center p-6 md:p-12 lg:p-24 overflow-y-auto">
+      <div className="flex-1 relative flex items-center justify-center p-6 md:p-12 lg:p-24 overflow-y-auto bg-white/5 backdrop-blur-xs border-l">
         {/* Mobile Logo Only */}
         <div className="lg:hidden absolute top-12 left-1/2 -translate-x-1/2 flex flex-col items-center">
           {logoUrl ? (
@@ -173,7 +170,7 @@ const Login = () => {
               {/* <Store className="text-black h-7 w-7" /> */}
             </div>
           )}
-          <h1 className="text-2xl font-black text-white tracking-tighter uppercase">{companyName}</h1>
+          <h1 className="text-2xl font-bold text-gray-800 tracking-tighter uppercase">{companyName}</h1>
         </div>
 
         <motion.div
@@ -183,13 +180,13 @@ const Login = () => {
           className="w-full max-w-md"
         >
           <div className="mb-10 text-center lg:text-left">
-            <h3 className="text-3xl font-black text-white mb-2 tracking-tight">System Login</h3>
+            <h3 className="text-3xl font-bold text-gray-800 mb-2 tracking-tight">System Login</h3>
             <p className="text-gray-500 font-medium tracking-wide">Enter your authorized credentials to continue</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-amber-400 ml-1">Email Identifier</Label>
+              <Label className="text-[13px] font-bold uppercase tracking-widest text-amber-400 ml-1">Email Identifier</Label>
               <div className="relative group">
                 <div className="absolute -inset-0.5 bg-linear-to-r from-amber-500 to-amber-600 rounded-xl opacity-0 group-focus-within:opacity-20 transition-opacity" />
                 <div className="relative">
@@ -197,7 +194,7 @@ const Login = () => {
                   <Input
                     type="email"
                     placeholder="name@company.com"
-                    className="h-14 pl-12 bg-neutral-900 border-white/10 rounded-xl text-white focus:border-amber-400/50 focus:ring-0"
+                    className="h-14 pl-12 bg-neutral-200 border-white/10 rounded-xl text-gray-800 focus:border-amber-400/50 focus:ring-0"
                     value={signinIdentifier}
                     onChange={e => setSigninIdentifier(e.target.value)}
                   />
@@ -207,8 +204,8 @@ const Login = () => {
 
             <div className="space-y-2">
               <div className="flex justify-between items-center px-1">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-amber-400">Security PIN / Password</Label>
-                <button type="button" className="text-[10px] font-black uppercase text-gray-500 hover:text-white transition-colors">Forgot Access?</button>
+                <Label className="text-[13px] font-bold uppercase tracking-widest text-amber-400">Security PIN / Password</Label>
+                <button type="button" className="text-[10px] font-bold uppercase text-gray-500 hover:text-gray-800 transition-colors">Forgot Access?</button>
               </div>
               <div className="relative group">
                 <div className="absolute -inset-0.5 bg-linear-to-r from-amber-500 to-amber-600 rounded-xl opacity-0 group-focus-within:opacity-20 transition-opacity" />
@@ -217,7 +214,7 @@ const Login = () => {
                   <Input
                     type="password"
                     placeholder="••••••••"
-                    className="h-14 pl-12 bg-neutral-900 border-white/10 rounded-xl text-white focus:border-amber-400/50 focus:ring-0 tracking-widest"
+                    className="h-14 pl-12 bg-neutral-200 border-white/10 rounded-xl text-gray-800 focus:border-amber-400/50 focus:ring-0 tracking-widest"
                     value={signinPassword}
                     onChange={e => setSigninPassword(e.target.value)}
                   />
@@ -238,7 +235,7 @@ const Login = () => {
             <Button
               type="submit"
               disabled={loginMutation.isPending}
-              className="w-full h-14 bg-amber-400 hover:bg-amber-500 text-black font-black rounded-xl shadow-[0_8px_30px_rgb(251,191,36,0.2)] transition-all active:scale-[0.98] group"
+              className="w-full h-14 bg-amber-400 hover:bg-amber-500 text-black font-bold rounded-xl shadow-[0_8px_30px_rgb(251,191,36,0.2)] transition-all active:scale-[0.98] group"
             >
               {loginMutation.isPending ? (
                 <Loader2 className="animate-spin h-6 w-6" />
@@ -250,17 +247,54 @@ const Login = () => {
               )}
             </Button>
 
-            <div className="grid grid-cols-2 gap-4 mt-8 pt-8 border-t border-white/5">
-              <div className="flex items-center gap-2 text-gray-500">
+            <div className="grid grid-cols-2 gap-4 mt-8 pt-8 border-t border-black/5">
+              <div className="flex items-center gap-2 text-gray-500 border p-1 rounded-md">
                 <CheckCircle2 size={14} className="text-amber-400/50" />
                 <span className="text-[10px] font-bold uppercase tracking-tight">Active Sessions: 12</span>
               </div>
-              <div className="flex items-center gap-2 text-gray-500 justify-end">
+              <div className="flex items-center gap-2 text-gray-500 justify-end border p-1 rounded-md">
                 <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                 <span className="text-[10px] font-bold uppercase tracking-tight">Ver 4.2.0-POS</span>
               </div>
             </div>
           </form>
+
+          {/* --- CONTACT INFO SECTION --- */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8 }}
+            className="mt-10 p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md"
+          >
+            <div className="grid grid-cols-1 gap-4 mb-5">
+              <p className="text-gray-600 font-semibold font-mono">Contact Us</p>
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 font-mono">
+                  <Phone size={16} className="text-amber-400" />
+                  <p className="text-xs text-gray-600 font-bold">0333-1116842 |  0332-5394285</p>
+                </div>
+                <div className="flex items-center gap-1.5 font-mono">
+                  <Mail size={16} className="text-amber-400" />
+                  <p className=" text-[12px] text-gray-700 lowercase font-serif truncate">marketing@clickmasters.pk | Info@clickmasters.pk</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 mb-5">
+              <MapPin size={16} className="text-amber-400 mt-0.5 shrink-0" />
+              <p className="text-[12px] text-gray-400 leading-wide font-sans">
+                Main PWD Rd, PWD Housing Society Sector A PWD Society, Islamabad, Punjab 45700, Pakistan
+              </p>
+            </div>
+
+            <Button
+              variant="outline"
+              onClick={() => window.open('https://clickmasters.pk/contact-us/', '_blank')}
+              className="w-full h-10 bg-emerald-100 border-emerald-400/0 hover:bg-emerald-400 hover:text-black text-emerald-500 rounded-xl text-[12px] font-bold uppercase tracking-wide transition-all"
+            >
+              Visit Contact Center <ArrowRight size={14} className="ml-2" />
+            </Button>
+          </motion.div>
         </motion.div>
 
         {/* Desktop subtle footer */}
