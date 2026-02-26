@@ -7,13 +7,13 @@ import {
     useGetActivePromotions 
 } from '@/features/dashboard.api';
 
-export const useDashboardHook = (period = 'today', topProductsLimit = 4, lowStockLimit = 3) => {
-    const summaryQuery = useGetDashboardSummary(period);
-    const salesChartQuery = useGetSalesChartData(period);
-    const paymentMethodsQuery = useGetPaymentMethodData(period);
-    const topProductsQuery = useGetTopSellingProducts(period, topProductsLimit);
-    const lowStockAlertsQuery = useGetLowStockAlerts(lowStockLimit);
-    const activePromotionsQuery = useGetActivePromotions();
+export const useDashboardHook = (period = 'today', branchId = null, topProductsLimit = 4, lowStockLimit = 3) => {
+    const summaryQuery = useGetDashboardSummary(period, branchId);
+    const salesChartQuery = useGetSalesChartData(period, branchId);
+    const paymentMethodsQuery = useGetPaymentMethodData(period, branchId);
+    const topProductsQuery = useGetTopSellingProducts(period, topProductsLimit, branchId);
+    const lowStockAlertsQuery = useGetLowStockAlerts(lowStockLimit, branchId);
+    const activePromotionsQuery = useGetActivePromotions(branchId);
 
     return {
         summaryQuery,

@@ -45,19 +45,33 @@ const getDateRange = (period) => {
     return { startDate, endDate };
 };
 
+// Helper to determine branch filter
+const getBranchFilter = (req) => {
+    const { branchId } = req.query;
+    
+    // Admins can filter by any branch provided in query, or see all if none provided
+    if (req.user.role === 'admin') {
+        return branchId ? new mongoose.Types.ObjectId(branchId) : null;
+    }
+    
+    // Non-admins are locked to their own branch
+    return req.user.branch ? new mongoose.Types.ObjectId(req.user.branch) : null;
+};
+
 // 1. Get Summary Stats (KPIs)
 exports.getSummaryStats = async (req, res, next) => {
     try {
         const { period = 'today' } = req.query;
         const { startDate, endDate } = getDateRange(period);
+        const branch = getBranchFilter(req);
 
         let matchQuery = { 
             createdAt: { $gte: startDate, $lte: endDate },
-            status: 'COMPLETED' // Only count completed sales
+            status: 'COMPLETED'
         };
         
-        if (req.user.role !== 'admin' && req.user.branch) {
-            matchQuery.branch = new mongoose.Types.ObjectId(req.user.branch);
+        if (branch) {
+            matchQuery.branch = branch;
         }
 
         const stats = await Sale.aggregate([
@@ -92,7 +106,6 @@ exports.getSummaryStats = async (req, res, next) => {
             totalDiscount: 0,
         };
 
-        // Calculate average transaction value
         salesStats.avgTransactionValue = salesStats.totalSales > 0
             ? salesStats.totalCollection / salesStats.totalSales
             : 0;
@@ -103,65 +116,45 @@ exports.getSummaryStats = async (req, res, next) => {
     }
 };
 
-// 2. Get Sales Chart Data (e.g., sales by hour/day)
+// 2. Get Sales Chart Data
 exports.getSalesChartData = async (req, res, next) => {
     try {
         const { period = 'today' } = req.query;
         const { startDate, endDate } = getDateRange(period);
+        const branch = getBranchFilter(req);
 
         let matchQuery = { 
             createdAt: { $gte: startDate, $lte: endDate },
             status: 'COMPLETED'
         };
         
-        if (req.user.role !== 'admin' && req.user.branch) {
-            matchQuery.branch = new mongoose.Types.ObjectId(req.user.branch);
+        if (branch) {
+            matchQuery.branch = branch;
         }
 
         let groupFormat;
         let projectFormat;
-        // Adjust grouping format based on period for hourly, daily, monthly data
         switch (period) {
             case 'today':
             case 'yesterday':
-                groupFormat = {
-                    $dateToString: { format: "%H %p", date: "$createdAt", timezone: "Asia/Karachi" }
-                };
-                projectFormat = {
-                    time: "$_id",
-                    value: "$totalSales"
-                };
+                groupFormat = { $dateToString: { format: "%H:00", date: "$createdAt", timezone: "Asia/Karachi" } };
+                projectFormat = { time: "$_id", value: "$totalSales" };
                 break;
             case 'last_7_days':
             case 'last_30_days':
             case 'this_month':
             case 'last_month':
-                groupFormat = {
-                    $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "Asia/Karachi" }
-                };
-                projectFormat = {
-                    time: "$_id",
-                    value: "$totalSales"
-                };
+                groupFormat = { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "Asia/Karachi" } };
+                projectFormat = { time: "$_id", value: "$totalSales" };
                 break;
             case 'this_year':
             case 'last_year':
-                groupFormat = {
-                    $dateToString: { format: "%Y-%m", date: "$createdAt", timezone: "Asia/Karachi" }
-                };
-                projectFormat = {
-                    time: "$_id",
-                    value: "$totalSales"
-                };
+                groupFormat = { $dateToString: { format: "%Y-%m", date: "$createdAt", timezone: "Asia/Karachi" } };
+                projectFormat = { time: "$_id", value: "$totalSales" };
                 break;
-            default: // Default to hourly for today
-                groupFormat = {
-                    $dateToString: { format: "%H %p", date: "$createdAt", timezone: "Asia/Karachi" }
-                };
-                projectFormat = {
-                    time: "$_id",
-                    value: "$totalSales"
-                };
+            default:
+                groupFormat = { $dateToString: { format: "%H %p", date: "$createdAt", timezone: "Asia/Karachi" } };
+                projectFormat = { time: "$_id", value: "$totalSales" };
                 break;
         }
 
@@ -188,14 +181,15 @@ exports.getPaymentMethodData = async (req, res, next) => {
     try {
         const { period = 'today' } = req.query;
         const { startDate, endDate } = getDateRange(period);
+        const branch = getBranchFilter(req);
 
         let matchQuery = { 
             createdAt: { $gte: startDate, $lte: endDate },
             status: 'COMPLETED'
         };
         
-        if (req.user.role !== 'admin' && req.user.branch) {
-            matchQuery.branch = new mongoose.Types.ObjectId(req.user.branch);
+        if (branch) {
+            matchQuery.branch = branch;
         }
 
         const paymentData = await Sale.aggregate([
@@ -226,14 +220,15 @@ exports.getTopSellingProducts = async (req, res, next) => {
     try {
         const { period = 'today', limit = 4 } = req.query;
         const { startDate, endDate } = getDateRange(period);
+        const branch = getBranchFilter(req);
 
         let matchQuery = { 
             createdAt: { $gte: startDate, $lte: endDate },
             status: 'COMPLETED'
         };
         
-        if (req.user.role !== 'admin' && req.user.branch) {
-            matchQuery.branch = new mongoose.Types.ObjectId(req.user.branch);
+        if (branch) {
+            matchQuery.branch = branch;
         }
 
         const topProducts = await Sale.aggregate([
@@ -247,7 +242,7 @@ exports.getTopSellingProducts = async (req, res, next) => {
                     productName: { $first: "$items.productName" } 
                 }
             },
-            { $sort: { totalRevenue: -1 } }, // Sort by revenue
+            { $sort: { totalRevenue: -1 } },
             { $limit: parseInt(limit) },
             {
                 $project: {
@@ -269,9 +264,9 @@ exports.getTopSellingProducts = async (req, res, next) => {
 exports.getLowStockAlerts = async (req, res, next) => {
     try {
         const { limit = 3 } = req.query; 
+        const branchId = getBranchFilter(req);
         
         let productMatch = { isDeleted: false, 'variants.isDeleted': false };
-        let branchId = req.user.role !== 'admin' && req.user.branch ? new mongoose.Types.ObjectId(req.user.branch) : null;
 
         const lowStockProducts = await Product.aggregate([
             { $match: productMatch },
@@ -325,26 +320,27 @@ exports.getLowStockAlerts = async (req, res, next) => {
 exports.getActivePromotions = async (req, res, next) => {
     try {
         const now = new Date();
+        const branch = getBranchFilter(req);
+
         let matchQuery = {
             status: 'active',
             startDate: { $lte: now },
             $or: [{ endDate: { $exists: false } }, { endDate: { $gt: now } }]
         };
 
-        if (req.user.role !== 'admin' && req.user.branch) {
+        if (branch) {
             matchQuery.$or = [
                 { isGlobal: true },
-                { applicableBranches: new mongoose.Types.ObjectId(req.user.branch) }
+                { applicableBranches: branch }
             ];
         }
 
         const promotions = await DiscountPromotion.find(matchQuery)
             .select('name description amountValue amountType validOn minPurchaseAmount applicableBranches qualifyingCustomerGroups')
-            .populate('applicableBranches', 'branch_name'); // Corrected field name based on typical usage
+            .populate('applicableBranches', 'branch_name');
 
         res.status(200).json({ success: true, data: promotions });
     } catch (error) {
         next(error);
     }
 };
-
