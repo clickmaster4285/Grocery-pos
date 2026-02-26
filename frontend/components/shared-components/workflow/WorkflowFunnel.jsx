@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Card, 
@@ -13,6 +14,7 @@ import {
   ShoppingCart, 
   BarChart3, 
   ArrowRight,
+  ArrowLeft,
   Settings,
   UserPlus,
   Box,
@@ -78,6 +80,7 @@ const workflowSteps = [
 
 export default function WorkflowFunnel() {
   const [activeStep, setActiveStep] = useState(workflowSteps[0].id);
+  const router = useRouter();
 
   const currentStepData = workflowSteps.find(s => s.id === activeStep);
 
@@ -85,10 +88,18 @@ export default function WorkflowFunnel() {
     <div className="min-h-screen bg-slate-50/50 p-6">
       <div>
         {/* Header */}
-        <div className="mb-10 text-center">
-            <Badge variant="outline" className="mb-4 bg-white border-slate-200 text-slate-500 font-bold px-3 py-1 rounded-full uppercase tracking-widest text-[10px]">
+        <div className="mb-10 text-center relative">
+          <Button 
+            variant="ghost" 
+            onClick={() => router.back()}
+            className="absolute left-0 top-0 text-slate-500 hover:text-slate-900 font-bold uppercase tracking-widest text-[10px] h-10 px-4 rounded-xl hover:bg-white shadow-sm transition-all border border-transparent hover:border-slate-100"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back
+          </Button>
+
+          <Badge variant="outline" className="mb-4 bg-white border-slate-200 text-slate-500 font-bold px-3 py-1 rounded-full uppercase tracking-widest text-[10px]">
                 Interactive Blueprint
-            </Badge>
+          </Badge>
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight mb-3">System Workflow Funnel</h1>
           <p className="text-slate-500 max-w-2xl mx-auto font-medium">
             Understand the end-to-end logic of your supermarket ecosystem. Follow these steps to ensure data integrity and operational efficiency.
