@@ -101,7 +101,7 @@ const MultiStepDiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) 
       type: 'Discount',
       couponCode: '',
       isGlobal: isAdmin, 
-      applicableBranches: !isAdmin ? [user?.branch_id] : [],
+      applicableBranches: !isAdmin ? [user?.branch] : [],
       qualifyingCategories: [],
       qualifyingBrands: [],
       qualifyingProducts: [],
@@ -172,7 +172,7 @@ const MultiStepDiscountForm = ({ initialData, onSubmit, isLoading, isEditing }) 
   const handleSubmit = (data) => {
     if (!isAdmin) {
       data.isGlobal = false;
-      data.applicableBranches = [user?.branch_id];
+      data.applicableBranches = [user?.branch];
     }
     onSubmit(data);
   };

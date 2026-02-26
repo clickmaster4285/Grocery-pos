@@ -21,7 +21,7 @@ const createUser = async (req, res, next) => {
       permissions = [], 
       allowedTerminals = [],
       transactionLimits,
-      branch_id,
+      branch,
       hireDate,
       designation,
       department,
@@ -48,11 +48,11 @@ const createUser = async (req, res, next) => {
       }
     }
 
-    if (branch_id) {
-      if (!mongoose.Types.ObjectId.isValid(branch_id)) {
+    if (branch) {
+      if (!mongoose.Types.ObjectId.isValid(branch)) {
         return res.status(400).json({ message: 'Invalid branch ID format' });
       }
-      const branchExists = await Branch.findOne({ _id: branch_id, status: 'ACTIVE' });
+      const branchExists = await Branch.findOne({ _id: branch, status: 'ACTIVE' });
       if (!branchExists) {
         return res.status(400).json({ message: 'Branch not found or is inactive' });
       }
@@ -86,7 +86,7 @@ const createUser = async (req, res, next) => {
       permissions: hasSystemAccess ? permissions : [],
       allowedTerminals,
       transactionLimits,
-      branch_id,
+      branch,
       // Employment
       employment: {
         hireDate: hireDate || Date.now(),
@@ -122,16 +122,22 @@ const getAllUsers = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
+    // Use branch filter from middleware (req.query.branch)
+    let query = { isDeleted: false, role: { $ne: 'admin' } };
+    if (req.query.branch) {
+      query.branch = req.query.branch;
+    }
+
     const [users, total] = await Promise.all([
-      User.find({ isDeleted: false, role: { $ne: 'admin' } })
-        .populate('branch_id', 'branch_name')
+      User.find(query)
+        .populate('branch', 'branch_name')
         .populate('allowedTerminals', 'name terminalId')
         .populate('deletedBy', 'firstName lastName')
         .select('-password')
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 }),
-      User.countDocuments({ isDeleted: false, role: { $ne: 'admin' } })
+      User.countDocuments(query)
     ]);
 
     res.status(200).json({
@@ -149,15 +155,23 @@ const getAllUsers = async (req, res, next) => {
 
 const getUserById = async (req, res, next) => {
   try {
-    const user = await User.findOne({ _id: req.params.id, isDeleted: false })
-      .populate('branch_id', 'branch_name')
+    const query = { _id: req.params.id, isDeleted: false };
+    
+    // Apply branch filter from middleware
+    if (req.query.branch) {
+      query.branch = req.query.branch;
+    }
+
+    const user = await User.findOne(query)
+      .populate('branch', 'branch_name')
       .populate('allowedTerminals', 'name terminalId')
       .populate('deletedBy', 'firstName lastName')
       .select('-password +pin');
       
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'User not found or access denied' });
     }
+
     res.status(200).json(user);
   } catch (error) {
     next(error);
@@ -168,9 +182,14 @@ const updateUser = async (req, res, next) => {
   try {
     const { userId, ...updateFields } = req.body;
 
-    const targetUser = await User.findById(req.params.id);
+    const query = { _id: req.params.id, isDeleted: false };
+    if (req.query.branch) {
+      query.branch = req.query.branch;
+    }
+
+    const targetUser = await User.findOne(query);
     if (!targetUser) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'User not found or access denied' });
     }
 
     // Security Checks
@@ -227,16 +246,16 @@ const updateUser = async (req, res, next) => {
     if (updateFields.password) updateFields.password = await hashPassword(updateFields.password);
     if (updateFields.pin) updateFields.pin = await hashPassword(updateFields.pin.toString());
 
-    if (updateFields.branch_id) {
-      if (!mongoose.Types.ObjectId.isValid(updateFields.branch_id)) {
+    if (updateFields.branch) {
+      if (!mongoose.Types.ObjectId.isValid(updateFields.branch)) {
         return res.status(400).json({ message: 'Invalid branch ID' });
       }
-      const branchExists = await Branch.findOne({ _id: updateFields.branch_id, status: 'ACTIVE' });
+      const branchExists = await Branch.findOne({ _id: updateFields.branch, status: 'ACTIVE' });
       if (!branchExists) return res.status(400).json({ message: 'Invalid branch' });
     }
 
     const user = await User.findOneAndUpdate(
-      { _id: req.params.id, isDeleted: false },
+      query,
       updateFields,
       { new: true, runValidators: true }
     ).select('-password');
@@ -249,8 +268,18 @@ const updateUser = async (req, res, next) => {
 
 const deleteUser = async (req, res, next) => {
   try {
+    const query = { _id: req.params.id, isDeleted: false };
+    if (req.query.branch) {
+      query.branch = req.query.branch;
+    }
+
+    const targetUser = await User.findOne(query);
+    if (!targetUser) {
+      return res.status(404).json({ message: 'User not found or access denied' });
+    }
+
     const user = await User.findOneAndUpdate(
-      { _id: req.params.id, isDeleted: false },
+      query,
       {
         isDeleted: true,
         deletedAt: new Date(),

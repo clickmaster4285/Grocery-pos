@@ -192,6 +192,7 @@ const SupplierForm = ({ isOpen = false, onClose, onSuccess, initialSupplierData 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        e.stopPropagation(); // Prevent event bubbling to parent forms
         const toastId = toast.loading(isEditMode ? 'Synchronizing supplier records...' : 'Registering new supplier node...');
 
         try {
@@ -590,6 +591,7 @@ const SupplierForm = ({ isOpen = false, onClose, onSuccess, initialSupplierData 
             <div className={`flex items-center justify-end gap-3 pt-6 border-t border-border/50 ${isOpen ? 'mt-4' : ''}`}>
                 <Button
                     variant="outline"
+                    type="button"
                     onClick={isOpen ? onClose : () => router.back()}
                     className="font-bold text-[10px] uppercase tracking-widest px-8 h-12 rounded-2xl transition-all"
                     disabled={isPending}

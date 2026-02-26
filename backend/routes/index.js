@@ -35,7 +35,7 @@ router.use('/customers', customerRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/branch-locations', branchLocationRoutes); 
 router.use('/terminals', terminalRoutes); 
-router.use('/terminal-shift-reports', terminalShiftReportRoutes); // Add new route
+router.use('/terminal-shift-reports', terminalShiftReportRoutes);
 
 // later ai routes
 router.use('/ai', aiRoutes);

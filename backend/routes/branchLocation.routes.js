@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const branchLocationController = require('../controllers/branchLocation.controller');
 const auth = require('../middleware/auth'); 
+const branchAuth = require('../middleware/branchAuth');
 const checkPermission = require('../middleware/checkPermission');
 const { PERMISSIONS_OBJECT } = require('../config/permissions'); 
 
@@ -15,6 +16,7 @@ router.use(auth);
 router.get(
     '/branch/:branchId',
     checkPermission([BranchLocationPermissions.READ]),
+    branchAuth,
     branchLocationController.getBranchLocations
 );
 
@@ -22,6 +24,7 @@ router.get(
 router.get(
     '/:id',
     checkPermission([BranchLocationPermissions.READ]),
+    branchAuth,
     branchLocationController.getBranchLocationById
 );
 
@@ -29,6 +32,7 @@ router.get(
 router.post(
     '/',
     checkPermission([BranchLocationPermissions.CREATE]),
+    branchAuth,
     branchLocationController.createBranchLocation
 );
 
@@ -36,6 +40,7 @@ router.post(
 router.put(
     '/:id',
     checkPermission([BranchLocationPermissions.UPDATE]),
+    branchAuth,
     branchLocationController.updateBranchLocation
 );
 
@@ -43,6 +48,7 @@ router.put(
 router.delete(
     '/:id',
     checkPermission([BranchLocationPermissions.DELETE]),
+    branchAuth,
     branchLocationController.deleteBranchLocation
 );
 

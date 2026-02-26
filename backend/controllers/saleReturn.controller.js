@@ -171,14 +171,20 @@ exports.getSaleHistory = async (req, res) => {
     try {
         const { saleId } = req.params;
         
+        const query = { _id: saleId };
+        // Apply branch filter from middleware
+        if (req.query.branch) {
+            query.branch = req.query.branch;
+        }
+
         // 1. Fetch original sale
-        const sale = await Sale.findById(saleId)
+        const sale = await Sale.findOne(query)
             .populate('branch', 'branch_name')
             .populate('cashier', 'firstName lastName')
             .populate('customer', 'firstName lastName phonePrimary customerGroup email') // Added customer populate
             .populate('items.product', 'productName');
 
-        if (!sale) return res.status(404).json({ success: false, message: 'Sale not found' });
+        if (!sale) return res.status(404).json({ success: false, message: 'Sale not found or access denied' });
 
         // 2. Fetch all returns/exchanges for this sale
         const activityLog = await SaleReturn.find({ originalSale: saleId })
@@ -225,8 +231,11 @@ exports.getAllReturns = async (req, res) => {
         const { startDate, endDate, search } = req.query;
         let query = {};
 
-        if (req.user.role !== 'admin') {
-            query.branch = req.user.branch_id;
+        // Use branch filter from middleware (req.query.branch)
+        if (req.query.branch) {
+            query.branch = req.query.branch;
+        } else if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Access denied: Branch context missing.' });
         }
 
         if (startDate || endDate) {

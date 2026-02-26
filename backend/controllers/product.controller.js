@@ -173,7 +173,7 @@ const getAllProducts = async (req, res, next) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
-        const { search, category, brand } = req.query;
+        const { search, category, brand, branch } = req.query; // <-- Added branch to destructuring
 
         let matchStage = {
             isDeleted: false,
@@ -202,8 +202,37 @@ const getAllProducts = async (req, res, next) => {
         const buildPipeline = (isCount = false) => {
             const pipeline = [
                 { $match: matchStage },
-                { $unwind: '$variants' },
-                { $match: { 'variants.isDeleted': false } },
+                // Conditional branch locking for non-admin users if branch is provided by middleware
+                ...(branch ? [
+                    {
+                        $lookup: {
+                            from: 'branchstocks',
+                            localField: '_id',
+                            foreignField: 'product',
+                            as: 'branchStock'
+                        }
+                    },
+                    { $unwind: '$branchStock' }, // Unwind to check individual branch stock entries
+                    {
+                        $match: {
+                            'branchStock.branch': new mongoose.Types.ObjectId(branch) // Filter by branch
+                        }
+                    },
+                    { $addFields: { // Only include variants that have stock in this branch
+                        variants: {
+                            $filter: {
+                                input: '$variants',
+                                as: 'variant',
+                                cond: { $eq: ['$$variant._id', '$branchStock.variantId'] }
+                            }
+                        }
+                    }},
+                    { $match: { 'variants.isDeleted': false, 'variants._id': { $exists: true } } } // Ensure variant exists after filtering
+                ] : [
+                    // If no branch filter, just unwind all variants
+                    { $unwind: '$variants' },
+                    { $match: { 'variants.isDeleted': false } }
+                ]),
                 {
                     $group: {
                         _id: '$_id',
@@ -211,7 +240,8 @@ const getAllProducts = async (req, res, next) => {
                         description: { $first: '$description' },
                         category: { $first: '$category' },
                         brand: { $first: '$brand' },
-                        totalStock: { $first: '$totalStock' },
+                        // Recalculate totalStock based on available variants in the branch if filtered
+                        totalStock: { $sum: '$variants.stock' }, 
                         isActive: { $first: '$isActive' },
                         createdAt: { $first: '$createdAt' },
                         variants: { $push: '$variants' }
@@ -248,14 +278,44 @@ const getAllProducts = async (req, res, next) => {
         };
 
         let products = await Product.aggregate(buildPipeline(false));
+        // Recalculate total for pagination with the same pipeline
         let total = (await Product.aggregate(buildPipeline(true))).length;
+
 
         // Tier 2: Fuzzy Search Fallback if no exact results found
         if (search && products.length === 0) {
-            const allProducts = await Product.aggregate([
+            const allProductsInScope = await Product.aggregate([
                 { $match: { isDeleted: false } },
-                { $unwind: '$variants' },
-                { $match: { 'variants.isDeleted': false } },
+                 // Conditional branch locking for non-admin users if branch is provided by middleware
+                 ...(branch ? [
+                    {
+                        $lookup: {
+                            from: 'branchstocks',
+                            localField: '_id',
+                            foreignField: 'product',
+                            as: 'branchStock'
+                        }
+                    },
+                    { $unwind: '$branchStock' },
+                    {
+                        $match: {
+                            'branchStock.branch': new mongoose.Types.ObjectId(branch)
+                        }
+                    },
+                    { $addFields: {
+                        variants: {
+                            $filter: {
+                                input: '$variants',
+                                as: 'variant',
+                                cond: { $eq: ['$$variant._id', '$branchStock.variantId'] }
+                            }
+                        }
+                    }},
+                    { $match: { 'variants.isDeleted': false, 'variants._id': { $exists: true } } }
+                 ] : [
+                    { $unwind: '$variants' },
+                    { $match: { 'variants.isDeleted': false } }
+                 ]),
                 {
                     $group: {
                         _id: '$_id',
@@ -267,7 +327,7 @@ const getAllProducts = async (req, res, next) => {
                 }
             ]);
 
-            const fuse = new Fuse(allProducts, {
+            const fuse = new Fuse(allProductsInScope, {
                 keys: ['productName', 'variants.sku', 'variants.barcode'],
                 threshold: 0.3
             });
@@ -298,10 +358,44 @@ const getAllProducts = async (req, res, next) => {
 
 const getProductStats = async (req, res, next) => {
     try {
-        const [totalProducts, categoryStats, brandStats] = await Promise.all([
-            Product.countDocuments({ isDeleted: false }),
+        const { branch } = req.query; // Added branch to destructuring
+
+        const getBranchFilteredPipeline = (initialMatchStage) => {
+            return branch ? [
+                { $match: initialMatchStage },
+                {
+                    $lookup: {
+                        from: 'branchstocks',
+                        localField: '_id',
+                        foreignField: 'product',
+                        as: 'branchStock'
+                    }
+                },
+                { $unwind: '$branchStock' }, // Each product variant entry will be duplicated per branchstock
+                {
+                    $match: {
+                        'branchStock.branch': new mongoose.Types.ObjectId(branch)
+                    }
+                },
+                {
+                    $group: { // Group back to product level
+                        _id: '$_id',
+                        category: { $first: '$category' },
+                        brand: { $first: '$brand' }
+                    }
+                }
+            ] : [{ $match: initialMatchStage }];
+        };
+
+        const initialMatch = { isDeleted: false };
+
+        const [totalProductsResult, categoryStats, brandStats] = await Promise.all([
             Product.aggregate([
-                { $match: { isDeleted: false } },
+                ...getBranchFilteredPipeline(initialMatch),
+                { $count: 'total' }
+            ]),
+            Product.aggregate([
+                ...getBranchFilteredPipeline(initialMatch),
                 { $group: { _id: '$category', count: { $sum: 1 } } },
                 {
                     $lookup: {
@@ -311,11 +405,11 @@ const getProductStats = async (req, res, next) => {
                         as: 'details'
                     }
                 },
-                { $unwind: '$details' },
+                { $unwind: { path: '$details', preserveNullAndEmptyArrays: true } },
                 { $project: { name: '$details.name', count: 1 } }
             ]),
             Product.aggregate([
-                { $match: { isDeleted: false } },
+                ...getBranchFilteredPipeline(initialMatch),
                 { $group: { _id: '$brand', count: { $sum: 1 } } },
                 {
                     $lookup: {
@@ -325,7 +419,7 @@ const getProductStats = async (req, res, next) => {
                         as: 'details'
                     }
                 },
-                { $unwind: '$details' },
+                { $unwind: { path: '$details', preserveNullAndEmptyArrays: true } },
                 { $project: { name: '$details.name', count: 1 } }
             ])
         ]);
@@ -333,7 +427,7 @@ const getProductStats = async (req, res, next) => {
         res.status(200).json({
             success: true,
             data: {
-                totalProducts,
+                totalProducts: totalProductsResult[0] ? totalProductsResult[0].total : 0,
                 categoryStats,
                 brandStats
             }
@@ -371,6 +465,17 @@ const getProductById = async (req, res, next) => {
             return res.status(404).json({ message: 'Product not found' });
         }
 
+        // Enforce branch locking for single product lookup if req.query.branch is set by middleware
+        if (req.query.branch && req.user.role !== 'admin') {
+            const branchStockExists = await mongoose.model('BranchStock').exists({
+                product: product._id,
+                branch: req.query.branch
+            });
+            if (!branchStockExists) {
+                return res.status(403).json({ message: 'Access denied: Product not available in your branch.' });
+            }
+        }
+
         res.status(200).json(product);
     } catch (error) {
         next(error);
@@ -387,6 +492,17 @@ const updateProduct = async (req, res, next) => {
         const product = await Product.findOne({ _id: id, isDeleted: false });
         if (!product) {
             return res.status(404).json({ message: 'Product not found.' });
+        }
+
+        // Enforce branch locking for product updates if req.query.branch is set by middleware
+        if (req.query.branch && req.user.role !== 'admin') {
+            const branchStockExists = await mongoose.model('BranchStock').exists({
+                product: product._id,
+                branch: req.query.branch
+            });
+            if (!branchStockExists) {
+                return res.status(403).json({ message: 'Access denied: Product not available for update in your branch.' });
+            }
         }
 
         let parsedProductData;
@@ -570,6 +686,17 @@ const deleteProduct = async (req, res, next) => {
 
         if (!product) {
             return res.status(404).json({ message: 'Product not found or already deleted' });
+        }
+
+        // Enforce branch locking for product deletion if req.query.branch is set by middleware
+        if (req.query.branch && req.user.role !== 'admin') {
+            const branchStockExists = await mongoose.model('BranchStock').exists({
+                product: product._id,
+                branch: req.query.branch
+            });
+            if (!branchStockExists) {
+                return res.status(403).json({ message: 'Access denied: Product not available for deletion from your branch.' });
+            }
         }
 
         res.status(200).json({ message: 'Product and all its variants have been soft-deleted.' });

@@ -20,7 +20,7 @@ export const SystemAccess = ({
   const [activeModule, setActiveModule] = useState(null);
 
   // Fetch terminals for restriction mapping
-  const userBranchId = formData.branch_id?._id || formData.branch_id;
+  const userBranchId = formData.branch?._id || formData.branch;
   const { terminals } = useTerminalHook({ branchId: userBranchId });
 
   // Initialize active module

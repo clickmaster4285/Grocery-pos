@@ -19,7 +19,7 @@ exports.createTransfer = async (req, res) => {
     try {
         const { transferType, fromLocation, toLocation, items, notes } = req.body;
         const transferredBy = req.user._id;
-        const branchId = req.user.branch_id;
+        const branchId = req.user.branch;
 
         let fromLocObj, toLocObj;
         let destBranchDefaultBackroom;
@@ -172,7 +172,7 @@ exports.createTransfer = async (req, res) => {
 // Get all transfers with role-based filtering
 exports.getTransfers = async (req, res) => {
     try {
-        const { role, branch_id } = req.user;
+        const { role, branch } = req.user;
         const isAdmin = role === 'admin';
 
         let query = {};
@@ -182,12 +182,12 @@ exports.getTransfers = async (req, res) => {
             query = { transferType: 'EXTERNAL' };
         } else {
             // Staff see only INTERNAL transfers within their own branch
-            if (!branch_id) {
+            if (!branch) {
                 return res.status(200).json({ success: true, data: [] });
             }
             query = {
                 transferType: 'INTERNAL',
-                branch: branch_id
+                branch: branch
             };
         }
 

@@ -22,7 +22,7 @@ export const useBranchLocationHook = () => {
   const canReadStock = inventory?.stock?.read; // Fallback permission
 
   const { user } = useAuth();
-  const userBranchId = user?.branch_id?._id || user?.branch_id;
+  const userBranchId = user?.branch?._id || user?.branch;
 
   // Sync selectedBranchId with userBranchId for non-admins
   useEffect(() => {

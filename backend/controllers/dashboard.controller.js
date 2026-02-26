@@ -51,8 +51,8 @@ exports.getSummaryStats = async (req, res, next) => {
         const { startDate, endDate } = getDateRange(period);
 
         let matchQuery = { createdAt: { $gte: startDate, $lte: endDate } };
-        if (req.user.role !== 'admin' && req.user.branch_id) {
-            matchQuery.branch = req.user.branch_id;
+        if (req.user.role !== 'admin' && req.user.branch) {
+            matchQuery.branch = req.user.branch;
         }
 
         const stats = await Sale.aggregate([
@@ -105,8 +105,8 @@ exports.getSalesChartData = async (req, res, next) => {
         const { startDate, endDate } = getDateRange(period);
 
         let matchQuery = { createdAt: { $gte: startDate, $lte: endDate } };
-        if (req.user.role !== 'admin' && req.user.branch_id) {
-            matchQuery.branch = req.user.branch_id;
+        if (req.user.role !== 'admin' && req.user.branch) {
+            matchQuery.branch = req.user.branch;
         }
 
         let groupFormat;
@@ -189,8 +189,8 @@ exports.getPaymentMethodData = async (req, res, next) => {
         const { startDate, endDate } = getDateRange(period);
 
         let matchQuery = { createdAt: { $gte: startDate, $lte: endDate } };
-        if (req.user.role !== 'admin' && req.user.branch_id) {
-            matchQuery.branch = req.user.branch_id;
+        if (req.user.role !== 'admin' && req.user.branch) {
+            matchQuery.branch = req.user.branch;
         }
 
         const paymentData = await Sale.aggregate([
@@ -223,8 +223,8 @@ exports.getTopSellingProducts = async (req, res, next) => {
         const { startDate, endDate } = getDateRange(period);
 
         let matchQuery = { createdAt: { $gte: startDate, $lte: endDate } };
-        if (req.user.role !== 'admin' && req.user.branch_id) {
-            matchQuery.branch = req.user.branch_id;
+        if (req.user.role !== 'admin' && req.user.branch) {
+            matchQuery.branch = req.user.branch;
         }
 
         const topProducts = await Sale.aggregate([
@@ -262,7 +262,7 @@ exports.getLowStockAlerts = async (req, res, next) => {
         const { limit = 3 } = req.query; // Default to 3 alerts
         
         let matchQuery = { isDeleted: false, 'variants.isDeleted': false };
-        if (req.user.role !== 'admin' && req.user.branch_id) {
+        if (req.user.role !== 'admin' && req.user.branch) {
              // This logic assumes BranchStock documents exist for products in the user's branch
              // A more robust solution might involve a lookup to BranchStock first
              // For now, we'll rely on the frontend filtering or assume general low stock across all branches for an admin
@@ -282,7 +282,7 @@ exports.getLowStockAlerts = async (req, res, next) => {
                                     $and: [
                                         { $eq: ["$product", "$$productId"] },
                                         { $eq: ["$variantId", "$$variantId"] },
-                                        req.user.role !== 'admin' && req.user.branch_id ? { $eq: ["$branch", req.user.branch_id] } : true
+                                        req.user.role !== 'admin' && req.user.branch ? { $eq: ["$branch", req.user.branch] } : true
                                     ]
                                 }
                             }
@@ -328,10 +328,10 @@ exports.getActivePromotions = async (req, res, next) => {
         };
 
         // Role-based access control for promotions
-        if (req.user.role !== 'admin' && req.user.branch_id) {
+        if (req.user.role !== 'admin' && req.user.branch) {
             matchQuery.$or = [
                 { isGlobal: true },
-                { applicableBranches: req.user.branch_id }
+                { applicableBranches: req.user.branch }
             ];
         }
 

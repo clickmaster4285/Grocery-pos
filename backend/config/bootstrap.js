@@ -70,8 +70,8 @@ const initializeAdminAccount = async () => {
         console.log(`✅ Updated admin user with new permissions: ${permissionsToAdd.join(', ')}`);
       }
 
-      if (!existingAdmin.branch_id && defaultBranch) {
-        existingAdmin.branch_id = defaultBranch._id;
+      if (!existingAdmin.branch && defaultBranch) {
+        existingAdmin.branch = defaultBranch._id;
         updated = true;
         console.log('✅ Assigned existing admin to default branch.');
       }
@@ -105,7 +105,7 @@ const initializeAdminAccount = async () => {
         role: ADMIN_ROLE,
         permissions: allPermissions, 
         isActive: true,
-        branch_id: defaultBranch ? defaultBranch._id : null
+        branch: defaultBranch ? defaultBranch._id : null
       });
 
     await adminUser.save();

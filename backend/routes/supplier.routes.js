@@ -3,13 +3,15 @@ const router = express.Router();
 const supplierController = require('../controllers/supplier.controller');
 const auth = require('../middleware/auth');
 const checkPermission = require('../middleware/checkPermission');
+const branchAuth = require('../middleware/branchAuth'); // Import branchAuth middleware
 const { PERMISSIONS_OBJECT } = require('../config/permissions');
 
 // Local constant for easier permission management
 const VendorPermissions = PERMISSIONS_OBJECT.INVENTORY.VENDOR_MANAGEMENT;
 
-// All routes in this file require authentication
+// All routes in this file require authentication and branchAuth
 router.use(auth);
+router.use(branchAuth); // Apply branchAuth to all routes
 
 // Create a new supplier
 router.post(

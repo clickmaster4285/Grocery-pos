@@ -205,6 +205,12 @@ exports.createSale = async (req, res) => {
 exports.getBranchSales = async (req, res) => {
     try {
         const { branchId } = req.params;
+        
+        // If not admin, ensure they are only querying their own branch
+        if (req.user.role !== 'admin' && branchId !== req.user.branch.toString()) {
+            return res.status(403).json({ success: false, message: 'Access denied: Cannot query other branches.' });
+        }
+
         const sales = await Sale.find({ branch: branchId })
             .populate('cashier', 'firstName lastName')
             .populate('branch', 'branch_name')
@@ -227,11 +233,11 @@ exports.getAllSales = async (req, res) => {
         let query = {};
         
         // 1. Role-based Branch Isolation
-        if (req.user.role !== 'admin') {
-            if (!req.user.branch_id) {
-                return res.status(400).json({ success: false, message: 'User is not assigned to any branch' });
-            }
-            query.branch = req.user.branch_id;
+        // Use branch filter from middleware (req.query.branch)
+        if (req.query.branch) {
+            query.branch = req.query.branch;
+        } else if (req.user.role !== 'admin') {
+             return res.status(403).json({ success: false, message: 'Access denied: Branch context missing.' });
         }
 
         // 2. Search Filter
@@ -309,13 +315,20 @@ exports.getAllSales = async (req, res) => {
 // Get single sale detail
 exports.getSaleDetail = async (req, res) => {
     try {
-        const sale = await Sale.findById(req.params.id)
+        const query = { _id: req.params.id };
+        
+        // Apply branch filter from middleware
+        if (req.query.branch) {
+            query.branch = req.query.branch;
+        }
+
+        const sale = await Sale.findOne(query)
             .populate('branch', 'branch_name')
             .populate('cashier', 'firstName lastName')
             .populate('customer', 'firstName lastName phonePrimary customerGroup email') // Added customer populate
             .populate('items.product', 'productName category brand');
             
-        if (!sale) return res.status(404).json({ success: false, message: 'Sale not found' });
+        if (!sale) return res.status(404).json({ success: false, message: 'Sale not found or access denied' });
         
         res.status(200).json({ success: true, data: sale });
     } catch (error) {

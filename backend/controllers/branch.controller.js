@@ -62,7 +62,17 @@ exports.createBranch = async (req, res) => {
 
 exports.getAllBranches = async (req, res) => {
   try {
-    const branches = await Branch.find({ isDeleted: { $ne: true } })
+    let query = { isDeleted: { $ne: true } };
+
+    // Branch isolation for non-admins
+    if (req.user.role !== 'admin') {
+      if (!req.user.branch) {
+        return res.status(403).json({ success: false, message: "User not assigned to any branch" });
+      }
+      query._id = req.user.branch;
+    }
+
+    const branches = await Branch.find(query)
       .populate('createdBy', 'firstName lastName')
       .populate('terminals', 'name terminalId status')
       .sort({ createdAt: -1 });
@@ -89,6 +99,11 @@ exports.getBranchById = async (req, res) => {
         success: false,
         message: "Invalid branch id"
       });
+    }
+
+    // Branch isolation for non-admins
+    if (req.user.role !== 'admin' && req.user.branch && req.user.branch.toString() !== id) {
+      return res.status(403).json({ success: false, message: "Access denied: Cannot access this branch" });
     }
 
     const branch = await Branch.findOne({

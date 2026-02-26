@@ -36,8 +36,8 @@ const StockManagement = () => {
     enabled: isAdmin && canReadStock 
   });
 
-  const { data: branchStock } = useGetBranchStock(user?.branch_id, searchTerm, {
-    enabled: !isAdmin && !!user?.branch_id && canReadStock
+  const { data: branchStock } = useGetBranchStock(user?.branch, searchTerm, {
+    enabled: !isAdmin && !!user?.branch && canReadStock
   });
 
   if (!canReadStock) {

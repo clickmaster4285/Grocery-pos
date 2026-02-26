@@ -23,7 +23,7 @@ export const useTerminalHook = (filters = {}) => {
   const canDelete = pos?.terminal_management?.delete;
 
   const { user } = useAuth();
-  const userBranchId = user?.branch_id?._id || user?.branch_id;
+  const userBranchId = user?.branch?._id || user?.branch;
 
   // Sync selectedBranchId with userBranchId for non-admins
   useEffect(() => {

@@ -79,7 +79,7 @@ To enable efficient auditing of staff performance:
 -   **Debounce Strategy**: Frontend inputs use a **500ms debounce** via `useDebounce` hook to prevent API thrashing during typing.
 -   **Role-Based Filters**: 
     -   **Admins**: Can search by `branchName` across the entire network.
-    -   **Staff**: Restricted to their assigned `branch_id`; the branch search input is hidden.
+    -   **Staff**: Restricted to their assigned `branch`; the branch search input is hidden.
 
 ### 3.3. Barcode Auto-Add Mechanics
 The frontend listens to input changes. If `results.length === 1` AND `input === results[0].sku`, the system assumes a barcode scanner input. It bypasses the UI selection and adds the item to the cart instantly, clearing the buffer for the next scan.
@@ -142,14 +142,14 @@ To ensure UI integrity and minimize maintenance, the sidebar is dynamically gene
 3.  **Automatic Synchronization**: Adding a menu in the `SYSTEM_HIERARCHY` on the backend automatically populates the frontend sidebar once a path is mapped in metadata.
 
 ### 6.3. Data Isolation (Branch Locking)
-Multi-tenancy is enforced at the query level.
+Multi-tenancy is enforced at the query level via centralized `branchAuth` middleware.
 ```javascript
-// Example Middleware Logic
-if (!req.user.isAdmin) {
-    req.query.branch = req.user.branch_id;
+// Centralized Middleware Logic
+if (req.user && req.user.role !== 'admin') {
+    req.query.branch = req.user.branch;
 }
 ```
-This ensures that a cashier at Branch A can never see or modify the sales or stock of Branch B.
+This ensures that a cashier at Branch A can never see or modify the sales, terminals, or staff of Branch B. All entities requiring isolation (User, Sale, Terminal, SaleReturn) now standardize on the `branch` field.
 
 ### 6.4. Stateless Auth with Stateful Permissions (JWT Strategy)
 To optimize performance and ensure real-time security, the system employs a "Hybrid Token" strategy.
@@ -199,6 +199,8 @@ To optimize performance and ensure real-time security, the system employs a "Hyb
 -   [x] **POS: Developed comprehensive Discount and Promotion Module with user-specific caps and customer group targeting.**
 -   [x] **POS: Integrated Terminal and Branch Management functionalities (shift/session handling).**
 -   [x] **POS: Updated thermal print slips to include dynamic customer profiles.**
+-   [x] **System-wide: Standardized `branch_id` naming to `branch` across all models, controllers, and frontend hooks for absolute consistency.**
+-   [x] **Architecture: Enhanced `branchAuth` middleware to provide robust, multi-method branch isolation for non-admin users.**
 
 ### 🚀 Phase 7: Advanced Intelligence (Next)
 -   **Dynamic Dashboards**: Real-time sales vs. target tracking.

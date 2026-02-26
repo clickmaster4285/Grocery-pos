@@ -13,7 +13,7 @@ const createDiscount = async (req, res, next) => {
     // Role-based security enforcement
     if (req.user.role !== 'admin') {
       discountData.isGlobal = false;
-      discountData.applicableBranches = [req.user.branch_id];
+      discountData.applicableBranches = [req.user.branch];
     } else {
       // For admins, if not global, ensure branches are provided
       if (!discountData.isGlobal && (!discountData.applicableBranches || discountData.applicableBranches.length === 0)) {
@@ -48,7 +48,7 @@ const getAllDiscounts = async (req, res, next) => {
     if (req.user.role !== 'admin') {
       query.$or = [
         { isGlobal: true },
-        { applicableBranches: req.user.branch_id }
+        { applicableBranches: req.user.branch }
       ];
     } else if (branchId) {
       // Admin filter by specific branch
@@ -74,7 +74,7 @@ const getAllDiscounts = async (req, res, next) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('applicableBranches', 'name branch_id')
+        .populate('applicableBranches', 'branch_name branch_code')
         .populate('qualifyingCategories', 'name')
         .populate('qualifyingBrands', 'name')
         .populate('qualifyingProducts', 'productName variants'),
@@ -97,7 +97,7 @@ const getAllDiscounts = async (req, res, next) => {
 const getDiscountById = async (req, res, next) => {
   try {
     const discount = await DiscountPromotion.findById(req.params.id)
-      .populate('applicableBranches', 'name branch_id')
+      .populate('applicableBranches', 'branch_name branch_code')
       .populate('qualifyingCategories', 'name')
       .populate('qualifyingBrands', 'name')
       .populate('qualifyingProducts', 'productName variants');
@@ -110,7 +110,7 @@ const getDiscountById = async (req, res, next) => {
     }
 
     // Security Check: Non-admins cannot view discounts from other branches unless global
-    if (req.user.role !== 'admin' && !discount.isGlobal && !discount.applicableBranches.some(b => b._id.toString() === req.user.branch_id.toString())) {
+    if (req.user.role !== 'admin' && !discount.isGlobal && !discount.applicableBranches.some(b => b._id.toString() === req.user.branch.toString())) {
       return res.status(403).json({ message: 'Access denied to this promotion.' });
     }
 
@@ -139,11 +139,11 @@ const updateDiscount = async (req, res, next) => {
     // Role-based security enforcement
     if (req.user.role !== 'admin') {
       // Non-admins cannot modify other branch's local discounts
-      if (!existing.isGlobal && !existing.applicableBranches.includes(req.user.branch_id)) {
+      if (!existing.isGlobal && !existing.applicableBranches.includes(req.user.branch)) {
         return res.status(403).json({ message: 'Access denied. You can only update your branch promotions.' });
       }
       discountData.isGlobal = false;
-      discountData.applicableBranches = [req.user.branch_id];
+      discountData.applicableBranches = [req.user.branch];
     }
 
     const discount = await DiscountPromotion.findByIdAndUpdate(
