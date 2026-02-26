@@ -1,6 +1,7 @@
 const Sale = require('../models/sale.model');
 const Product = require('../models/product.model');
 const DiscountPromotion = require('../models/discount.model');
+const mongoose = require('mongoose');
 const { endOfDay, startOfDay, subDays, subWeeks, subMonths, subYears, format } = require('date-fns');
 
 // Helper function to get date range based on period
@@ -50,9 +51,13 @@ exports.getSummaryStats = async (req, res, next) => {
         const { period = 'today' } = req.query;
         const { startDate, endDate } = getDateRange(period);
 
-        let matchQuery = { createdAt: { $gte: startDate, $lte: endDate } };
+        let matchQuery = { 
+            createdAt: { $gte: startDate, $lte: endDate },
+            status: 'COMPLETED' // Only count completed sales
+        };
+        
         if (req.user.role !== 'admin' && req.user.branch) {
-            matchQuery.branch = req.user.branch;
+            matchQuery.branch = new mongoose.Types.ObjectId(req.user.branch);
         }
 
         const stats = await Sale.aggregate([
@@ -104,9 +109,13 @@ exports.getSalesChartData = async (req, res, next) => {
         const { period = 'today' } = req.query;
         const { startDate, endDate } = getDateRange(period);
 
-        let matchQuery = { createdAt: { $gte: startDate, $lte: endDate } };
+        let matchQuery = { 
+            createdAt: { $gte: startDate, $lte: endDate },
+            status: 'COMPLETED'
+        };
+        
         if (req.user.role !== 'admin' && req.user.branch) {
-            matchQuery.branch = req.user.branch;
+            matchQuery.branch = new mongoose.Types.ObjectId(req.user.branch);
         }
 
         let groupFormat;
@@ -125,14 +134,6 @@ exports.getSalesChartData = async (req, res, next) => {
                 break;
             case 'last_7_days':
             case 'last_30_days':
-                groupFormat = {
-                    $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "Asia/Karachi" }
-                };
-                projectFormat = {
-                    time: "$_id",
-                    value: "$totalSales"
-                };
-                break;
             case 'this_month':
             case 'last_month':
                 groupFormat = {
@@ -188,9 +189,13 @@ exports.getPaymentMethodData = async (req, res, next) => {
         const { period = 'today' } = req.query;
         const { startDate, endDate } = getDateRange(period);
 
-        let matchQuery = { createdAt: { $gte: startDate, $lte: endDate } };
+        let matchQuery = { 
+            createdAt: { $gte: startDate, $lte: endDate },
+            status: 'COMPLETED'
+        };
+        
         if (req.user.role !== 'admin' && req.user.branch) {
-            matchQuery.branch = req.user.branch;
+            matchQuery.branch = new mongoose.Types.ObjectId(req.user.branch);
         }
 
         const paymentData = await Sale.aggregate([
@@ -222,9 +227,13 @@ exports.getTopSellingProducts = async (req, res, next) => {
         const { period = 'today', limit = 4 } = req.query;
         const { startDate, endDate } = getDateRange(period);
 
-        let matchQuery = { createdAt: { $gte: startDate, $lte: endDate } };
+        let matchQuery = { 
+            createdAt: { $gte: startDate, $lte: endDate },
+            status: 'COMPLETED'
+        };
+        
         if (req.user.role !== 'admin' && req.user.branch) {
-            matchQuery.branch = req.user.branch;
+            matchQuery.branch = new mongoose.Types.ObjectId(req.user.branch);
         }
 
         const topProducts = await Sale.aggregate([
@@ -235,7 +244,7 @@ exports.getTopSellingProducts = async (req, res, next) => {
                     _id: "$items.product",
                     totalRevenue: { $sum: { $multiply: ["$items.quantity", "$items.unitPrice"] } },
                     totalQuantity: { $sum: "$items.quantity" },
-                    productName: { $first: "$items.productName" } // Assuming productName is stored in items
+                    productName: { $first: "$items.productName" } 
                 }
             },
             { $sort: { totalRevenue: -1 } }, // Sort by revenue
@@ -259,17 +268,13 @@ exports.getTopSellingProducts = async (req, res, next) => {
 // 5. Get Low Stock Alerts
 exports.getLowStockAlerts = async (req, res, next) => {
     try {
-        const { limit = 3 } = req.query; // Default to 3 alerts
+        const { limit = 3 } = req.query; 
         
-        let matchQuery = { isDeleted: false, 'variants.isDeleted': false };
-        if (req.user.role !== 'admin' && req.user.branch) {
-             // This logic assumes BranchStock documents exist for products in the user's branch
-             // A more robust solution might involve a lookup to BranchStock first
-             // For now, we'll rely on the frontend filtering or assume general low stock across all branches for an admin
-        }
+        let productMatch = { isDeleted: false, 'variants.isDeleted': false };
+        let branchId = req.user.role !== 'admin' && req.user.branch ? new mongoose.Types.ObjectId(req.user.branch) : null;
 
         const lowStockProducts = await Product.aggregate([
-            { $match: matchQuery },
+            { $match: productMatch },
             { $unwind: "$variants" },
             {
                 $lookup: {
@@ -282,7 +287,7 @@ exports.getLowStockAlerts = async (req, res, next) => {
                                     $and: [
                                         { $eq: ["$product", "$$productId"] },
                                         { $eq: ["$variantId", "$$variantId"] },
-                                        req.user.role !== 'admin' && req.user.branch ? { $eq: ["$branch", req.user.branch] } : true
+                                        branchId ? { $eq: ["$branch", branchId] } : { $ne: [null, null] }
                                     ]
                                 }
                             }
@@ -305,12 +310,11 @@ exports.getLowStockAlerts = async (req, res, next) => {
                     variantSku: "$variants.sku",
                     currentStock: "$branchStockInfo.quantity",
                     minStockLevel: "$variants.minStockLevel",
-                    branch: "$branchStockInfo.branch"
+                    branchId: "$branchStockInfo.branch"
                 }
             }
         ]);
 
-        // Further populate branch details if needed, or rely on frontend to lookup branch name by ID
         res.status(200).json({ success: true, data: lowStockProducts });
     } catch (error) {
         next(error);
@@ -327,20 +331,20 @@ exports.getActivePromotions = async (req, res, next) => {
             $or: [{ endDate: { $exists: false } }, { endDate: { $gt: now } }]
         };
 
-        // Role-based access control for promotions
         if (req.user.role !== 'admin' && req.user.branch) {
             matchQuery.$or = [
                 { isGlobal: true },
-                { applicableBranches: req.user.branch }
+                { applicableBranches: new mongoose.Types.ObjectId(req.user.branch) }
             ];
         }
 
         const promotions = await DiscountPromotion.find(matchQuery)
             .select('name description amountValue amountType validOn minPurchaseAmount applicableBranches qualifyingCustomerGroups')
-            .populate('applicableBranches', 'name');
+            .populate('applicableBranches', 'branch_name'); // Corrected field name based on typical usage
 
         res.status(200).json({ success: true, data: promotions });
     } catch (error) {
         next(error);
     }
 };
+
