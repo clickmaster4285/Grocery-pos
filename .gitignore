@@ -1,5 +1,6 @@
 # Frontend specific
 frontend/node_modules
+frontend/.env
 frontend/.next
 frontend/out
 frontend/build
@@ -9,6 +10,7 @@ frontend/.vercel
 
 # Backend specific  
 backend/node_modules
+backend/.env
 backend/logs
 backend/.nyc_output
 backend/build
@@ -18,11 +20,6 @@ backend/dist
 backend/.cache
 
 # Common
-# .env
-# .env.local
-.env.production
-.env.development
-.env.test
 .DS_Store
 *.log
 .vscode/

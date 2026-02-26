@@ -83,7 +83,7 @@ const StockTransferForm = ({ onSuccess }) => {
   const watchTransferType = form.watch('transferType');
   const watchFromLocation = form.watch('fromLocation');
 
-  const effectiveBranchId = isAdmin ? selectedBranchId : (user?.branch_id?._id || user?.branch_id);
+  const effectiveBranchId = isAdmin ? selectedBranchId : (user?.branch?._id || user?.branch);
 
   const { data: branchStockData, isLoading: isLoadingBranchStock } = useGetBranchStock(
     effectiveBranchId,

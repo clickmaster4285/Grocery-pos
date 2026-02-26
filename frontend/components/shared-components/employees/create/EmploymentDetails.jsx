@@ -187,8 +187,8 @@ export const EmploymentDetails = ({ formData, updateFormField, branches }) => {
             <Label className="text-xs font-semibold">Assigned Branch *</Label>
             <ComboBox
               items={branches.map(b => ({ label: b.branch_name, value: b._id }))}
-              value={formData.branch_id}
-              onValueChange={(value) => updateFormField('branch_id', value)}
+              value={formData.branch}
+              onValueChange={(value) => updateFormField('branch', value)}
               placeholder="Select Branch"
               searchPlaceholder="Search branches..."
               emptyPlaceholder="No branches found."

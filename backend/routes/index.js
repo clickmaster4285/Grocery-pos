@@ -15,6 +15,7 @@ const settingsRoutes = require('./settings.routes');
 const branchLocationRoutes = require('./branchLocation.routes'); 
 const terminalRoutes = require('./terminal.routes'); 
 const terminalShiftReportRoutes = require('./terminalShiftReport.routes'); // Import new route
+const dashboardRoutes = require('./dashboard.routes');
 const aiRoutes = require('./ai.routes');
 
 const router = express.Router();
@@ -35,7 +36,8 @@ router.use('/customers', customerRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/branch-locations', branchLocationRoutes); 
 router.use('/terminals', terminalRoutes); 
-router.use('/terminal-shift-reports', terminalShiftReportRoutes); // Add new route
+router.use('/terminal-shift-reports', terminalShiftReportRoutes);
+router.use('/dashboard', dashboardRoutes);
 
 // later ai routes
 router.use('/ai', aiRoutes);

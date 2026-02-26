@@ -39,7 +39,7 @@ const POS = () => {
   const searchContainerRef = useRef(null); // Ref for the top row containing branch select and search input
   const leftColumnRef = useRef(null); // Ref for the left column (BillingTable)
   const rightColumnRef = useRef(null); // Ref for the right column (CheckoutSidebar)
-  const [activeBranchId, setActiveBranchId] = useState(user?.branch_id?._id || user?.branch_id || '');
+  const [activeBranchId, setActiveBranchId] = useState(user?.branch?._id || user?.branch || '');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -106,8 +106,8 @@ const POS = () => {
 
   const { data: stock, isLoading: stockLoading, isFetching: stockFetching } = useGetBranchStock(activeBranchId, debouncedSearch);
   const { data: branches } = useGetAllBranches({
-    enabled: canSelectBranch || !!user?.branch_id, // Always enabled if not admin, to get user's branch
-    filterBranchId: isAdmin ? undefined : (user?.branch_id?._id || user?.branch_id),
+    enabled: canSelectBranch || !!user?.branch, // Always enabled if not admin, to get user's branch
+    filterBranchId: isAdmin ? undefined : (user?.branch?._id || user?.branch),
   });
 
   const createSaleMutation = useCreateSale();
@@ -143,8 +143,8 @@ const POS = () => {
   }, [activeTerminal, terminals, isShiftModalOpen, isTerminalsLoading]);
 
   useEffect(() => {
-    if (!activeBranchId && user?.branch_id) {
-      setActiveBranchId(user.branch_id?._id || user.branch_id);
+    if (!activeBranchId && user?.branch) {
+      setActiveBranchId(user.branch?._id || user.branch);
     }
   }, [user, activeBranchId]);
 

@@ -3,24 +3,24 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ShieldCheck, Mail, Lock, KeyRound, CheckSquare, Square, Circle, CheckCircle2, Check, MonitorSmartphone, DollarSign, Percent, XCircle } from "lucide-react";
+import { ShieldCheck, Mail, Lock, KeyRound, CheckSquare, Square, Circle, CheckCircle2, Check, MonitorSmartphone, DollarSign, Percent, XCircle, Banknote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useMemo, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { useTerminalHook } from "@/hooks/useTerminalHook";
 import { Badge } from "@/components/ui/badge";
 
-export const SystemAccess = ({ 
-  formData, 
-  updateFormField, 
-  allPermissions, 
+export const SystemAccess = ({
+  formData,
+  updateFormField,
+  allPermissions,
   permissionsLoading
 }) => {
   const [permissionSearchTerm, setPermissionSearchTerm] = useState('');
   const [activeModule, setActiveModule] = useState(null);
 
   // Fetch terminals for restriction mapping
-  const userBranchId = formData.branch_id?._id || formData.branch_id;
+  const userBranchId = formData.branch?._id || formData.branch;
   const { terminals } = useTerminalHook({ branchId: userBranchId });
 
   // Initialize active module
@@ -45,7 +45,7 @@ export const SystemAccess = ({
   const toggleModulePermissions = useCallback((modulePermissions, shouldSelectAll) => {
     const moduleKeys = modulePermissions.map(p => p.key);
     let updatedPermissions = [...formData.permissions];
-    
+
     if (shouldSelectAll) {
       moduleKeys.forEach(key => {
         if (!updatedPermissions.includes(key)) {
@@ -55,7 +55,7 @@ export const SystemAccess = ({
     } else {
       updatedPermissions = updatedPermissions.filter(key => !moduleKeys.includes(key));
     }
-    
+
     updateFormField('permissions', updatedPermissions);
   }, [formData.permissions, updateFormField]);
 
@@ -113,9 +113,9 @@ export const SystemAccess = ({
               <Label className="text-base">System Access</Label>
               <p className="text-sm text-muted-foreground">Allow user to log in to the software</p>
             </div>
-            <Switch 
-              checked={formData.hasSystemAccess} 
-              onCheckedChange={(val) => updateFormField('hasSystemAccess', val)} 
+            <Switch
+              checked={formData.hasSystemAccess}
+              onCheckedChange={(val) => updateFormField('hasSystemAccess', val)}
             />
           </div>
 
@@ -124,9 +124,9 @@ export const SystemAccess = ({
               <Label className="text-base">Two-Factor Auth</Label>
               <p className="text-sm text-muted-foreground">Enable additional security verification</p>
             </div>
-            <Switch 
-              checked={formData.isTwoFactorEnabled} 
-              onCheckedChange={(val) => updateFormField('isTwoFactorEnabled', val)} 
+            <Switch
+              checked={formData.isTwoFactorEnabled}
+              onCheckedChange={(val) => updateFormField('isTwoFactorEnabled', val)}
             />
           </div>
         </div>
@@ -201,7 +201,7 @@ export const SystemAccess = ({
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-tight text-slate-500">Max Void Amt</Label>
             <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
               <Input
                 type="number"
                 className="pl-9 h-10"
@@ -213,9 +213,9 @@ export const SystemAccess = ({
           </div>
           <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/10 self-end h-10">
             <Label className="text-xs font-semibold">Price Override Approval</Label>
-            <Switch 
-              checked={formData.transactionLimits?.requireManagerForPriceOverride ?? true} 
-              onCheckedChange={(val) => updateLimit('requireManagerForPriceOverride', val)} 
+            <Switch
+              checked={formData.transactionLimits?.requireManagerForPriceOverride ?? true}
+              onCheckedChange={(val) => updateLimit('requireManagerForPriceOverride', val)}
             />
           </div>
         </div>
@@ -295,10 +295,10 @@ export const SystemAccess = ({
               <span>Permission Settings</span>
             </div>
             {!permissionsLoading && allPermissions && allPermissions.length > 0 && (
-              <Button 
-                type="button" 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
                 className={`h-8 px-2 text-xs gap-1.5 ${isAllSelected ? "hover:bg-red-50 text-red-600" : "hover:bg-emerald-50 text-emerald-600"}`}
                 onClick={() => toggleAllPermissions(!isAllSelected)}
               >
@@ -344,10 +344,10 @@ export const SystemAccess = ({
                   <span className="text-xs font-bold uppercase tracking-widest text-slate-400 px-1">
                     {currentModuleData.moduleName} Module
                   </span>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
                     className="h-7 px-2 text-[11px] gap-1 bg-emerald-50 text-emerald-600 font-bold uppercase"
                     onClick={() => toggleModulePermissions(currentModuleData.permissions, !(currentModuleData.permissions.length > 0 && currentModuleData.permissions.every(p => formData.permissions.includes(p.key))))}
                   >
@@ -360,18 +360,18 @@ export const SystemAccess = ({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
-                  {currentModuleData.permissions.filter(p => 
+                  {currentModuleData.permissions.filter(p =>
                     p.key.toLowerCase().includes(permissionSearchTerm.toLowerCase()) ||
                     p.label.toLowerCase().includes(permissionSearchTerm.toLowerCase())
                   ).length > 0 ? (
-                    currentModuleData.permissions.filter(p => 
+                    currentModuleData.permissions.filter(p =>
                       p.key.toLowerCase().includes(permissionSearchTerm.toLowerCase()) ||
                       p.label.toLowerCase().includes(permissionSearchTerm.toLowerCase())
                     ).map((permission) => {
                       const isChecked = formData.permissions.includes(permission.key);
                       return (
-                        <div 
-                          key={permission.key} 
+                        <div
+                          key={permission.key}
                           className={cn(
                             "flex items-center space-x-3 p-3 rounded-md border transition-all cursor-pointer select-none",
                             isChecked ? "bg-emerald-50 border-emerald-400 ring-1 ring-emerald-100" : "border-input hover:bg-muted/50 hover:border-emerald-200"

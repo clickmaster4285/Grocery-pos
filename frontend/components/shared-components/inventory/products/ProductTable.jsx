@@ -19,7 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ArrowUpDown, Eye, Edit, Trash2, ChevronDown, ChevronRight, ChevronLeft as ChevronLeftIcon } from 'lucide-react';
+import { ArrowUpDown, Eye, Edit, Trash2, ChevronDown, ChevronRight, ChevronLeft as ChevronLeftIcon, PlusCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';

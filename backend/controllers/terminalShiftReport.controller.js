@@ -27,8 +27,11 @@ exports.getAllTerminalShiftReports = async (req, res, next) => {
         if (status) match.status = status;
         
         // Role-based isolation (ensure users only see reports from their branch unless admin)
-        if (req.user.role !== 'admin' && req.user.branch_id) {
-            match.branch = new mongoose.Types.ObjectId(req.user.branch_id);
+        // Use branch filter from middleware (req.query.branch)
+        if (req.query.branch) {
+            match.branch = new mongoose.Types.ObjectId(req.query.branch);
+        } else if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Access denied: Branch context missing.' });
         } else if (branchId) {
             match.branch = new mongoose.Types.ObjectId(branchId);
         }
@@ -157,7 +160,7 @@ exports.getTerminalShiftReportById = async (req, res, next) => {
         }
 
         // Role-based isolation for single report fetch
-        if (req.user.role !== 'admin' && report.branch.toString() !== req.user.branch_id.toString()) {
+        if (req.user.role !== 'admin' && report.branch.toString() !== req.user.branch.toString()) {
             return res.status(403).json({ success: false, message: 'Unauthorized access to this report.' });
         }
 

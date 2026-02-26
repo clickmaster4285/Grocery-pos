@@ -318,7 +318,7 @@ const TerminalForm = ({
                               value={formData.peripherals.printer.status}
                               onValueChange={(val) => updatePeripheral('printer', 'status', val)}
                            >
-                              <SelectTrigger className="h-7 w-24 bg-transparent border-none text-[10px] font-bold uppercase text-slate-400">
+                              <SelectTrigger>
                                  <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -363,7 +363,7 @@ const TerminalForm = ({
                               value={formData.peripherals.scanner.status}
                               onValueChange={(val) => updatePeripheral('scanner', 'status', val)}
                            >
-                              <SelectTrigger className="h-7 w-24 bg-transparent border-none text-[10px] font-bold uppercase text-slate-400">
+                              <SelectTrigger>
                                  <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -403,7 +403,7 @@ const TerminalForm = ({
                               <span className="text-[11px] font-bold uppercase tracking-wider">Weight Scale</span>
                            </div>
                            <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-bold text-slate-400 uppercase">Calibrated</span>
+                              <span className="text-[9px] font-bold text-slate-600 uppercase">Calibrated</span>
                               <Switch
                                  checked={formData.peripherals.scale.isCalibrated}
                                  onCheckedChange={(val) => updatePeripheral('scale', 'isCalibrated', val)}

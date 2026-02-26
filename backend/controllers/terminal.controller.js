@@ -47,7 +47,7 @@ exports.createTerminal = async (req, res, next) => {
             branchId = value.branch || req.body.branch;
         } else {
             // Non-admins use their own branch
-            branchId = req.user.branch_id?._id || req.user.branch_id;
+            branchId = req.user.branch?._id || req.user.branch;
         }
 
         if (!branchId) {
@@ -86,15 +86,14 @@ exports.createTerminal = async (req, res, next) => {
 // Get all terminals for a branch
 exports.getAllTerminals = async (req, res, next) => {
     try {
-        const { branchId, status } = req.query;
+        const { status } = req.query;
         let query = { isActive: true };
 
-        if (branchId) query.branch = branchId;
         if (status) query.status = status;
 
-        // Role-based isolation
-        if (req.user.role !== 'admin' && req.user.branch_id) {
-            query.branch = req.user.branch_id;
+        // Use branch filter from middleware (req.query.branch)
+        if (req.query.branch) {
+            query.branch = req.query.branch;
         }
 
         const terminals = await Terminal.find(query)
@@ -114,12 +113,19 @@ exports.getAllTerminals = async (req, res, next) => {
 // Get terminal by ID
 exports.getTerminalById = async (req, res, next) => {
     try {
-        const terminal = await Terminal.findOne({ _id: req.params.id, isActive: true })
+        const query = { _id: req.params.id, isActive: true };
+        
+        // Apply branch filter from middleware
+        if (req.query.branch) {
+            query.branch = req.query.branch;
+        }
+
+        const terminal = await Terminal.findOne(query)
             .populate('branch', 'branch_name')
             .populate('activeSession.userId', 'firstName lastName');
 
         if (!terminal) {
-            return res.status(404).json({ success: false, message: 'Terminal not found' });
+            return res.status(404).json({ success: false, message: 'Terminal not found or access denied' });
         }
 
         res.status(200).json({ success: true, data: terminal });
@@ -140,14 +146,19 @@ exports.updateTerminal = async (req, res, next) => {
             });
         }
 
+        const query = { _id: req.params.id, isActive: true };
+        if (req.query.branch) {
+            query.branch = req.query.branch;
+        }
+
         const terminal = await Terminal.findOneAndUpdate(
-            { _id: req.params.id, isActive: true },
+            query,
             { ...value },
             { new: true, runValidators: true }
         );
 
         if (!terminal) {
-            return res.status(404).json({ success: false, message: 'Terminal not found' });
+            return res.status(404).json({ success: false, message: 'Terminal not found or access denied' });
         }
 
         res.status(200).json({
@@ -288,8 +299,13 @@ exports.closeSession = async (req, res, next) => {
 // Soft Delete Terminal
 exports.deleteTerminal = async (req, res, next) => {
     try {
-        const terminal = await Terminal.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
-        if (!terminal) return res.status(404).json({ success: false, message: 'Terminal not found' });
+        const query = { _id: req.params.id };
+        if (req.query.branch) {
+            query.branch = req.query.branch;
+        }
+
+        const terminal = await Terminal.findOneAndUpdate(query, { isActive: false }, { new: true });
+        if (!terminal) return res.status(404).json({ success: false, message: 'Terminal not found or access denied' });
 
         // Remove reference from branch
         await Branch.findByIdAndUpdate(terminal.branch, {

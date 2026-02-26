@@ -32,7 +32,7 @@ export const useUsersHook = (userId = null) => {
         isTwoFactorEnabled: false,
         permissions: [],
         isActive: true,
-        branch_id: '',
+        branch: '',
         // Refactored Employment Structure
         employment: {
             hireDate: new Date().toISOString().split('T')[0],
@@ -117,7 +117,7 @@ export const useUsersHook = (userId = null) => {
                     relationship: userData.emergencyContact?.relationship || '',
                     phone: userData.emergencyContact?.phone || '',
                 },
-                branch_id: userData.branch_id?._id || userData.branch_id || '',
+                branch: userData.branch?._id || userData.branch || '',
                 password: '', 
                 pin: '', 
             });

@@ -45,6 +45,11 @@ exports.getBranchLocations = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Invalid branch ID format.' });
         }
 
+        // If not admin, ensure they are only querying their own branch
+        if (req.user.role !== 'admin' && branchId !== req.user.branch.toString()) {
+            return res.status(403).json({ success: false, message: 'Access denied: Cannot query other branches.' });
+        }
+
         const locations = await BranchLocation.find({ branch: branchId }).populate('branch', 'branch_name');
         res.status(200).json({ success: true, data: locations });
 
