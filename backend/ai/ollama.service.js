@@ -1,90 +1,92 @@
 const axios = require("axios");
 
 /**
- * askModel - The core interface for communicating with the local Ollama LLM.
- * This service transforms natural language into a structured "Intent JSON" 
- * that the backend can actually execute.
+ * askModel - Phase 2: Intent Router
+ * Translates user text into a structured command (JSON).
+ * Added 'suggestion' field to help with misspellings/smart search.
  */
 async function askModel(userMessage) {
    
-   // --- SYSTEM MANIFEST & PROMPT ---
-   // This is the "brain" of the AI. We define exactly how it should behave,
-   // what tools it has access to, and the strict format it MUST return.
    const systemPrompt = `
 You are the "Intent Router" for an enterprise Supermarket POS system.
 Your job is to translate user requests into a valid JSON command.
 
 ### CRITICAL RULES:
 1. Return ONLY valid JSON.
-2. No markdown blocks (e.g., no \`\`\`json).
-3. No conversational text or explanations.
-4. If confidence is low, set confidence < 0.4.
-5. Action names MUST be uppercase.
+2. No conversational text or explanations.
+3. If confidence is below 0.7, provide a "suggestion" of what you think the user meant.
+4. Action names MUST be uppercase.
 
 ### TOOL REGISTRY:
 1. inventory (Actions: LOW_STOCK, SEARCH_PRODUCT, CATEGORY_SUMMARY)
 2. sales (Actions: TODAY_SUMMARY, TOP_PRODUCTS, BRANCH_PERFORMANCE)
 3. hr (Actions: SHIFT_STATUS, PAYROLL_PREVIEW)
+4. system (Actions: BRANCH_COUNT, GENERAL_INFO)
 
 ### JSON SCHEMA:
 {
   "schema_version": "1.0.0",
   "tool": "string",
   "action": "string",
-  "params": {
-    "filter": "string|null",
-    "limit": "number|null",
-    "timeframe": "string|null",
-    "threshold": "number|null"
-  },
-  "confidence": "number (0.0 - 1.0)"
+  "params": { "filter": "string", "limit": "number", "timeframe": "string" },
+  "confidence": "number (0.0 - 1.0)",
+  "suggestion": "string|null"
 }
 
-### FEW-SHOT EXAMPLES (Training the model):
-User: "What items are running out?"
-Result: {"schema_version":"1.0.0","tool":"inventory","action":"LOW_STOCK","params":{"threshold":10,"limit":10},"confidence":0.98}
+### FEW-SHOT EXAMPLES:
+User: "how many brcnhse i have ?"
+Result: {"schema_version":"1.0.0","tool":"system","action":"BRANCH_COUNT","params":{},"confidence":0.55,"suggestion":"total number of branches"}
 
-User: "Show me the top 5 sales for today"
-Result: {"schema_version":"1.0.0","tool":"sales","action":"TOP_PRODUCTS","params":{"limit":5,"timeframe":"today"},"confidence":0.95}
-
-User: "Is John on shift right now?"
-Result: {"schema_version":"1.0.0","tool":"hr","action":"SHIFT_STATUS","params":{"filter":"John","timeframe":"current"},"confidence":0.90}
+User: "is John working?"
+Result: {"schema_version":"1.0.0","tool":"hr","action":"SHIFT_STATUS","params":{"filter":"John"},"confidence":0.95,"suggestion":null}
 `;
 
-   // Combine the system instructions with the actual user message
    const finalPrompt = `${systemPrompt}\nUser Query: "${userMessage}"\nResult:`;
 
    try {
-      // --- OLLAMA API CALL ---
-      // We send the prompt to our local Ollama server.
-      const response = await axios.post(
-         "http://localhost:11434/api/generate",
-         {
-            model: "phi3:mini",
-            prompt: finalPrompt,
-            stream: false, // Wait for the full response before returning
-            options: {
-               temperature: 0.0, // Force the model to be deterministic (no "creativity")
-               num_ctx: 4096,    // Set context window size
-               num_predict: 128  // Limit output length for routing
-            },
-            format: "json" // Tells Ollama to strictly enforce JSON output
-         }
-      );
+      const response = await axios.post("http://localhost:11434/api/generate", {
+         model: "phi3:mini",
+         prompt: finalPrompt,
+         stream: false,
+         options: { temperature: 0.0, num_ctx: 4096, num_predict: 128 },
+         format: "json"
+      });
 
-      // Return the raw text string (which should now be pure JSON)
       return response.data.response;
 
    } catch (error) {
       console.error("AI_INFERENCE_ERROR:", error.message);
-      // Fallback for when the local AI server is offline or unreachable
-      return JSON.stringify({
-         tool: "system",
-         action: "ERROR",
-         params: { message: "AI Engine Unreachable" },
-         confidence: 0
-      });
+      return JSON.stringify({ tool: "system", action: "ERROR", confidence: 0 });
    }
 }
 
-module.exports = { askModel };
+/**
+ * summarizeData - Phase 3: The Narrator Layer
+ * Takes the raw database data and turns it into a human-friendly sentence.
+ */
+async function summarizeData(userQuery, jsonData) {
+   const systemPrompt = `
+You are the "Voice of the POS". 
+Take the provided JSON data and answer the user's original query in 1-2 friendly, professional sentences.
+Do NOT mention "JSON" or "data structures". Just speak naturally.
+
+User Query: "${userQuery}"
+Database Result: ${JSON.stringify(jsonData)}
+`;
+
+   try {
+      const response = await axios.post("http://localhost:11434/api/generate", {
+         model: "phi3:mini",
+         prompt: systemPrompt,
+         stream: false,
+         options: { temperature: 0.7, num_ctx: 2048, num_predict: 256 }
+      });
+
+      return response.data.response;
+
+   } catch (error) {
+      return "I have the data, but I'm having trouble explaining it clearly. Please check the results below.";
+   }
+}
+
+module.exports = { askModel, summarizeData };
