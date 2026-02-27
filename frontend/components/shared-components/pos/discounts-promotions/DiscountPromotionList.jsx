@@ -40,6 +40,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+import PageHeader from '@/components/shared-components/PageHeader';
+
 const DiscountPromotionList = ({ role }) => {
   const router = useRouter();
   const [params, setParams] = useState({
@@ -87,21 +89,19 @@ const DiscountPromotionList = ({ role }) => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Discounts & Promotions</h1>
-          <p className="text-muted-foreground">
-            Manage your store-wide offers, BOGO deals, and coupon codes.
-          </p>
-        </div>
-        <Button 
-          onClick={() => router.push(`/${role}/pos/discounts-promotions/form`)}
-          className="bg-primary hover:bg-primary/90 gap-2 shadow-lg"
-        >
-          <Plus size={18} />
-          Create New Promotion
-        </Button>
-      </div>
+      <PageHeader 
+        title="Discounts & Promotions"
+        description="Manage your store-wide offers, BOGO deals, and coupon codes."
+        actions={
+          <Button 
+            onClick={() => router.push(`/${role}/pos/discounts-promotions/form`)}
+            className="bg-primary hover:bg-primary/90 gap-2 shadow-lg h-11 rounded-xl font-bold"
+          >
+            <Plus size={18} />
+            Create New Promotion
+          </Button>
+        }
+      />
 
       <Card className="border-none shadow-md bg-card/50 backdrop-blur-sm">
         <CardHeader className="pb-3">

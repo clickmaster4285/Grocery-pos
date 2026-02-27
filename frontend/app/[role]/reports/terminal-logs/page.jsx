@@ -22,6 +22,8 @@ import { Badge } from '@/components/ui/badge';
 import { PaginationComponent } from '@/components/shared-components/Pagination';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 
+import PageHeader from '@/components/shared-components/PageHeader';
+
 const TerminalLogsPage = () => {
   const { isAdmin } = usePermissions();
   const [filters, setFilters] = useState({
@@ -85,20 +87,20 @@ const TerminalLogsPage = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Terminal Shift Reports</h1>
-          <p className="text-[13px] font-medium text-slate-500">Review and audit historical shift data for POS terminals.</p>
-        </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={clearFilters}
-          className="h-9 rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50 gap-2"
-        >
-          <X className="h-4 w-4" /> Clear All Filters
-        </Button>
-      </div>
+      <PageHeader 
+        title="Terminal Shift Reports"
+        description="Review and audit historical shift data for POS terminals."
+        actions={
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={clearFilters}
+            className="h-11 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-2 font-semibold"
+          >
+            <X className="h-4 w-4" /> Clear All Filters
+          </Button>
+        }
+      />
 
       <Card className="shadow-sm border-slate-200/60 overflow-hidden rounded-xl">
         <CardHeader className="border-b bg-slate-50/30 py-4">

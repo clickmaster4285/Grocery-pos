@@ -19,6 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+import PageHeader from '@/components/shared-components/PageHeader';
+
 const CustomerList = () => {
   const { customerManagement } = usePermissions();
   const [search, setSearch] = useState('');
@@ -56,18 +58,17 @@ const CustomerList = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary uppercase italic">Customer Database</h1>
-          <p className="text-muted-foreground text-sm">Manage your customer relationships, loyalty points, and contact details.</p>
-        </div>
-        
-        {customerManagement.database.create && (
-          <Button onClick={handleCreate} className="gap-2 shadow-lg shadow-primary/20 font-bold">
-            <UserPlus size={18} /> Register Customer
-          </Button>
-        )}
-      </div>
+      <PageHeader 
+        title="Customer Database"
+        description="Manage your customer relationships, loyalty points, and contact details."
+        actions={
+          customerManagement.database.create && (
+            <Button onClick={handleCreate} className="gap-2 shadow-lg shadow-primary/20 font-bold h-11 rounded-xl">
+              <UserPlus size={18} /> Register Customer
+            </Button>
+          )
+        }
+      />
 
       {/* Control Bar */}
       <Card className="bg-muted/30 border-none shadow-none">

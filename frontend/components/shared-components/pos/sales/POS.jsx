@@ -43,7 +43,7 @@ const POS = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const debouncedSearch = useDebounce(searchQuery, 300);
-  
+
   // Terminal Management
   const {
     terminals,
@@ -204,7 +204,7 @@ const POS = () => {
       toast.error(`Your discount limit is ${maxLimit}%`);
       return;
     }
-    setCart(cart.map(item => 
+    setCart(cart.map(item =>
       item.variantId === variantId ? { ...item, manualDiscountPercent: percent } : item
     ));
   };
@@ -217,16 +217,16 @@ const POS = () => {
   const cartTotals = useMemo(() => {
     let subtotal = 0;
     let totalTax = 0;
-    
+
     const processedItems = cart.map(item => {
       const totalItemDiscount = item.autoDiscountPercent + item.manualDiscountPercent;
       const unitPrice = item.originalPrice * (1 - totalItemDiscount / 100);
       const itemSubtotal = unitPrice * item.quantity;
       const itemTax = (itemSubtotal * item.taxRate) / 100;
-      
+
       subtotal += itemSubtotal;
       totalTax += itemTax;
-      
+
       return { ...item, unitPrice, itemSubtotal, itemTax };
     });
 
@@ -327,9 +327,9 @@ const POS = () => {
       setSelectedCustomer(null); // Reset customer
       setDiscount(0);
       setAppliedCoupon(null);
-      setSearchQuery(''); 
-      setIsSearchFocused(false); 
-      if (searchInputRef.current) searchInputRef.current.focus(); 
+      setSearchQuery('');
+      setIsSearchFocused(false);
+      if (searchInputRef.current) searchInputRef.current.focus();
     } catch (err) {
       toast.error(err.response?.data?.message || "Checkout failed");
     }

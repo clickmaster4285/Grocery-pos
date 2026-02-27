@@ -43,6 +43,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
+import PageHeader from '@/components/shared-components/PageHeader';
+
 const StatusBadge = ({ status }) => {
   const configs = {
     Available: { color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20", icon: Signal, label: "Live" },
@@ -137,24 +139,27 @@ const TerminalDetailPage = () => {
 
   return (
     <div className="p-4 md:p-6 space-y-8 max-w-7xl mx-auto pb-20">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <Button 
-            variant="ghost" 
-            onClick={() => router.push(`/${role}/pos/terminals`)} 
-            className="gap-2 -ml-2 text-slate-400 hover:text-slate-900 transition-all font-semibold uppercase tracking-widest text-[10px]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Registers
-          </Button>
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              {terminal.name}
-            </h1>
-            <StatusBadge status={terminal.status} />
+      <PageHeader 
+        title={
+          <div className="flex flex-col gap-2">
+            <Button 
+              variant="ghost" 
+              onClick={() => router.push(`/${role}/pos/terminals`)} 
+              className="gap-2 -ml-2 text-slate-400 hover:text-slate-900 transition-all font-semibold uppercase tracking-widest text-[10px] w-fit h-8"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Registers
+            </Button>
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                {terminal.name}
+              </h1>
+              <StatusBadge status={terminal.status} />
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-slate-500">
+        }
+        description={
+          <div className="flex items-center gap-3 text-slate-500 mt-1">
             <Badge variant="secondary" className="bg-slate-900 text-white font-mono text-[11px]">
               {terminal.terminalId}
             </Badge>
@@ -165,26 +170,27 @@ const TerminalDetailPage = () => {
               <HardDrive className="h-3.5 w-3.5" /> {terminal.department}
             </span>
           </div>
-        </div>
-        
-        <div className="flex gap-3">
-           {isAdmin && (
-             <Button 
+        }
+        actions={
+          <>
+            {isAdmin && (
+              <Button 
                 variant="outline"
                 onClick={() => router.push(`/${role}/pos/terminals/${id}/edit`)}
                 className="rounded-xl border-slate-100 shadow-sm font-bold uppercase tracking-widest text-[11px] px-6 h-12 gap-2"
-             >
-               <Edit className="h-4 w-4" />
-               Configure Hardware
-             </Button>
-           )}
-           <Button 
+              >
+                <Edit className="h-4 w-4" />
+                Configure Hardware
+              </Button>
+            )}
+            <Button 
               className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold uppercase tracking-widest text-[11px] px-6 h-12 shadow-xl shadow-slate-200"
-           >
-             Remote Lock
-           </Button>
-        </div>
-      </div>
+            >
+              Remote Lock
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: Session & Stats */}

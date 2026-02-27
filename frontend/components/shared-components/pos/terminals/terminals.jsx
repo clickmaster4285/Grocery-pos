@@ -25,6 +25,8 @@ import {
 import TerminalsTable from "./terminals-table";
 import { useRouter, useParams } from "next/navigation";
 
+import PageHeader from "@/components/shared-components/PageHeader";
+
 const Terminals = () => {
    const {
       terminals,
@@ -70,28 +72,28 @@ const Terminals = () => {
    return (
       <div className="space-y-8 animate-in fade-in duration-500">
          <main className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-               <div>
-                  <div className="flex items-center gap-2 mb-1">
-                     <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                        <Cpu className="h-5 w-5" />
-                     </div>
-                     <h1 className="text-3xl font-bold tracking-tight text-foreground">POS Terminals</h1>
-                  </div>
-                  <p className="text-muted-foreground font-medium">
-                     Manage register hardware, peripheral connectivity, and active cashier sessions.
-                  </p>
-               </div>
-               {canCreate && (
-                  <Button
-                     onClick={() => router.push(`/${role}/pos/terminals/create`)}
-                     className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm rounded-xl"
-                  >
-                     <Plus className="h-4 w-4" />
-                     Register New Terminal
-                  </Button>
-               )}
-            </div>
+            <PageHeader 
+                title={
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                            <Cpu className="h-5 w-5" />
+                        </div>
+                        <span>POS Terminals</span>
+                    </div>
+                }
+                description="Manage register hardware, peripheral connectivity, and active cashier sessions."
+                actions={
+                    canCreate && (
+                        <Button
+                            onClick={() => router.push(`/${role}/pos/terminals/create`)}
+                            className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm rounded-xl"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Register New Terminal
+                        </Button>
+                    )
+                }
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-center bg-card p-4 rounded-xl border border-slate-100 shadow-sm">
                <div className="lg:col-span-2 relative">

@@ -32,6 +32,8 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import PageHeader from "@/components/shared-components/PageHeader";
+
 const Branches = () => {
    const router = useRouter();
    const { data, isLoading, refetch } = useGetAllBranches();
@@ -114,21 +116,19 @@ const Branches = () => {
    return (
       <div className="space-y-8 animate-in fade-in duration-500">
          <main className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-               <div>
-                  <h1 className="text-3xl font-bold tracking-tight text-foreground">Branches</h1>
-                  <p className="text-muted-foreground font-medium mt-1">
-                     Oversee and manage your physical storefronts and logistics hubs.
-                  </p>
-               </div>
-               <Button
-                  onClick={openAddModal}
-                  className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm"
-               >
-                  <Plus className="h-4 w-4" />
-                  New Branch
-               </Button>
-            </div>
+            <PageHeader 
+                title="Branches"
+                description="Oversee and manage your physical storefronts and logistics hubs."
+                actions={
+                    <Button
+                        onClick={openAddModal}
+                        className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm rounded-xl"
+                    >
+                        <Plus className="h-4 w-4" />
+                        New Branch
+                    </Button>
+                }
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-center bg-card p-4 rounded-xl border shadow-sm">
                <div className="lg:col-span-2 relative">

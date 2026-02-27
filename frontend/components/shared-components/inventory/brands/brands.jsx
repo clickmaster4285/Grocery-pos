@@ -34,6 +34,8 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
+import PageHeader from "@/components/shared-components/PageHeader";
+
 const Brands = () => {
     const router = useRouter();
     const { user } = useAuth();
@@ -158,23 +160,21 @@ const Brands = () => {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <main className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight text-foreground">Brands</h1>
-                        <p className="text-muted-foreground font-medium mt-1">
-                            Manage and oversee your product brand portfolio.
-                        </p>
-                    </div>
-                    {canCreateBrands && (
-                        <Button
-                            onClick={openAddModal}
-                            className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm"
-                        >
-                            <Plus className="h-4 w-4" />
-                            New Brand
-                        </Button>
-                    )}
-                </div>
+                <PageHeader 
+                    title="Brands"
+                    description="Manage and oversee your product brand portfolio."
+                    actions={
+                        canCreateBrands && (
+                            <Button
+                                onClick={openAddModal}
+                                className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm rounded-xl"
+                            >
+                                <Plus className="h-4 w-4" />
+                                New Brand
+                            </Button>
+                        )
+                    }
+                />
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-center bg-card p-4 rounded-xl border shadow-sm">
                     <div className="lg:col-span-2 relative">

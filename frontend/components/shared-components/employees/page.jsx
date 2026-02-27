@@ -19,6 +19,8 @@ import { useStaffList, useDeleteStaff } from "@/features/users.api";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ROLES } from "@/constants/roles";
 
+import PageHeader from "@/components/shared-components/PageHeader";
+
 const AllEmployees = () => {
   const router = useRouter();
   const { employee, currentUserRole } = usePermissions();
@@ -103,9 +105,16 @@ const AllEmployees = () => {
 
   return (
     <div className="space-y-6">
-      <Header 
-        onAddEmployee={() => router.push(`/${currentUserRole}/employees/create`)} 
-        canCreateEmployees={canCreateEmployees} 
+      <PageHeader 
+        title="Employee Management"
+        description="Manage all staff members and their permissions"
+        actions={
+          canCreateEmployees && (
+            <Button onClick={() => router.push(`/${currentUserRole}/employees/create`)} className="gap-2 h-11 rounded-xl font-semibold">
+              <UserPlus className="h-4 w-4" /> Add New Employee
+            </Button>
+          )
+        }
       />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -158,21 +167,6 @@ const AllEmployees = () => {
 };
 
 // Helper Components
-const Header = ({ onAddEmployee, canCreateEmployees }) => (
-  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-    <div>
-      <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Employee Management</h1>
-      <p className="text-muted-foreground">Manage all staff members and their permissions</p>
-    </div>
-
-    {canCreateEmployees && (
-      <Button onClick={onAddEmployee} className="gap-2">
-        <UserPlus className="h-4 w-4" /> Add New Employee
-      </Button>
-    )}
-  </div>
-);
-
 const SearchBar = ({ searchTerm, setSearchTerm, filteredCount, totalCount }) => (
   <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
     <div className="relative flex-1 max-w-md w-full">

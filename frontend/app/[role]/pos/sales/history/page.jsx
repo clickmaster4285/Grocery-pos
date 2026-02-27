@@ -45,6 +45,8 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 
+import PageHeader from '@/components/shared-components/PageHeader';
+
 const SalesHistory = ({ 
   title = "Transaction Archive", 
   description = "Electronic journal of all branch sales and returns." 
@@ -114,29 +116,28 @@ const SalesHistory = ({
         />
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="outline" 
-            size="icon" 
-            onClick={() => router.push(`/${role}/pos/sales`)}
-            className="rounded-xl border-slate-200 bg-white shadow-sm hover:bg-slate-50 transition-all active:scale-95"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-800">{title}</h1>
-            <p className="text-slate-500 text-xs font-medium mt-0.5">{description}</p>
+      <PageHeader 
+        title={
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => router.push(`/${role}/pos/sales`)}
+              className="rounded-xl border-slate-200 bg-white shadow-sm hover:bg-slate-50 transition-all active:scale-95 h-10 w-10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span>{title}</span>
           </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-white px-4 py-2.5 rounded-xl border border-slate-100 shadow-sm">
-                <Calendar className="h-3.5 w-3.5 text-primary" />
-                <span>{startDate === endDate ? `Records for ${startDate}` : `${startDate} → ${endDate}`}</span>
-            </div>
-        </div>
-      </div>
+        }
+        description={description}
+        actions={
+          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-white px-4 py-2.5 rounded-xl border border-slate-100 shadow-sm">
+            <Calendar className="h-3.5 w-3.5 text-primary" />
+            <span>{startDate === endDate ? `Records for ${startDate}` : `${startDate} → ${endDate}`}</span>
+          </div>
+        }
+      />
 
       {/* KPI STATS CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

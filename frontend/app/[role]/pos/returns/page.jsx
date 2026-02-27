@@ -39,6 +39,8 @@ import { useReactToPrint } from 'react-to-print';
 import ReturnReceiptPrint from '@/components/shared-components/pos/sales/ReturnReceiptPrint';
 import { formatCurrency } from '@/utils/formatters';
 
+import PageHeader from '@/components/shared-components/PageHeader';
+
 const ReturnsManagementPage = () => {
     const { role } = useParams();
     const router = useRouter();
@@ -93,16 +95,16 @@ const ReturnsManagementPage = () => {
                 />
             </div>
 
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-black tracking-tighter uppercase italic text-primary">Returns & Exchanges</h1>
-                    <p className="text-muted-foreground font-medium text-sm italic">Audit trail for all post-sale transactions</p>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
-                    <Calendar className="h-4 w-4" />
-                    <span>{startDate === endDate ? `Records for ${startDate}` : `${startDate} to ${endDate}`}</span>
-                </div>
-            </div>
+            <PageHeader 
+                title="Returns & Exchanges"
+                description="Audit trail for all post-sale transactions"
+                actions={
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm">
+                        <Calendar className="h-4 w-4" />
+                        <span>{startDate === endDate ? `Records for ${startDate}` : `${startDate} to ${endDate}`}</span>
+                    </div>
+                }
+            />
 
             {/* STATUS CARDS */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
