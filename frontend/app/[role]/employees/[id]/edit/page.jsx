@@ -9,6 +9,8 @@ import { useGetAllBranches } from '@/features/branch.api';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
 
+import PageHeader from '@/components/shared-components/PageHeader';
+
 const EmployeeEditPage = () => {
   const params = useParams();
   const router = useRouter();
@@ -35,18 +37,23 @@ const EmployeeEditPage = () => {
   }
 
   return (
-    <div className='bg-white p-2 rounded-md'>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Edit Employee</h1>
-          <p className="text-muted-foreground">
-            Update the employee's details and permissions below.
-          </p>
-        </div>
-        <Button variant="ghost" onClick={() => router.back()} className="gap-2">
-          <ChevronLeft className="h-4 w-4" /> Back to List
-        </Button>
-      </div>
+    <div className='bg-white p-6 rounded-2xl shadow-sm border border-slate-100'>
+      <PageHeader 
+        title={
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => router.back()}
+              className="rounded-xl border-slate-200 bg-white shadow-sm hover:bg-slate-50 h-10 w-10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span>Edit Employee</span>
+          </div>
+        }
+        description="Update the employee's details and permissions below."
+      />
 
       <StaffForm
         formData={formData}

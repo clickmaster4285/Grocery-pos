@@ -41,6 +41,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import React from 'react';
 
+import PageHeader from '@/components/shared-components/PageHeader';
+
 const EmployeeDetailPage = () => {
   const router = useRouter();
   const params = useParams();
@@ -100,43 +102,48 @@ const EmployeeDetailPage = () => {
 
   return (
     <div className="bg-slate-50/50">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-6">
-        <div className="space-y-1">
-          <Button
-            variant="ghost"
-            onClick={() => router.push(`/${currentUserRole}/employees`)}
-            className="group -ml-2 text-muted-foreground bg-accent-foreground/10 hover:text-foreground h-8 px-2"
-          >
-            <ArrowLeft className="mr-1 h-4 w-4 transition-transform group-hover:-translate-x-1" />
-            <span className="text-[10px] font-bold uppercase tracking-wide">Back to Staff List</span>
-          </Button>
-          <h1 className="text-3xl font-semibold tracking-tight capitalize text-foreground">
-            {user.firstName} {user.lastName}
-          </h1>
-          <div className="flex items-center gap-2 mt-2">
-            <span className="capitalize font-semibold tracking-wide text-slate-700">{user.role.replace(/_/g, ' ')}</span>
-            <span className={cn(
-              "text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border",
-              user.isActive
-                ? "bg-emerald-500/10 border-emerald-200 text-emerald-600"
-                : "bg-red-500/10 border-red-200 text-red-600"
-            )}>
-              {user.isActive ? "Active" : "Inactive"}
-            </span>
+      <PageHeader 
+        title={
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => router.push(`/${currentUserRole}/employees`)}
+              className="group -ml-2 text-muted-foreground bg-accent-foreground/10 hover:text-foreground h-8 px-2 w-fit"
+            >
+              <ArrowLeft className="mr-1 h-4 w-4 transition-transform group-hover:-translate-x-1" />
+              <span className="text-[10px] font-bold uppercase tracking-wide">Back to Staff List</span>
+            </Button>
+            <div className="flex items-center gap-4">
+              <h1 className="text-3xl font-bold tracking-tight capitalize text-slate-900">
+                {user.firstName} {user.lastName}
+              </h1>
+              <span className={cn(
+                "text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border",
+                user.isActive
+                  ? "bg-emerald-500/10 border-emerald-200 text-emerald-600"
+                  : "bg-red-500/10 border-red-200 text-red-600"
+              )}>
+                {user.isActive ? "Active" : "Inactive"}
+              </span>
+            </div>
           </div>
-        </div>
-        <div className="flex gap-3">
-          {canUpdateEmployee && (
+        }
+        description={
+          <span className="capitalize font-semibold tracking-wide text-slate-500 mt-1 block">
+            {user.role.replace(/_/g, ' ')}
+          </span>
+        }
+        actions={
+          canUpdateEmployee && (
             <Button
               onClick={() => router.push(`/${currentUserRole}/employees/${user._id}/edit`)}
-              className="rounded-xl font-semibold uppercase tracking-wide shadow-xl shadow-primary/20 bg-primary hover:bg-primary/90"
+              className="h-11 rounded-xl font-bold uppercase tracking-wide shadow-xl shadow-primary/20 bg-primary hover:bg-primary/90"
             >
-              Edit Employee
+              Edit Employee Details
             </Button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Sidebar: Profile Summary */}
@@ -397,7 +404,7 @@ const EmployeeDetailPage = () => {
           </Tabs>
 
           <div className="mt-8 flex justify-end">
-            <Button variant="outline" onClick={() => router.push(`/${currentUserRole}/employees`)} className="gap-2 rounded-xl font-semibold uppercase tracking-wide px-6 shadow-sm border-slate-100 hover:bg-slate-50/50">
+            <Button variant="outline" onClick={() => router.push(`/${currentUserRole}/employees`)} className="gap-2 rounded-xl font-semibold uppercase tracking-wide px-6 shadow-sm border-slate-100 hover:bg-slate-50/50 h-11">
               <ArrowLeft className="h-4 w-4" /> Back to Staff List
             </Button>
           </div>

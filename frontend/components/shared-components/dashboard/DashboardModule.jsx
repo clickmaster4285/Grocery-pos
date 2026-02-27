@@ -49,6 +49,8 @@ import { formatCurrency } from "@/utils/formatters";
 import { useAuth } from "@/hooks/useAuth";
 import { useGetAllBranches } from "@/features/branch.api";
 
+import PageHeader from "@/components/shared-components/PageHeader";
+
 const COLORS = ["#ea580c", "#94a3b8", "#64748b", "#cbd5e1"];
 
 export default function Dashboard() {
@@ -80,72 +82,69 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/30 p-4 md:p-6">
-      {/* --- Header --- */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Executive Dashboard</h1>
-          <p className="text-slate-500 text-sm font-medium">
-            Real-time operational overview and performance analytics.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Branch Selector for Admin */}
-          {isAdmin && (
-            <div className="flex items-center gap-2">
-               <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                <SelectTrigger className="w-50 h-11 bg-white border-slate-200 rounded-xl shadow-sm text-slate-600 font-semibold">
-                    <div className="flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-slate-400" />
-                        <SelectValue placeholder="All Branches" />
-                    </div>
-                </SelectTrigger>
-                <SelectContent className="rounded-xl border-slate-100 shadow-xl">
-                  <SelectItem value="all">All Branches</SelectItem>
-                  {branches.map((branch) => (
-                    <SelectItem key={branch._id} value={branch._id}>
-                      {branch.branch_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedBranch !== "all" && (
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-11 w-11 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50"
-                    onClick={() => setSelectedBranch("all")}
-                >
-                    <X className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
-          )}
+    <div className="min-h-screen bg-slate-50/30">
+      <PageHeader 
+        title="Executive Dashboard"
+        description="Real-time operational overview and performance analytics."
+        actions={
+          <>
+            {/* Branch Selector for Admin */}
+            {isAdmin && (
+              <div className="flex items-center gap-2">
+                <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                  <SelectTrigger className="w-50 h-11 bg-white border-slate-200 rounded-xl shadow-sm text-slate-600 font-semibold">
+                      <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-slate-400" />
+                          <SelectValue placeholder="All Branches" />
+                      </div>
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-slate-100 shadow-xl">
+                    <SelectItem value="all">All Branches</SelectItem>
+                    {branches.map((branch) => (
+                      <SelectItem key={branch._id} value={branch._id}>
+                        {branch.branch_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedBranch !== "all" && (
+                  <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-11 w-11 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50"
+                      onClick={() => setSelectedBranch("all")}
+                  >
+                      <X className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            )}
 
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-45 h-11 bg-white border-slate-200 rounded-xl shadow-sm text-slate-600 font-semibold">
-              <SelectValue placeholder="Select Period" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-slate-100 shadow-xl">
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="yesterday">Yesterday</SelectItem>
-              <SelectItem value="last_7_days">Last 7 Days</SelectItem>
-              <SelectItem value="last_30_days">Last 30 Days</SelectItem>
-              <SelectItem value="this_month">This Month</SelectItem>
-              <SelectItem value="this_year">This Year</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button 
-            onClick={() => router.push('workflow')}
-            className="h-11 px-5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold shadow-xl shadow-orange-500/20 border-none transition-all hover:scale-105 active:scale-95"
-          >
-            <Zap className="mr-2 h-4 w-4 fill-current" /> Project Workflow
-          </Button>
-          <Button variant="outline" className="h-11 px-5 rounded-xl bg-white border-slate-200 text-slate-600 font-semibold shadow-sm hover:bg-slate-50">
-            <FileText className="mr-2 h-4 w-4 text-slate-400" /> Export Reports
-          </Button>
-        </div>
-      </div>
+            <Select value={period} onValueChange={setPeriod}>
+              <SelectTrigger className="w-45 h-11 bg-white border-slate-200 rounded-xl shadow-sm text-slate-600 font-semibold">
+                <SelectValue placeholder="Select Period" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-slate-100 shadow-xl">
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="yesterday">Yesterday</SelectItem>
+                <SelectItem value="last_7_days">Last 7 Days</SelectItem>
+                <SelectItem value="last_30_days">Last 30 Days</SelectItem>
+                <SelectItem value="this_month">This Month</SelectItem>
+                <SelectItem value="this_year">This Year</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button 
+              onClick={() => router.push('workflow')}
+              className="h-11 px-5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold shadow-xl shadow-orange-500/20 border-none transition-all hover:scale-105 active:scale-95"
+            >
+              <Zap className="mr-2 h-4 w-4 fill-current" /> Project Workflow
+            </Button>
+            <Button variant="outline" className="h-11 px-5 rounded-xl bg-white border-slate-200 text-slate-600 font-semibold shadow-sm hover:bg-slate-50">
+              <FileText className="mr-2 h-4 w-4 text-slate-400" /> Export Reports
+            </Button>
+          </>
+        }
+      />
 
       {/* --- KPI Cards --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

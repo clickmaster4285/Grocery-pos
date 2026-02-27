@@ -31,6 +31,8 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
+import PageHeader from "@/components/shared-components/PageHeader";
+
 const Suppliers = () => {
     const router = useRouter();
     const { user } = useAuth();
@@ -107,23 +109,21 @@ const Suppliers = () => {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <main className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight text-foreground">Suppliers</h1>
-                        <p className="text-muted-foreground font-medium mt-1">
-                            Manage and oversee your global supply chain partners.
-                        </p>
-                    </div>
-                    {canCreateSuppliers && (
-                        <Button
-                            onClick={openAddPage}
-                            className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm"
-                        >
-                            <Plus className="h-4 w-4" />
-                            New Supplier
-                        </Button>
-                    )}
-                </div>
+                <PageHeader 
+                    title="Suppliers"
+                    description="Manage and oversee your global supply chain partners."
+                    actions={
+                        canCreateSuppliers && (
+                            <Button
+                                onClick={openAddPage}
+                                className="gap-2 bg-primary hover:bg-primary/90 font-semibold px-5 h-11 shadow-sm rounded-xl"
+                            >
+                                <Plus className="h-4 w-4" />
+                                New Supplier
+                            </Button>
+                        )
+                    }
+                />
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-center bg-card p-4 rounded-xl border shadow-sm">
                     <div className="lg:col-span-2 relative">

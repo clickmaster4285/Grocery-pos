@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useBranchLocationHook } from '@/hooks/useBranchLocationHook';
 import { useGetAllBranches } from '@/features/branch.api';
 
+import PageHeader from '@/components/shared-components/PageHeader';
+
 const LocationsPage = () => {
   const {
     locations,
@@ -52,18 +54,14 @@ const LocationsPage = () => {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div className="flex flex-col">
-            <CardTitle>Branch Locations</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Manage the physical storage locations within your branches.
-            </p>
-          </div>
-          <div className="flex items-center space-x-2">
+      <PageHeader 
+        title="Branch Locations"
+        description="Manage the physical storage locations within your branches."
+        actions={
+          <>
             {isAdmin && (
               <Select onValueChange={setSelectedBranchId} value={selectedBranchId || ''} disabled={isLoadingBranches}>
-                <SelectTrigger className="w-45">
+                <SelectTrigger className="w-45 h-11 rounded-xl">
                   <SelectValue placeholder="Select Branch" />
                 </SelectTrigger>
                 <SelectContent>
@@ -78,13 +76,16 @@ const LocationsPage = () => {
               </Select>
             )}
             {canCreate && (
-              <Button onClick={() => handleOpenForm()}>
+              <Button onClick={() => handleOpenForm()} className="h-11 rounded-xl font-semibold">
                 <PlusCircle className="mr-2 h-4 w-4" /> Create New Location
               </Button>
             )}
-          </div>
-        </CardHeader>
-        <CardContent>
+          </>
+        }
+      />
+
+      <Card className="border-none shadow-none bg-transparent">
+        <CardContent className="p-0">
           <BranchLocationTable
             locations={locations}
             isLoading={isLocationsLoading}

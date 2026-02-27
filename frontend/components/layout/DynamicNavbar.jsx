@@ -31,9 +31,9 @@ export default function DynamicNavbar() {
 
 
   return (
-    <header className="bg-white border-b border-gray-300 p-4 sticky top-0 z-50">
+    <header className="bg-white border-b border-gray-300 p-3 sticky top-0 z-50">
       <div className="container mx-auto flex justify-between items-center">
-        <div className="font-bold capitalize text-xl">
+        <div className="font-bold capitalize text-xl w-72">
           {`${userPrimaryRole} Dashboard`}
         </div>
 
@@ -59,7 +59,7 @@ export default function DynamicNavbar() {
             </Button>
 
             {/* User dropdown menu */}
-            <div className="border border-gray-400 py-1 rounded-full bg-gray-300">
+            <div className="border border-gray-400 rounded-full bg-gray-300">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="gap-2 px-2 rounded-full">

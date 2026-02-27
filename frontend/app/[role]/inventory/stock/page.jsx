@@ -14,6 +14,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
 
+import PageHeader from '@/components/shared-components/PageHeader';
+
 const StockManagement = () => {
   const [activeTab, setActiveTab] = useState('current-stock');
   const [searchTerm, setSearchTerm] = useState('');
@@ -60,17 +62,17 @@ const StockManagement = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Stock Management</h1>
-          <p className="text-muted-foreground">Monitor and transfer inventory across your business locations.</p>
-        </div>
-        {canCreateTransfer && (
-          <Button onClick={() => router.push(`/${role}/inventory/stock/create`)}>
-            <Plus className="mr-2 h-4 w-4" /> New Transfer
-          </Button>
-        )}
-      </div>
+      <PageHeader 
+        title="Stock Management"
+        description="Monitor and transfer inventory across your business locations."
+        actions={
+          canCreateTransfer && (
+            <Button onClick={() => router.push(`/${role}/inventory/stock/create`)} className="h-11 rounded-xl font-semibold">
+              <Plus className="mr-2 h-4 w-4" /> New Transfer
+            </Button>
+          )
+        }
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>

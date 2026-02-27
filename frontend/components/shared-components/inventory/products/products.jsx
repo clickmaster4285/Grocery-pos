@@ -11,6 +11,8 @@ import { PlusCircle, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useDebounce } from '@/hooks/useDebounce'; 
 
+import PageHeader from '@/components/shared-components/PageHeader';
+
 const ProductsPage = ({ role }) => {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,19 +42,16 @@ const ProductsPage = ({ role }) => {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-3xl font-black tracking-tight uppercase">Product Inventory</h2>
-          <p className="text-muted-foreground font-medium">
-            Manage store items, monitor stock distribution, and track suppliers.
-          </p>
-        </div>
-        <Button onClick={handleCreateProduct} className="shadow-lg shadow-primary/20 font-bold">
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add New Product
-        </Button>
-      </div>
+      <PageHeader 
+        title="Product Inventory"
+        description="Manage store items, monitor stock distribution, and track suppliers."
+        actions={
+          <Button onClick={handleCreateProduct} className="shadow-lg shadow-primary/20 font-bold h-11 rounded-xl">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add New Product
+          </Button>
+        }
+      />
 
       {/* Stats & Filter Cards */}
       <ProductStatsCards 
@@ -68,14 +67,14 @@ const ProductsPage = ({ role }) => {
         <Input
           type="search"
           placeholder="Smart Search: Type product name, SKU, or barcode (handles typos automatically)..."
-          className="w-full pl-10 h-11 text-sm font-medium border-2 focus-visible:ring-primary/10 shadow-sm"
+          className="w-full pl-10 h-11 text-sm font-medium border-2 focus-visible:ring-primary/10 shadow-sm rounded-xl"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
       {/* Products Table */}
-      <Card className="border-none shadow-none">
+      <Card className="border-none shadow-none bg-transparent">
         <ProductTable
             products={data?.products}
             isLoading={isLoading}

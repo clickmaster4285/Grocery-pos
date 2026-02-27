@@ -30,6 +30,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import PageHeader from '@/components/shared-components/PageHeader';
+
 const SettingsContainer = () => {
   const { user } = useAuth();
   const { data: settings, isLoading: settingsLoading } = useGetSettings();
@@ -163,10 +165,10 @@ const SettingsContainer = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-primary uppercase italic">System Configuration</h1>
-        <p className="text-muted-foreground text-sm font-medium">Control your POS identity, regional settings, and system-wide behavior.</p>
-      </div>
+      <PageHeader 
+        title="System Configuration"
+        description="Control your POS identity, regional settings, and system-wide behavior."
+      />
 
       <Tabs defaultValue="store" className="space-y-6">
         <TabsList className="bg-muted/50 p-1 border grid grid-cols-2 lg:grid-cols-4 w-full lg:w-200">
