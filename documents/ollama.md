@@ -1,426 +1,222 @@
-# Supermarket POS – Local AI Integration Plan (Ollama)
+# Supermarket POS: Enterprise AI Architecture & Integration Specification (Ollama Layer)
 
-## Project Overview
+## 1. System & AI Specifications
 
-We are building a **commercial multi-branch Supermarket POS system** using:
+### 1.1 Hardware Baseline & Runtime Constraints
+To ensure operational stability in a resource-constrained production environment (8GB RAM), the AI layer follows strict allocation limits:
+*   **Host CPU**: Intel i5-6400 (Quad-core) | Inference Priority: Background (Low niceness).
+*   **Thread Fencing**: restricted to `num_thread: 3` to reserve 25% CPU overhead for core POS transaction processing.
+*   **Memory Footprint**: Target < 2.5GB RSS (Resident Set Size). Implementation of `mmap` for efficient model loading.
+*   **Inference Engine**: Ollama v0.1.x+ (RESTful API interface over loopback).
+*   **Latency Budget**: Target < 2500ms for Intent Detection; < 5000ms for Data Summarization.
 
-- Next.js (Frontend)
-- Node.js / Express (Backend)
-- MongoDB (Database)
-- Role-based access control
-- Multi-branch support (1–50 branches)
-- 1,000 to 50,000+ products (SKUs)
-- Inventory, HR, Sales, Analytics, Vendors, Terminals, etc.
+### 1.2 Model Determinism & Inference Tuning
+*   **Model**: `phi3:mini` (3.8B Parameters, 4-bit Quantized).
+*   **Temperature**: `0.0` (Strictly enforced to ensure deterministic, reproducible JSON output).
+*   **Context Window (num_ctx)**: `4096 tokens` (Optimized for short-query routing and high-density data summary).
+*   **Predict Limit (num_predict)**: `128 tokens` for routing; `512 tokens` for summarization.
+*   **Top_P / Top_K**: Disabled to eliminate non-deterministic sampling.
+*   **Response Mode**: `format: "json"` (Constrained decoding to guarantee schema compliance).
 
-This is NOT a demo project. It is designed to scale commercially.
-
----
-
-# Why We Are Using Ollama
-
-We want to integrate a **local AI assistant** into the POS system.
-
-Goals of AI:
-
-- Understand user questions
-- Detect intent
-- Route to correct business logic
-- Help with analytics
-- Assist admin users
-- Generate summaries
-- Never directly access the database
-
-We are NOT training a custom AI model.
-We are using a local LLM via Ollama.
-
-Reason:
-- Faster development
-- No cloud dependency
-- Data privacy
-- Full backend control
-- Lower cost
+### 1.3 Token & Memory Governance Policy
+To prevent resource exhaustion and ensure consistent performance:
+*   **Max Prompt Size**: Input prompts strictly truncated at 1,500 characters (~375 tokens).
+*   **Token Budget**:
+    *   **Intent Phase**: Max 500 tokens (System Prompt + User Input).
+    *   **Summary Phase**: Max 2048 tokens (Data Context).
+*   **History Trimming**: "Sliding Window" algorithm retains only the last 3 turns of conversation to minimize context bloat.
+*   **Summarization Threshold**: If query results exceed 50 rows, the Service Layer performs a statistical aggregation (count, averages) before passing data to the LLM.
+*   **Data Chunking**: Large datasets are chunked into 1KB segments if detailed analysis is required (Phase 3+).
+*   **Memory Watchdog**: A background process monitors RSS; if usage > 3.5GB, the Ollama process is gracefully restarted.
 
 ---
 
-# Hardware Constraints
+## 2. Strategic Objectives & ROI
 
-Current Development Machine:
-
-- Intel i5-6400
-- 8GB RAM
-- No dedicated GPU
-
-Because of this, we selected:
-
-Model: `phi3:mini`
-
-Reason:
-- Lightweight
-- Runs on CPU
-- Good for structured output
-- Good for intent detection
-- Low memory usage
-
-We are NOT using 8B or 70B models due to RAM limits.
+The AI layer is a **Cognitive Middleware** designed to maximize manager productivity:
+1.  **Natural Language Query (NLQ)**: Converts conversational English into structured database operations, reducing training time for branch managers.
+2.  **Stateless Privacy Compliance**: No PII (Personally Identifiable Information) ever leaves the local network, ensuring 100% data sovereignty.
+3.  **Cross-Domain Intelligence**: Synthesizes data across Inventory, Sales, and HR modules that are traditionally siloed.
+4.  **Operational Resilience**: Provides mission-critical insights even during ISP outages by running entirely on local hardware.
 
 ---
 
-# What We Have Done So Far
+## 3. The "Intent Router" & Middleware Architecture
 
-## 1. Installed Ollama
+The integration follows a **Deterministic Dispatcher Pattern**, ensuring the AI only influences query parameters, never the underlying code execution.
 
-Verified with:
-
-
-ollama serve
-
-
-Server running at:
-
-
-http://localhost:11434
-
+### 3.1 Data Flow Pipeline
+1.  **Sanitization Layer**: Express.js middleware strips input of script tags and injection attempts.
+2.  **Context Rehydration**: Backend injects `req.user.branch`, `req.user.role`, and current `system_time` into the internal request context.
+3.  **Inference**: Ollama processes the prompt against the **Master System Manifest** (Few-shot prompting).
+4.  **The Parser**: A robust "Clean-and-Parse" utility extracts valid JSON from the LLM buffer, handling potential markdown artifacts.
+5.  **Permission Shield**: The existing RBAC (Role-Based Access Control) validates the AI's requested `tool:action` against the user's actual permissions.
+6.  **Service Execution**: Validated intent is passed to the standard MERN service layer.
 
 ---
 
-## 2. Pulled Model
+## 4. Phased Engineering Roadmap
 
+### Phase 1: Foundation (COMPLETED)
+*   [x] Local LLM deployment via Ollama.
+*   [x] RESTful abstraction layer in Node.js.
+*   [x] JSON-only system prompt engineering.
 
-ollama pull phi3:mini
+### Phase 2: Secure Router & Dispatcher (CURRENT)
+*   **Robust Parsing**: Implementation of safe JSON extraction with automatic error correction for minor LLM syntax errors.
+*   **Few-Shot Library**: Integration of 5-10 "Gold Standard" examples in the system prompt to maximize intent accuracy.
+*   **Domain Mapping**: Connecting AI intents to `InventoryService`, `BranchService`, and `SaleService`.
+*   **Dynamic Injection**: Automatically appending branch isolation filters to every tool-driven MongoDB query.
 
+### Phase 3: Analytics Synthesis & Natural Language Generation (NLG)
+*   **Data Aggregation**: Piping aggregated query results (JSON) back to the AI for concise, human-readable insights.
+*   **Sales Trend Analysis**: Implementation of logic for "TOP_PRODUCTS" and "PERIOD_PERFORMANCE_SUMMARY".
+*   **Management Briefings**: Generating automated "End-of-Day" summaries for branch owners.
+
+### Phase 4: Predictive Logic & Forecasting
+*   **Backend-Driven Calculations**: All statistical modeling (moving averages, linear regression) occurs in the Node.js service layer, NOT the LLM.
+*   **Explanation-Only Role**: The LLM receives the pre-calculated prediction (e.g., "Predicted Sales: 500 units") and generates the business context explanation.
+*   **Numeric Constraints**: The AI is explicitly prohibited from generating numeric predictions or financial forecasts independently to prevent hallucination.
+*   **Deterministic Algorithms**: Use of standard libraries (e.g., `simple-statistics`) for forecasting to ensure auditability.
 
 ---
 
-## 3. Verified API
+## 5. Engineering Guardrails: Security & Stability
 
-Using:
+### 5.1 Validation Protocols (The "Don'ts")
+*   **❌ No Raw Access**: AI is strictly prohibited from receiving MongoDB connection strings or raw DB handles.
+*   **❌ No Mutative Power**: Intent detection is limited to `READ` and `ANALYZE` actions. Any `CREATE/UPDATE/DELETE` intent must be rejected at the Dispatcher level.
+*   **❌ No Token Overflow**: Input queries are truncated at 500 characters to prevent Prompt Injection and Denial of Service (DoS).
+*   **❌ No Branch Hopping**: Multi-tenancy is enforced at the service level; the AI cannot override the `branchId` provided by the auth middleware.
 
-POST http://localhost:11434/api/generate
+### 5.2 Prompt Injection Defense Manifest
+The AI Dispatcher implements a strict filtering layer to neutralize adversarial inputs.
+*   **Ignored Directives**: The model is trained via system prompt to ignore user instructions attempting to:
+    *   Override system rules (e.g., "Ignore previous instructions").
+    *   Request raw database access or schema dumps.
+    *   Escalate role privileges (e.g., "Act as Admin").
+    *   Bypass branch isolation filters.
+    *   Reveal the hidden system prompt.
+*   **Input Filtering**: Regex pre-processing strips common injection vectors (e.g., repeating characters > 10x, known jailbreak phrases).
+*   **Prefix Hardening**: The System Prompt is injected as a "User" message in the chat history immediately preceding the actual user input to reinforce constraints.
+*   **Internal Manifest**: The list of available tools is injected dynamically based on the user's role, preventing the AI from even knowing about admin tools when interacting with a standard user.
 
-Body:
+### 5.3 Failure Modes & Fallbacks
+*   **Retry Policy**: Implement an exponential backoff strategy (Max 3 retries: 500ms, 1500ms, 3000ms) for transient inference errors.
+*   **Circuit Breaker**: If >5 consecutive inference failures occur, the AI circuit opens for 60 seconds, defaulting UI to manual search mode.
+*   **Graceful Degradation**: If specific tools fail (e.g., `HRTool`), the system returns a partial success response indicating which domains are unavailable.
+*   **Error Telemetry**: All failures are logged with structured error codes (`AI_PARSE_ERROR`, `AI_TIMEOUT`, `AI_HALLUCINATION`, `AI_LOW_CONFIDENCE`).
+*   **Invalid JSON Fallback**: Returns a standard `UI_CLARIFICATION_REQUIRED` response if the LLM output is unparseable after retries.
 
+### 5.4 Confidence Threshold Policy
+To ensure high-integrity routing, the system evaluates the model's self-reported confidence (or heuristic certainty):
+*   **Confidence < 0.4 (Hard Reject)**: System returns a "I didn't understand that" generic error. No DB query is attempted.
+*   **Confidence 0.4 – 0.6 (Clarification)**: System prompts the user with buttons or suggestions: "Did you mean to check inventory or sales?"
+*   **Confidence > 0.6 (Proceed)**: System executes the intent.
+*   **Logging**: All events with confidence < 0.6 are flagged in the `ai_audit_log` for review and prompt tuning.
+
+---
+
+## 6. Schema Specification (The Command Contract)
+
+Every AI response must strictly adhere to the following **Strict ENUM-Based** JSON interface.
+
+### 6.1 Schema Definition
 ```json
 {
-  "model": "phi3:mini",
-  "prompt": "hi there",
-  "stream": false
+  "schema_version": "1.0.0",
+  "tool": "ENUM(inventory | sales | hr | system)",
+  "action": "ENUM(See Section 6.2)",
+  "params": {
+    "filter": "string (Max 50 chars)",
+    "limit": "integer (1-100, Default: 10)",
+    "timeframe": "string (ISO8601 or Relative ENUM)",
+    "threshold": "number (Optional)"
+  },
+  "confidence": "number (0.0 - 1.0)"
 }
+```
 
-Response successful.
+### 6.2 Action Enums & Validation Rules
 
-4. Connected Ollama to Express Backend
+#### Tool: `inventory`
+*   **`LOW_STOCK`**:
+    *   Params: `limit` (Req), `threshold` (Opt, Default: 10)
+*   **`SEARCH_PRODUCT`**:
+    *   Params: `filter` (Req, Min 3 chars)
+*   **`CATEGORY_SUMMARY`**:
+    *   Params: `filter` (Req: Category Name)
 
-Created:
+#### Tool: `sales`
+*   **`TODAY_SUMMARY`**:
+    *   Params: None
+*   **`TOP_PRODUCTS`**:
+    *   Params: `limit` (Req), `timeframe` (Req: `today` | `week` | `month`)
+*   **`BRANCH_PERFORMANCE`**:
+    *   Params: `timeframe` (Req)
 
-/ai/ollama.service.js
+#### Tool: `hr`
+*   **`SHIFT_STATUS`**:
+    *   Params: `timeframe` (Req: `current` | `next`)
+*   **`PAYROLL_PREVIEW`**:
+    *   Params: `filter` (Req: Employee Name or ID)
 
-Handles:
-
-Sending prompt
-
-Returning response
-
-Created:
-
-/routes/ai.routes.js
-
-Endpoint:
-
-POST /ai/chat
-
-Confirmed working.
-
-Important Architectural Decision
-
-AI WILL NOT:
-
-Directly access MongoDB
-
-Execute business logic
-
-Modify stock
-
-Bypass permissions
-
-Replace services
-
-AI WILL:
-
-Detect user intent
-
-Return structured JSON
-
-Select domain tools
-
-Provide summaries
-
-Current Goal
-
-Convert AI from:
-
-Chatbot
-
-Into:
-
-Intent Router
-
-Tool-Based Architecture
-
-Instead of creating dozens of small AI functions,
-we create domain-level tools.
-
-Example domains:
-
-inventory
-
-sales
-
-hr
-
-analytics
-
-system
-
-AI returns structured JSON like:
-
+### 6.3 Contract Example
+**User Query**: "Show me the top 5 selling snacks from last week."
+**AI Output**:
+```json
 {
-  "tool": "inventory",
-  "action": "LOW_STOCK",
-  "threshold": 10
+  "schema_version": "1.0.0",
+  "tool": "sales",
+  "action": "TOP_PRODUCTS",
+  "params": {
+    "filter": "snacks",
+    "limit": 5,
+    "timeframe": "last_week"
+  },
+  "confidence": 0.92
 }
+```
 
-Backend then:
+---
 
-Validates user permissions
+## 7. Logging & Observability
+*   **Audit Trail**: Every AI request is logged with `user_id`, `original_prompt`, `detected_intent`, `inference_time`, and `sanitized_response`.
+*   **Performance Monitoring**: Track "Parsing Failure Rate" and "Mean Inference Latency" to trigger model re-tuning or hardware upgrades.
 
-Calls appropriate service
+---
 
-Queries MongoDB
+## 8. Deployment Topology
+*   **Development**: Local Ollama instance running on dev hardware.
+*   **Production (V1)**: Dedicated AI microservice node (16GB RAM) within the local branch network.
+*   **Edge Strategy**: High-traffic branches may host their own inference engine to ensure zero-latency offline processing.
 
-Returns result
+---
 
-Optionally sends summary back to AI
+## 9. Versioning & Change Management
 
-Current Implementation Stage
+### 9.1 Semantic Versioning
+*   **Manifest Version**: `v1.x` (Tracks changes to the System Prompt and Tool definitions).
+*   **Schema Version**: `v1.x` (Tracks changes to the JSON Output Contract).
+*   **Tool Registry**: `v1.x` (Tracks available Service Layer endpoints).
 
-We are implementing:
+### 9.2 Migration Policy
+*   **Backward Compatibility**: The backend Parser must support `Schema Version N` and `N-1`.
+*   **Deprecation**: When removing a Tool, the System Prompt is updated to explicitly state "X is no longer supported" to prevent hallucinations.
+*   **Rollout**: New Prompt Versions are staged in a "Shadow Mode" (logging only) before going live to users.
 
-AI Intent Detection with Strict JSON Output
+---
 
-System Prompt Forces:
+## 10. Enterprise Testing Strategy
 
-Only valid JSON
+To ensure reliability, the AI layer is subjected to a rigorous testing framework:
+1.  **Intent Accuracy Suite**: A library of 500+ "Golden Queries" (Natural Language -> Expected JSON) run automatically via CI/CD. Target > 95% pass rate.
+2.  **Adversarial Test Suite**: Automated injection of jailbreak attempts and malformed inputs to verify the Defense Manifest.
+3.  **Regression Testing**: Ensuring new Tools do not degrade the accuracy of existing Tools.
+4.  **Load Testing**: Simulating concurrent requests to verify CPU fencing and Latency Budgets (Target: Stable at 5 concurrent requests).
+5.  **Schema Validation**: Automated contract testing using JSON Schema to ensure the LLM output always matches the backend expectations.
 
-No explanations
+---
 
-No extra text
-
-This converts AI into a router.
-
-Complete System Flow
-
-User → Frontend → Express → AI Router → Service Layer → MongoDB
-
-AI decides:
-
-What user wants
-
-Backend decides:
-
-What user is allowed to access
-
-Security Design
-
-We inject:
-
-branchId from authenticated user
-
-role from middleware
-
-AI is NEVER allowed to choose branchId freely.
-
-Permission system remains intact.
-
-Database Design for Scalability
-
-We support up to 50,000 SKUs.
-
-Key decisions:
-
-Products stored globally
-
-Inventory stored per branch
-
-No product duplication per branch
-
-Indexed fields:
-
-barcode
-
-sku
-
-product name
-
-branchId
-
-categoryId
-
-Stock stored in separate collection:
-
-inventory:
-
-productId
-
-branchId
-
-quantity
-
-batch info (for FIFO)
-
-Performance Strategy
-
-Pagination required
-
-Indexed queries only
-
-Aggregation pipelines for analytics
-
-AI receives filtered results only
-
-Never send large datasets to model
-
-Phased Development Plan
-Phase 1 – Intent Router (Current)
-
-AI detects tool
-
-Returns JSON
-
-Backend parses JSON
-
-Basic routing works
-
-Phase 2 – Domain Tool Implementation
-
-Implement:
-
-inventoryTool()
-salesTool()
-hrTool()
-
-Each tool:
-
-Calls service layer
-
-Uses existing business logic
-
-Maintains permission checks
-
-Phase 3 – Analytics AI
-
-Sales trends
-
-Branch comparison
-
-Low stock alerts
-
-Performance summaries
-
-Phase 4 – Advanced Features
-
-Forecasting
-
-Demand prediction
-
-Reorder suggestions
-
-Vendor performance insights
-
-Production Plan (Future)
-
-Development:
-AI runs locally via Ollama.
-
-Production:
-
-AI service runs on separate server (16–32GB RAM)
-
-POS terminals call central AI API
-
-Never run AI on cashier machines
-
-Design Philosophy
-
-AI is:
-
-Assistant layer
-
-NOT:
-
-Core logic layer
-
-All business logic stays in services.
-
-AI only:
-
-Understands language
-
-Converts to structured command
-
-Long-Term Vision
-
-The system should support:
-
-50 branches
-
-50,000 SKUs
-
-100+ terminals
-
-High transaction volume
-
-Real-time analytics
-
-AI becomes:
-
-Executive Assistant for Admin Dashboard
-
-Not a chatbot.
-
-Immediate Next Steps
-
-Finalize strict JSON prompt format.
-
-Implement inventoryTool.
-
-Connect tool to real MongoDB queries.
-
-Add safe JSON parsing with fallback.
-
-Add logging for AI actions.
-
-Add error handling for invalid AI output.
-
-Final Objective
-
-Build a secure, scalable, tool-driven AI layer inside a commercial supermarket POS system using Ollama locally during development, and migrate to a dedicated AI server in production.
-
-AI will enhance:
-
-Analytics
-
-Reporting
-
-Operational awareness
-
-Decision-making
-
-Without compromising:
-
-Security
-
-Performance
-
-Data integrity
-
-Permission structure
+## 11. Final Objective
+To transform the POS from a passive data repository into an **Active Intelligence Hub**. The system will not just store data; it will understand operational context, allowing management to navigate multi-branch complexities with the clarity of a single-store operation.
