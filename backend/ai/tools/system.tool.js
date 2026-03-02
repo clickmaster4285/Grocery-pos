@@ -1,4 +1,5 @@
 const Branch = require('../../models/branch.model');
+const Terminal = require('../../models/terminal.model');
 
 /**
  * SystemTool - Handles global, non-branch-isolated queries like branch counts 
@@ -6,12 +7,12 @@ const Branch = require('../../models/branch.model');
  * 
  * @param {string} action - The action to perform (e.g., BRANCH_COUNT)
  * @param {object} params - Parameters extracted by the AI
+ * @param {string} branchId - The branch ID (optional for global queries)
  */
-async function systemTool(action, params) {
+async function systemTool(action, params, branchId, userRole) {
    switch (action) {
       
       case 'BRANCH_COUNT':
-         // We count all active, non-deleted branches
          const activeBranches = await Branch.countDocuments({ 
             status: 'ACTIVE', 
             isDeleted: false 
@@ -31,8 +32,26 @@ async function systemTool(action, params) {
          return {
             system_name: "Supermarket Management System (SMS)",
             version: "V2.0-Enterprise",
-            capabilities: ["Inventory", "Sales", "HR", "AI-Analytics"]
+            capabilities: ["Inventory", "Sales", "HR", "AI-Analytics", "CRM", "Logistics", "Finance"]
          };
+
+      case 'TERMINAL_STATUS':
+         // Checks the status of terminals in a specific branch
+         const terminals = await Terminal.find({ 
+            branch: branchId,
+            isActive: true 
+         })
+         .select('name terminalId status activeSession department')
+         .populate('activeSession.userId', 'firstName lastName');
+
+         return terminals.map(t => ({
+            name: t.name,
+            id: t.terminalId,
+            status: t.status,
+            department: t.department,
+            current_cashier: t.activeSession?.userId ? `${t.activeSession.userId.firstName} ${t.activeSession.userId.lastName}` : 'No Active Session',
+            drawer_balance: t.activeSession?.currentDrawerBalance || 0
+         }));
 
       default:
          throw new Error(`SystemTool does not support action: ${action}`);
