@@ -8,6 +8,7 @@ const Terminal = require('../../models/terminal.model');
  * @param {string} action - The action to perform (e.g., BRANCH_COUNT)
  * @param {object} params - Parameters extracted by the AI
  * @param {string} branchId - The branch ID (optional for global queries)
+ * @param {string} userRole - The role of the current user
  */
 async function systemTool(action, params, branchId, userRole) {
    switch (action) {
@@ -52,6 +53,14 @@ async function systemTool(action, params, branchId, userRole) {
             current_cashier: t.activeSession?.userId ? `${t.activeSession.userId.firstName} ${t.activeSession.userId.lastName}` : 'No Active Session',
             drawer_balance: t.activeSession?.currentDrawerBalance || 0
          }));
+
+      case 'WHO_AM_I':
+         // Returns identity info about the current user
+         const branch = await Branch.findById(branchId).select('branch_name');
+         return {
+            role: userRole,
+            assigned_branch: branch?.branch_name || 'Global/Unknown'
+         };
 
       default:
          throw new Error(`SystemTool does not support action: ${action}`);

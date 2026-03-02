@@ -29,7 +29,7 @@ User's Primary Branch ID: "${branch}".
 1. inventory (Actions: LOW_STOCK, SEARCH_PRODUCT, CATEGORY_SUMMARY, LOCATION_STATUS)
 2. sales (Actions: TODAY_SUMMARY, TOP_PRODUCTS, BRANCH_PERFORMANCE, SALES_COMPARISON)
 3. hr (Actions: SHIFT_STATUS, PAYROLL_PREVIEW)
-4. system (Actions: BRANCH_COUNT, GENERAL_INFO, TERMINAL_STATUS)
+4. system (Actions: BRANCH_COUNT, GENERAL_INFO, TERMINAL_STATUS, WHO_AM_I)
 5. crm (Actions: TOP_CUSTOMERS, CUSTOMER_HISTORY)
 6. finance (Actions: RETURNS_SUMMARY, PROFIT_ANALYSIS)
 7. logistics (Actions: SUPPLIER_LIST, STOCK_TRANSFERS)
@@ -50,6 +50,9 @@ User's Primary Branch ID: "${branch}".
 }
 
 ### FEW-SHOT EXAMPLES:
+User: "What is my name?"
+Result: {"schema_version":"1.1.0","tool":"system","action":"WHO_AM_I","params":{},"confidence":1.0,"suggestion":null}
+
 User: "Compare sales between Branch A and Branch B"
 Result: {"schema_version":"1.1.0","tool":"sales","action":"SALES_COMPARISON","params":{"filter":"Branch A, Branch B"},"confidence":0.98,"suggestion":null}
 
