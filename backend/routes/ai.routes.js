@@ -29,8 +29,6 @@ router.post("/chat", auth, async (req, res) => {
          branch: req.user.branch
       };
 
-      console.log("the userContext is ", userContext)
-
       const rawReply = await askModel(message, userContext);
       let intent;
       try {
@@ -66,9 +64,7 @@ router.post("/chat", auth, async (req, res) => {
          : req.user.branch;
 
       const userRole = req.user.role;
-      console.log("the log before userrole")
-      console.log("the userRole is ", userRole )
-console.log("the log after userrole")
+
       switch (intent.tool) {
          case "inventory":
             resultData = await inventoryTool(intent.action, intent.params, effectiveBranchId, userRole);
