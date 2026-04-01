@@ -177,7 +177,7 @@ export const BrandForm = ({
           placeholder="Describe the market positioning of this brand (optional)"
           value={formData.description}
           onChange={(e) => updateFormField('description', e.target.value)}
-          className="min-h-[100px] font-medium rounded-xl bg-muted/5 border-muted focus-visible:bg-background transition-all resize-none p-4 text-sm"
+          className="min-h-25 font-medium rounded-xl bg-muted/5 border-muted focus-visible:bg-background transition-all resize-none p-4 text-sm"
         />
       </div>
 
@@ -200,7 +200,7 @@ export const BrandForm = ({
           ) : (
             <Save className="h-3.5 w-3.5" />
           )}
-          {isEditMode ? "Sync Records" : "Deploy Node"}
+          {isEditMode ? "Update Brand" : "Create Brand"}
         </Button>
       </div>
     </form>

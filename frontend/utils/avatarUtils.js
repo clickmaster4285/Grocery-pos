@@ -77,12 +77,13 @@ export const getAvatarProps = (user, options = {}) => {
       showFallback = true
    } = options;
 
-   const avatarUrl = generateUserAvatar(user);
-   const initials = getInitials(user?.name);
+   // const avatarUrl = generateUserAvatar(user);
+   const initials = getInitials(user?.firstName ? `${user.firstName} ${user.lastName}` : 'User');
 
    return {
-      src: avatarUrl,
-      alt: `${user?.name || 'User'} avatar`,
+      // src: avatarUrl,
+      src: null,
+      alt: `${user?.firstName || 'User'} avatar`,
       initials,
       size,
       showFallback

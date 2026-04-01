@@ -100,7 +100,7 @@ function SidebarGroup({ module, isCollapsed, pathname, userPrimaryRole }) {
       </Button>
 
       {(isOpen || isAnyChildActive) && (
-        <ul className="mt-1 ml-4 border-l border-gray-200 space-y-1">
+        <ul className="mt-1 ml-4 space-y-1">
           {menusWithMetadata.map((menu) => {
             const actualPath = `/${userPrimaryRole}${menu.path}`;
             const isActive = pathname === actualPath || pathname.startsWith(actualPath + '/');
@@ -199,7 +199,7 @@ export default function DynamicSidebar() {
 
         {!isCollapsed && (
           <div className="px-4 py-3 border-t border-gray-200 text-[10px] text-muted-foreground uppercase tracking-widest text-center font-bold">
-            power by Clickmasters
+            powered by Clickmasters
           </div>
         )}
       </nav>

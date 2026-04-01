@@ -171,7 +171,7 @@ const SettingsContainer = () => {
       />
 
       <Tabs defaultValue="store" className="space-y-6">
-        <TabsList className="bg-muted/50 p-1 border grid grid-cols-2 lg:grid-cols-4 w-full lg:w-200">
+        <TabsList className="bg-muted/50 p-0.5 border grid grid-cols-2 lg:grid-cols-4 w-full lg:w-200">
           <TabsTrigger value="store" className="gap-2 font-bold data-[state=active]:bg-background">
             <Store size={16} /> Store Profile
           </TabsTrigger>
@@ -188,7 +188,7 @@ const SettingsContainer = () => {
 
         {/* --- STORE PROFILE --- */}
         <TabsContent value="store" className="space-y-4">
-          <Card className="border-none shadow-lg">
+          <Card className="border-none shadow-lg p-0">
             <CardHeader className="bg-primary/5 border-b">
               <CardTitle className="text-xl font-bold flex items-center gap-2">
                 <Globe className="text-primary" /> Company Identity
@@ -307,7 +307,7 @@ const SettingsContainer = () => {
 
         {/* --- POS & RECEIPTS --- */}
         <TabsContent value="receipt" className="space-y-4">
-          <Card className="border-none shadow-lg">
+          <Card className="border-none shadow-lg p-0">
             <CardHeader className="bg-primary/5 border-b">
               <CardTitle className="text-xl font-bold flex items-center gap-2">
                 <Receipt className="text-primary" /> Financial & Receipt Configuration
@@ -390,7 +390,7 @@ const SettingsContainer = () => {
 
         {/* --- NOTIFICATIONS --- */}
         <TabsContent value="notifications" className="space-y-4">
-          <Card className="border-none shadow-lg">
+          <Card className="border-none shadow-lg p-0">
             <CardHeader className="bg-primary/5 border-b">
               <CardTitle className="text-xl font-bold flex items-center gap-2">
                 <Bell className="text-primary" /> Notification Center
@@ -463,7 +463,7 @@ const SettingsContainer = () => {
 
         {/* --- USER PROFILE --- */}
         <TabsContent value="profile" className="space-y-4">
-          <Card className="border-none shadow-lg">
+          <Card className="border-none shadow-lg p-0">
             <CardHeader className="bg-primary/5 border-b">
               <CardTitle className="text-xl font-bold flex items-center gap-2">
                 <Shield className="text-primary" /> My Account Security
