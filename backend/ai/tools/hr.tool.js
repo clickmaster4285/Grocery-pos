@@ -6,13 +6,12 @@ const mongoose = require('mongoose');
  * 
  * @param {string} action - The action to perform (e.g., SHIFT_STATUS, PAYROLL_PREVIEW)
  * @param {object} params - Parameters extracted by the AI
- * @param {string} branchId - The branch ID of the current user (for security)
+ * @param {string} branchId - The branch ID
  */
-async function hrTool(action, params, branchId) {
+async function hrTool(action, params, branchId, userRole) {
    switch (action) {
       
       case 'SHIFT_STATUS':
-         // Provides a list of active or scheduled employees for the branch
          const employees = await User.find({
             branch: branchId,
             isActive: true,
@@ -30,7 +29,6 @@ async function hrTool(action, params, branchId) {
          }));
 
       case 'PAYROLL_PREVIEW':
-         // Provides a high-level summary of the branch payroll (Admin only check usually handled by middleware)
          const payrollData = await User.aggregate([
             { $match: { 
                branch: new mongoose.Types.ObjectId(branchId),

@@ -1,15 +1,18 @@
 const Product = require('../../models/product.model');
 const BranchStock = require('../../models/branchStock.model');
 const Category = require('../../models/category.model');
+const BranchLocation = require('../../models/branchLocation.model');
+const BranchStockLocation = require('../../models/branchStockLocation.model');
+const mongoose = require('mongoose');
 
 /**
  * InventoryTool - Handles AI requests related to product inventory.
  * 
  * @param {string} action - The action to perform (e.g., LOW_STOCK, SEARCH_PRODUCT)
  * @param {object} params - Parameters extracted by the AI (e.g., threshold, filter)
- * @param {string} branchId - The branch ID of the current user (for security)
+ * @param {string} branchId - The branch ID
  */
-async function inventoryTool(action, params, branchId) {
+async function inventoryTool(action, params, branchId, userRole) {
    switch (action) {
       
       case 'LOW_STOCK':
@@ -60,20 +63,16 @@ async function inventoryTool(action, params, branchId) {
          }));
 
       case 'CATEGORY_SUMMARY':
-         // This action provides a bird's-eye view of a specific category's health in the branch
          const categoryName = params.filter;
          if (!categoryName) return { error: "No category name provided" };
 
-         // 1. Find the category ID first
          const category = await Category.findOne({ name: { $regex: categoryName, $options: 'i' } });
          if (!category) return { error: "Category not found" };
 
-         // 2. Find all products in this category
          const productIds = await Product.find({ category: category._id, isDeleted: false }).distinct('_id');
 
-         // 3. Aggregate stock for these products in the current branch
          const stockData = await BranchStock.aggregate([
-            { $match: { branch: new require('mongoose').Types.ObjectId(branchId), product: { $in: productIds } } },
+            { $match: { branch: new mongoose.Types.ObjectId(branchId), product: { $in: productIds } } },
             { $group: {
                _id: null,
                totalItems: { $count: {} },
@@ -85,6 +84,35 @@ async function inventoryTool(action, params, branchId) {
             category: category.name,
             unique_skus: stockData[0]?.totalItems || 0,
             total_stock_units: stockData[0]?.totalQuantity || 0
+         };
+
+      case 'LOCATION_STATUS':
+         // Checks stock levels at a specific physical location (e.g., Aisle 1)
+         const locName = params.filter;
+         if (!locName) return { error: "No location name provided." };
+
+         const location = await BranchLocation.findOne({ 
+            branch: branchId, 
+            name: { $regex: locName, $options: 'i' } 
+         });
+
+         if (!location) return { error: "Location not found in this branch." };
+
+         const itemsAtLocation = await BranchStockLocation.find({ 
+            location: location._id 
+         })
+         .populate('product', 'productName')
+         .limit(10);
+
+         return {
+            location: location.name,
+            type: location.type,
+            occupancy: location.currentOccupancy,
+            capacity: location.capacity,
+            items: itemsAtLocation.map(i => ({
+               product: i.product.productName,
+               quantity: i.quantity
+            }))
          };
 
       default:

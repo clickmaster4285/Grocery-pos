@@ -1,14 +1,16 @@
 const Sale = require('../../models/sale.model');
+const Branch = require('../../models/branch.model');
 const mongoose = require('mongoose');
 
 /**
  * SalesTool - Handles AI requests related to revenue and transaction history.
  * 
  * @param {string} action - The action to perform (e.g., TODAY_SUMMARY, TOP_PRODUCTS)
- * @param {object} params - Parameters extracted by the AI (e.g., timeframe, limit)
- * @param {string} branchId - The branch ID of the current user (for security)
+ * @param {object} params - Parameters extracted by the AI (e.g., timeframe, limit, filter)
+ * @param {string} branchId - The branch ID
+ * @param {string} userRole - The role of the current user
  */
-async function salesTool(action, params, branchId) {
+async function salesTool(action, params, branchId, userRole) {
    const startOfToday = new Date();
    startOfToday.setHours(0, 0, 0, 0);
 
@@ -18,7 +20,6 @@ async function salesTool(action, params, branchId) {
    switch (action) {
       
       case 'TODAY_SUMMARY':
-         // Provides total collection and transaction count for the current shift/day
          const summary = await Sale.aggregate([
             { $match: { 
                branch: new mongoose.Types.ObjectId(branchId),
@@ -41,13 +42,11 @@ async function salesTool(action, params, branchId) {
          };
 
       case 'TOP_PRODUCTS':
-         // Identifies the highest-moving items in the specified timeframe
          const limit = params.limit || 5;
          const topProducts = await Sale.aggregate([
             { $match: { 
                branch: new mongoose.Types.ObjectId(branchId),
                status: 'COMPLETED'
-               // Timeframe logic can be added here based on params.timeframe
             }},
             { $unwind: "$items" },
             { $group: {
@@ -66,7 +65,6 @@ async function salesTool(action, params, branchId) {
          }));
 
       case 'BRANCH_PERFORMANCE':
-         // Simplified version for now: returns daily revenue trend for the last 7 days
          const sevenDaysAgo = new Date();
          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -86,6 +84,48 @@ async function salesTool(action, params, branchId) {
          return trend.map(t => ({
             day: t._id,
             revenue: t.revenue
+         }));
+
+      case 'SALES_COMPARISON':
+         // Allows comparing sales between multiple branches (Admin Only)
+         if (userRole !== 'admin') {
+            return { error: "Access Denied. Only administrators can perform sales comparisons across branches." };
+         }
+
+         const branchFilters = params.filter ? params.filter.split(',').map(s => s.trim()) : [];
+         let matchQuery = { status: 'COMPLETED' };
+
+         if (branchFilters.length > 0) {
+            const branches = await Branch.find({ 
+               branch_name: { $in: branchFilters.map(f => new RegExp(f, 'i')) } 
+            }).select('_id branch_name');
+            
+            if (branches.length > 0) {
+               matchQuery.branch = { $in: branches.map(b => b._id) };
+            }
+         }
+
+         const comparison = await Sale.aggregate([
+            { $match: matchQuery },
+            { $group: {
+               _id: "$branch",
+               totalRevenue: { $sum: "$finalAmount" },
+               transactionCount: { $count: {} }
+            }},
+            { $lookup: {
+               from: 'branches',
+               localField: '_id',
+               foreignField: '_id',
+               as: 'branchDetails'
+            }},
+            { $unwind: "$branchDetails" }
+         ]);
+
+         return comparison.map(c => ({
+            branch: c.branchDetails.branch_name,
+            total_revenue: c.totalRevenue,
+            transactions: c.transactionCount,
+            average_sale: Math.round(c.totalRevenue / c.transactionCount)
          }));
 
       default:

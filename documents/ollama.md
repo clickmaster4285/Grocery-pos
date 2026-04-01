@@ -73,9 +73,14 @@ The integration follows a **Deterministic Dispatcher Pattern**, ensuring the AI 
 *   [x] **Smart Clarification**: Implemented fuzzy intent detection for misspelled queries (e.g., "brcnhse").
 *   [x] **System Tool**: Global queries (like branch counts) are now supported via `system.tool.js`.
 
-### Phase 4: Predictive Logic & Forecasting (CURRENT)
-*   **Backend-Driven Calculations**: Implementing statistical modeling in Node.js (moving averages).
-*   **Explanation-Only Role**: LLM generates business context for pre-calculated numeric results.
+### Phase 4: Full-Domain Coverage & Cross-Branch Authority (COMPLETED)
+*   [x] **7-Tool Registry**: Expanded AI coverage to Sales, Inventory, HR, System, CRM, Finance, and Logistics.
+*   [x] **Admin Overrides**: Implemented `branchId` extraction for admin-level cross-branch comparisons.
+*   [x] **Profit/Loss Logic**: Backend-driven margin analysis (Selling - Buying).
+
+### Phase 5: Personalized Intelligence & Anomaly Detection (CURRENT)
+*   **Identity Awareness**: AI now recognizes the user by `firstName` and `role`.
+*   **Action: WHO_AM_I**: Direct identity confirmation for the user.
 *   **Anomaly Detection**: Flagging transactions that deviate from branch averages.
 
 ---
@@ -85,8 +90,8 @@ The integration follows a **Deterministic Dispatcher Pattern**, ensuring the AI 
 ### 5.1 Validation Protocols (The "Don'ts")
 *   **❌ No Raw Access**: AI is strictly prohibited from receiving MongoDB connection strings or raw DB handles.
 *   **❌ No Mutative Power**: Intent detection is limited to `READ` and `ANALYZE` actions. Any `CREATE/UPDATE/DELETE` intent must be rejected at the Dispatcher level.
-*   **❌ No Token Overflow**: Input queries are truncated at 500 characters to prevent Prompt Injection and Denial of Service (DoS).
-*   **❌ No Branch Hopping**: Multi-tenancy is enforced at the service level; the AI cannot override the `branchId` provided by the auth middleware.
+*   **❌ No Token Overflow**: Input queries are truncated at 1,500 characters to prevent Prompt Injection and Denial of Service (DoS).
+*   **❌ No Unauthorized Branch Hopping**: Multi-tenancy is enforced at the service level; non-admin users are hard-locked to their `req.user.branch`.
 
 ### 5.2 Prompt Injection Defense Manifest
 The AI Dispatcher implements a strict filtering layer to neutralize adversarial inputs.

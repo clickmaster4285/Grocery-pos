@@ -28,8 +28,9 @@ export const UserAvatar = ({
    };
 
    // Generate avatar URL using Dicebear
-   const avatarUrl = user ? generateUserAvatar(user) : null;
-   const initials = user ? getInitials(user.name) : "?";
+   // const avatarUrl = user ? generateUserAvatar(user) : null;
+   const avatarUrl = null;
+   const initials = user ? getInitials(`${user.firstName || ''} ${user.lastName || ''}`.trim()) : "?";
 
    return (
       <Avatar
@@ -44,7 +45,7 @@ export const UserAvatar = ({
             <>
                <AvatarImage
                   src={avatarUrl}
-                  alt={user?.name ? `${user.name} avatar` : "User avatar"}
+                  alt={user?.name ? `${user.firstName } avatar` : "User avatar"}
                   className={cn("object-cover", imageClassName)}
                   onError={(e) => {
                      // Hide the image on error, fallback will show

@@ -161,3 +161,13 @@ when i missplled
         "average_ticket": 0
     }
 }
+
+
+
+
+
+
+
+
+
+instead of hellow there ai  can use the user.firstname from that user token and say hi {currentUser.firstName }, and in other sentence , sothat user can also be familar to the ai  and later on we will give this ai a name also , and then  if user ask what is your name nad purpose that can answer to that also , 
